@@ -1410,77 +1410,49 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
         showsVerticalScrollIndicator={false}
         bounces={true}
       >
-        {/* Workout Streak Tracker Header */}
+        {/* Compact Workout Header (profile + streak hidden to slim UI) */}
         <View style={{
           backgroundColor: '#FFFFFF',
           marginHorizontal: responsivePadding.container,
           marginTop: spacing.md,
           marginBottom: spacing.md,
           borderRadius: scaleWidth(16),
-          padding: spacing.lg,
+          padding: spacing.md,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.04,
           shadowRadius: 8,
           elevation: 2,
         }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
-            <View>
-              <Text style={{ fontSize: fonts.medium, color: '#8E8E93', fontWeight: '500' }}>Workout Streak</Text>
-              <Text style={{ fontSize: fonts.title, fontWeight: 'bold', color: '#4A90E2' }}>
-                {currentStreak} {currentStreak === 1 ? 'day' : 'days'}
-              </Text>
-            </View>
-            <TouchableOpacity 
-              style={styles.userAvatar}
-              onPress={() => setShowProfileModal(true)}
-            >
-              <Text style={styles.avatarText}>
-                {user?.user_metadata?.first_name?.charAt(0)?.toUpperCase() || 'U'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-          
-          {/* Weekly Progress Tracker */}
-          <View>
-            <Text style={{ fontSize: fonts.small, color: '#8E8E93', marginBottom: spacing.sm, fontWeight: '500' }}>
-              This Week
-            </Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              {weekDates.map((date, index) => {
-                const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+            {/* Compact week strip (centered and responsive) */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
+              {weekDates.map((date, idx) => {
+                const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
                 const isToday = date.toDateString() === new Date().toDateString();
                 const hasWorkout = hasWorkoutOnDate(date);
-                const isPast = date < new Date(new Date().setHours(0, 0, 0, 0));
-                
+                const itemSize = Math.max(28, Math.min(scaleWidth(44),  Math.floor((scaleWidth(320) - (spacing.xs * 6)) / 7)) );
                 return (
-                  <View key={index} style={{ alignItems: 'center' }}>
-                    <Text style={{
-                      fontSize: fonts.small,
-                      color: isToday ? '#4A90E2' : '#8E8E93',
-                      fontWeight: isToday ? '600' : '500',
-                      marginBottom: spacing.xs,
-                    }}>
-                      {dayNames[index]}
-                    </Text>
+                  <View key={idx} style={{ alignItems: 'center', marginLeft: idx === 0 ? 0 : spacing.xs }}>
                     <View style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      backgroundColor: hasWorkout ? '#4A90E2' : isToday ? '#F0F8FF' : '#F2F2F7',
-                      borderWidth: isToday ? 2 : 0,
-                      borderColor: '#4A90E2',
+                      width: itemSize,
+                      height: itemSize,
+                      borderRadius: itemSize / 2,
+                      backgroundColor: hasWorkout ? '#4A90E2' : '#F2F2F7',
                       justifyContent: 'center',
                       alignItems: 'center',
+                      position: 'relative'
                     }}>
-                      <Text style={{
-                        fontSize: fonts.medium,
-                        fontWeight: 'bold',
-                        color: hasWorkout ? '#FFFFFF' : isToday ? '#4A90E2' : '#8E8E93',
-                      }}>
+                      <Text style={{ fontSize: fonts.small, color: hasWorkout ? '#FFF' : (isToday ? '#4A90E2' : '#8E8E93'), fontWeight: isToday ? '700' : '600' }}>
                         {date.getDate()}
                       </Text>
+                      {hasWorkout && (
+                        <View style={{ position: 'absolute', top: 4, right: 4 }}>
+                          <Ionicons name="checkmark" size={Math.max(10, Math.floor(itemSize * 0.35))} color="#FFFFFF" />
+                        </View>
+                      )}
                     </View>
+                    <Text style={{ fontSize: fonts.xsmall, color: '#8E8E93', marginTop: spacing.xs / 2 }}>{dayNames[idx]}</Text>
                   </View>
                 );
               })}
