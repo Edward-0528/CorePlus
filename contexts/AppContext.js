@@ -45,6 +45,7 @@ export const AppProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [count, setCount] = useState(0);
+  const [activeTab, setActiveTab] = useState('home');
   
   const [formData, setFormData] = useState({
     email: '',
@@ -184,6 +185,9 @@ export const AppProvider = ({ children }) => {
     setFormData: useCallback((data) => setFormData(data), []),
     setOnboardingData: useCallback((data) => setOnboardingData(data), []),
     setCount: useCallback((count) => setCount(count), []),
+    
+    // Navigation actions
+    setActiveTab: useCallback((tab) => setActiveTab(tab), []),
   };
 
   // Memoize the context value to prevent unnecessary re-renders
@@ -203,6 +207,7 @@ export const AppProvider = ({ children }) => {
     loading,
     authLoading,
     count,
+    activeTab,
     formData,
     onboardingData,
     
@@ -227,6 +232,7 @@ export const AppProvider = ({ children }) => {
     loading,
     authLoading,
     count,
+    activeTab,
     formData,
     onboardingData,
     actions

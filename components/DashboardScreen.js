@@ -8,7 +8,7 @@ import LeaderboardScreen from './LeaderboardScreen';
 import { biometricService } from '../biometricService';
 import { styles as appStyles } from '../styles/AppStyles';
 import { responsivePadding, fonts, spacing, scaleWidth, scaleHeight } from '../utils/responsive';
-import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Defs, LinearGradient, Stop, Circle, G } from 'react-native-svg';
 import ConfettiCannon from 'react-native-confetti-cannon';
 
 const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
@@ -28,6 +28,10 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
   const [slideValue] = useState(new Animated.Value(0));
   const [currentStreak, setCurrentStreak] = useState(0);
   const [streakLoading, setStreakLoading] = useState(false);
+  const [weeklyWorkouts, setWeeklyWorkouts] = useState([]);
+  const [workoutDates, setWorkoutDates] = useState(new Set());
+  const [dailyCalories, setDailyCalories] = useState(0);
+  const [calorieGoal, setCalorieGoal] = useState(2000);
   const [userRank, setUserRank] = useState(null);
   const [totalUsers, setTotalUsers] = useState(0);
   const [leaderboardData, setLeaderboardData] = useState([]);
@@ -56,6 +60,241 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
   const WATER_GOAL_OZ = 124;
   const WATER_INCREMENT_OZ = 8;
 
+  // Get current week dates for workout tracker
+  const getCurrentWeekDates = () => {
+    const today = new Date();
+    const currentDay = today.getDay(); // 0 is Sunday, 1 is Monday, etc.
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - currentDay + 1); // Get Monday of current week
+    
+    const weekDates = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
+      weekDates.push(date);
+    }
+    return weekDates;
+  };
+
+  const weekDates = getCurrentWeekDates();
+  
+  // Check if a date has a completed workout
+  const hasWorkoutOnDate = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return workoutDates.has(dateStr);
+  };
+
+  // Calculate weekly workout progress (out of 5 workouts)
+  const getWeeklyWorkoutProgress = () => {
+    const completedWorkouts = weekDates.filter(date => hasWorkoutOnDate(date)).length;
+    return Math.min(completedWorkouts, 5); // Max 5 workouts per week
+  };
+
+  // Ring Chart Component
+  const RingChart = ({ size, strokeWidth, progress, color, backgroundColor = '#F2F2F7' }) => {
+    const safeProgress = Math.max(0, Math.min(100, progress)) || 0;
+    const center = size / 2;
+    const radius = center - strokeWidth / 2;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDasharray = circumference;
+    const strokeDashoffset = circumference - (safeProgress / 100) * circumference;
+
+    return (
+      <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+        {/* Background ring */}
+        <Circle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke={backgroundColor}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
+        {/* Progress ring */}
+        <Circle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeDasharray={strokeDasharray}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          fill="transparent"
+        />
+      </Svg>
+    );
+  };
+
+  // Three Ring Activity Chart Component
+  const ActivityRingsChart = () => {
+    const waterProgress = Math.max(0, Math.min(100, (waterOunces / WATER_GOAL_OZ) * 100)) || 0;
+    const calorieProgress = Math.max(0, Math.min(100, (dailyCalories / calorieGoal) * 100)) || 0;
+    const workoutProgress = Math.max(0, Math.min(100, (getWeeklyWorkoutProgress() / 5) * 100)) || 0;
+
+    return (
+      <View style={{
+        backgroundColor: '#FFFFFF',
+        borderRadius: scaleWidth(16),
+        padding: spacing.md,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        elevation: 2,
+        alignItems: 'center',
+      }}>
+        <Text style={{
+          fontSize: fonts.medium,
+          fontWeight: '600',
+          color: '#1D1D1F',
+          marginBottom: spacing.md,
+          alignSelf: 'flex-start',
+        }}>
+          Activity Rings
+        </Text>
+
+        {/* Ring Chart Container - Smaller size to match other cards */}
+        <View style={{ position: 'relative', marginBottom: spacing.md }}>
+          {/* Outer ring - Workout Progress */}
+          <View style={{ position: 'absolute', top: 0, left: 0 }}>
+            <RingChart
+              size={140}
+              strokeWidth={8}
+              progress={workoutProgress}
+              color="#FF6B6B"
+            />
+          </View>
+          
+          {/* Middle ring - Water Intake */}
+          <View style={{ position: 'absolute', top: 10, left: 10 }}>
+            <RingChart
+              size={120}
+              strokeWidth={8}
+              progress={waterProgress}
+              color="#4A90E2"
+            />
+          </View>
+          
+          {/* Inner ring - Calories */}
+          <View style={{ position: 'absolute', top: 20, left: 20 }}>
+            <RingChart
+              size={100}
+              strokeWidth={8}
+              progress={calorieProgress}
+              color="#34C759"
+            />
+          </View>
+
+          {/* Center content */}
+          <View style={{
+            width: 140,
+            height: 140,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <Text style={{
+              fontSize: fonts.large,
+              fontWeight: 'bold',
+              color: '#1D1D1F',
+            }}>
+              {Math.round((waterProgress + calorieProgress + workoutProgress) / 3) || 0}%
+            </Text>
+            <Text style={{
+              fontSize: fonts.small,
+              color: '#8E8E93',
+              marginTop: 2,
+            }}>
+              Overall
+            </Text>
+          </View>
+        </View>
+
+        {/* Compact Legend */}
+        <View style={{ width: '100%', marginBottom: spacing.sm }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <View style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: '#FF6B6B',
+                marginBottom: spacing.xs,
+              }} />
+              <Text style={{ fontSize: fonts.small, color: '#1D1D1F', fontWeight: '600', textAlign: 'center' }}>Workouts</Text>
+              <Text style={{ fontSize: fonts.small, color: '#8E8E93', textAlign: 'center' }}>
+                {getWeeklyWorkoutProgress()}/5
+              </Text>
+            </View>
+            
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <View style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: '#4A90E2',
+                marginBottom: spacing.xs,
+              }} />
+              <Text style={{ fontSize: fonts.small, color: '#1D1D1F', fontWeight: '600', textAlign: 'center' }}>Water</Text>
+              <Text style={{ fontSize: fonts.small, color: '#8E8E93', textAlign: 'center' }}>
+                {waterOunces} oz
+              </Text>
+            </View>
+            
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <View style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: '#34C759',
+                marginBottom: spacing.xs,
+              }} />
+              <Text style={{ fontSize: fonts.small, color: '#1D1D1F', fontWeight: '600', textAlign: 'center' }}>Calories</Text>
+              <Text style={{ fontSize: fonts.small, color: '#8E8E93', textAlign: 'center' }}>
+                {dailyCalories} cal
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Compact Action Buttons */}
+        <View style={{ flexDirection: 'row', width: '100%' }}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              backgroundColor: '#4A90E2',
+              borderRadius: 8,
+              paddingVertical: spacing.xs,
+              marginRight: spacing.xs / 2,
+              alignItems: 'center',
+            }}
+            onPress={handleWaterIntake}
+          >
+            <Text style={{ fontSize: fonts.small, fontWeight: '600', color: '#FFFFFF' }}>
+              +Water
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              backgroundColor: '#34C759',
+              borderRadius: 8,
+              paddingVertical: spacing.xs,
+              marginLeft: spacing.xs / 2,
+              alignItems: 'center',
+            }}
+            onPress={() => setDailyCalories(prev => prev + 200)}
+          >
+            <Text style={{ fontSize: fonts.small, fontWeight: '600', color: '#FFFFFF' }}>
+              +200 cal
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   // Reset water intake if the day has changed
   useEffect(() => {
     const today = new Date().toDateString();
@@ -72,6 +311,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
     fetchUserRanking();
     fetchLeaderboard();
     checkBiometricStatus();
+    fetchWorkoutHistory();
     
     // Start wave animations for water effect
     const startWaveAnimations = () => {
@@ -487,6 +727,53 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
       }
     } catch (error) {
       console.error('Error in fetchUserStreak:', error);
+    }
+  };
+
+  // Fetch workout history for the current week
+  const fetchWorkoutHistory = async () => {
+    try {
+      const { supabase } = await import('../supabaseConfig');
+      
+      const { data, error } = await supabase
+        .from('user_streaks')
+        .select('last_workout_date, workout_dates')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (data && data.workout_dates) {
+        // Assuming workout_dates is stored as an array of ISO date strings
+        const workoutDatesSet = new Set(data.workout_dates || []);
+        setWorkoutDates(workoutDatesSet);
+      }
+    } catch (error) {
+      console.error('Error fetching workout history:', error);
+    }
+  };
+
+  // Mark today's workout as completed
+  const markWorkoutCompleted = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const newWorkoutDates = new Set([...workoutDates, today]);
+      setWorkoutDates(newWorkoutDates);
+      
+      // Update streak and save to database
+      const newStreak = currentStreak + 1;
+      setCurrentStreak(newStreak);
+      
+      // You would typically save this to your database here
+      const { supabase } = await import('../supabaseConfig');
+      await supabase
+        .from('user_streaks')
+        .upsert({
+          user_id: user.id,
+          current_streak: newStreak,
+          last_workout_date: today,
+          workout_dates: Array.from(newWorkoutDates),
+        });
+    } catch (error) {
+      console.error('Error marking workout completed:', error);
     }
   };
 
@@ -912,168 +1199,34 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
     
     return (
       <ScrollView style={{ flex: 1, paddingHorizontal: responsivePadding.container, paddingVertical: responsiveSpacing }}>
-        
-        
-
-        {/* Stats Grid - 2x2 Layout */}
-        <View style={{ flexDirection: 'row', marginBottom: spacing.md }}>
-          {/* Calories Card */}
-          <View style={{
-            flex: 1,
-            backgroundColor: '#FFFFFF',
-            borderRadius: scaleWidth(16),
-            padding: spacing.md,
-            marginRight: spacing.xs,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.04,
-            shadowRadius: 8,
-            elevation: 2
+        <View style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: scaleWidth(16),
+          padding: spacing.lg,
+          marginBottom: spacing.md,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 8,
+          elevation: 2,
+        }}>
+          <Text style={{
+            fontSize: fonts.large,
+            fontWeight: 'bold',
+            color: '#1D1D1F',
+            marginBottom: spacing.md,
           }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-              <Text style={{ fontSize: fonts.small, color: '#8E8E93', fontWeight: '500' }}>Total Calories Burned</Text>
-            </View>
-            <Text style={{ 
-              fontSize: fonts.title, 
-              fontWeight: 'bold', 
-              color: '#1A1A1A',
-              marginBottom: 2
-            }}>
-              1,150
-            </Text>
-            <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>cal</Text>
-          </View>
-
-          {/* Steps Card */}
-          <View style={{
-            flex: 1,
-            backgroundColor: '#FFFFFF',
-            borderRadius: scaleWidth(16),
-            padding: spacing.md,
-            marginLeft: spacing.xs,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.04,
-            shadowRadius: 8,
-            elevation: 2
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-              <Text style={{ fontSize: fonts.small, color: '#8E8E93', fontWeight: '500' }}>Meal Tracker</Text>
-            </View>
-            <Text style={{ 
-              fontSize: fonts.title, 
-              fontWeight: 'bold', 
-              color: '#1A1A1A',
-              marginBottom: 2
-            }}>
-              6,650
-            </Text>
-            <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>steps</Text>
-          </View>
-        </View>
-
-        <View style={{ flexDirection: 'row', marginBottom: spacing.md }}>
-          {/* Water Intake Card */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={handleWaterIntake}
-            accessibilityRole="button"
-            style={{
-              flex: 1,
-              backgroundColor: '#FFFFFF',
-              borderRadius: scaleWidth(16),
-              padding: spacing.md,
-              marginRight: spacing.xs,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.04,
-              shadowRadius: 8,
-              elevation: 2,
-              position: 'relative',
-              overflow: 'hidden',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {/* Confetti animation when goal is reached */}
-            {showConfetti && (
-              <ConfettiCannon
-                count={80}
-                origin={{ x: 0, y: 0 }}
-                fadeOut
-                fallSpeed={2500}
-                explosionSpeed={400}
-                autoStart
-                colors={['#4A90E2', '#42A5F5', '#34C759', '#FFD700', '#FF69B4']}
-                style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', zIndex: 10 }}
-              />
-            )}
-            {/* Content overlay */}
-            <View style={{ zIndex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-                <Text style={{ fontSize: fonts.small, color: '#8E8E93', fontWeight: '500' }}>Water Intake</Text>
-              </View>
-              <Text style={{ 
-                fontSize: fonts.title, 
-                fontWeight: 'bold', 
-                color: '#4A90E2',
-                marginBottom: 2
-              }}>
-                {waterOunces} oz
-              </Text>
-              <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>of {WATER_GOAL_OZ} oz</Text>
-              {/* Simple progress bar */}
-              <View style={{
-                backgroundColor: '#F0F0F0',
-                height: 6,
-                borderRadius: 3,
-                marginTop: spacing.sm,
-                overflow: 'hidden'
-              }}>
-                <View style={{
-                  backgroundColor: '#4A90E2',
-                  height: 6,
-                  borderRadius: 3,
-                  width: `${(waterOunces / WATER_GOAL_OZ) * 100}%`
-                }} />
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          {/* Workouts Card */}
-          <View style={{
-            flex: 1,
-            backgroundColor: '#FFFFFF',
-            borderRadius: scaleWidth(16),
-            padding: spacing.md,
-            marginLeft: spacing.xs,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.04,
-            shadowRadius: 8,
-            elevation: 2
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-              <Text style={{ fontSize: fonts.small, color: '#8E8E93', fontWeight: '500' }}>Workouts</Text>
-            </View>
-            <Text style={{ 
-              fontSize: fonts.title, 
-              fontWeight: 'bold', 
-              color: '#1A1A1A',
-              marginBottom: 2
-            }}>
-              6,650
-            </Text>
-            <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>steps</Text>
-          </View>
-        </View>
-
-       
-
-        
+            Health Overview
+          </Text>
           
-
-          
+          <Text style={{
+            fontSize: fonts.medium,
+            color: '#8E8E93',
+            textAlign: 'center',
+          }}>
+            Detailed health metrics and insights will be available here soon.
+          </Text>
+        </View>
       </ScrollView>
     );
   };
@@ -1249,10 +1402,33 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
   return (
     <SafeAreaView style={styles.dashboardContainer}>
       <AnimatedBackground />
-      <View style={{ flex: 1, backgroundColor: 'transparent' }}>
-        {/* Personal Header */}
-        <View style={styles.personalHeader}>
-          <View style={styles.headerLeft}>
+      <ScrollView 
+        style={{ flex: 1, backgroundColor: 'transparent' }}
+        contentContainerStyle={{ paddingBottom: spacing.lg }}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+      >
+        {/* Workout Streak Tracker Header */}
+        <View style={{
+          backgroundColor: '#FFFFFF',
+          marginHorizontal: responsivePadding.container,
+          marginTop: spacing.md,
+          marginBottom: spacing.md,
+          borderRadius: scaleWidth(16),
+          padding: spacing.lg,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 8,
+          elevation: 2,
+        }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+            <View>
+              <Text style={{ fontSize: fonts.medium, color: '#8E8E93', fontWeight: '500' }}>Workout Streak</Text>
+              <Text style={{ fontSize: fonts.title, fontWeight: 'bold', color: '#4A90E2' }}>
+                {currentStreak} {currentStreak === 1 ? 'day' : 'days'}
+              </Text>
+            </View>
             <TouchableOpacity 
               style={styles.userAvatar}
               onPress={() => setShowProfileModal(true)}
@@ -1261,27 +1437,52 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
                 {user?.user_metadata?.first_name?.charAt(0)?.toUpperCase() || 'U'}
               </Text>
             </TouchableOpacity>
-            <View style={styles.userInfo}>
-              <Text style={styles.greetingText}>
-                {getTimeBasedGreeting()}
-              </Text>
-              <Text style={styles.userNameLarge}>
-                {user?.user_metadata?.first_name || 'User'}
-              </Text>
-            </View>
           </View>
-          <View style={styles.headerRight}>
-            <TouchableOpacity 
-              style={{ alignItems: 'center' }}
-              onPress={() => setShowLeaderboard(true)}
-            >
-              <Text style={[styles.rankingDisplay, { fontSize: fonts.small, marginBottom: 2 }]}>
-                RANK
-              </Text>
-              <Text style={[styles.rankingDisplay, { fontSize: fonts.medium, fontWeight: 'bold' }]}>
-                #{getUserRanking()}
-              </Text>
-            </TouchableOpacity>
+          
+          {/* Weekly Progress Tracker */}
+          <View>
+            <Text style={{ fontSize: fonts.small, color: '#8E8E93', marginBottom: spacing.sm, fontWeight: '500' }}>
+              This Week
+            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              {weekDates.map((date, index) => {
+                const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                const isToday = date.toDateString() === new Date().toDateString();
+                const hasWorkout = hasWorkoutOnDate(date);
+                const isPast = date < new Date(new Date().setHours(0, 0, 0, 0));
+                
+                return (
+                  <View key={index} style={{ alignItems: 'center' }}>
+                    <Text style={{
+                      fontSize: fonts.small,
+                      color: isToday ? '#4A90E2' : '#8E8E93',
+                      fontWeight: isToday ? '600' : '500',
+                      marginBottom: spacing.xs,
+                    }}>
+                      {dayNames[index]}
+                    </Text>
+                    <View style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 16,
+                      backgroundColor: hasWorkout ? '#4A90E2' : isToday ? '#F0F8FF' : '#F2F2F7',
+                      borderWidth: isToday ? 2 : 0,
+                      borderColor: '#4A90E2',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}>
+                      <Text style={{
+                        fontSize: fonts.medium,
+                        fontWeight: 'bold',
+                        color: hasWorkout ? '#FFFFFF' : isToday ? '#4A90E2' : '#8E8E93',
+                      }}>
+                        {date.getDate()}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
           </View>
         </View>
         
@@ -1289,7 +1490,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
         <View style={{
           backgroundColor: '#FFFFFF',
           marginHorizontal: responsivePadding.container,
-          marginVertical: spacing.xs,
+          marginBottom: spacing.md,
           borderRadius: scaleWidth(16),
           padding: spacing.md,
           flexDirection: 'row',
@@ -1305,18 +1506,11 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
           <View style={{
             alignItems: 'center',
             marginRight: spacing.sm,
-            minWidth: scaleWidth(45)
+            minWidth: scaleWidth(35)
           }}>
-            
-            <Text style={{
-              color: '#8E8E93',
-              fontSize: fonts.small
-            }}>
-              Day{currentStreak !== 1 ? 's' : ''}
-            </Text>
             <Text style={{
               color: '#1A1A1A',
-              fontSize: fonts.medium,
+              fontSize: fonts.large,
               fontWeight: 'bold'
             }}>
               {streakLoading ? '...' : currentStreak}
@@ -1324,12 +1518,16 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
           </View>
 
           {/* Slide to Start Workout - Light Mode Design */}
-          <View style={{
-            flex: 1,
-            marginLeft: spacing.xs
-          }}>
+          <TouchableOpacity 
+            style={{
+              flex: 1,
+              marginLeft: spacing.xs
+            }}
+            onPress={markWorkoutCompleted}
+            activeOpacity={0.8}
+          >
             <View style={{
-              backgroundColor: '#E9ECEF',
+              backgroundColor: '#4A90E2',
               borderRadius: scaleWidth(20),
               height: scaleWidth(36),
               justifyContent: 'center',
@@ -1384,7 +1582,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
                 }],
                 letterSpacing: 0.5
               }}>
-                {slideValue._value > 75 ? "Start workout!" : slideValue._value > 25 ? "Keep Going!" : "Start workout!"}
+                Start workout!
               </Animated.Text>
               
               {/* The sliding button with dynamic colors and effects */}
@@ -1475,12 +1673,20 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
                     color: '#FFFFFF',
                     fontWeight: 'bold'
                   }}>
-                    {slideValue._value > 90 ? '✓' : slideValue._value > 50 ? '💪' : '>'}
+                    {'>'}
                   </Text>
                 </Animated.View>
               </Animated.View>
             </View>
-          </View>
+          </TouchableOpacity>
+        </View>
+        
+        {/* Activity Rings Card */}
+        <View style={{ 
+          marginHorizontal: responsivePadding.container,
+          marginBottom: spacing.md
+        }}>
+          <ActivityRingsChart />
         </View>
         
       {/* Content */}
@@ -1488,7 +1694,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
         {renderContent()}
       </View>
       
-      </View>
+      </ScrollView>
       
       {/* Profile Modal */}
       {renderProfileModal()}

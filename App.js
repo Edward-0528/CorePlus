@@ -17,6 +17,10 @@ import SignUpScreen from './components/SignUpScreen';
 import LoginScreen from './components/LoginScreen';
 import ScreenFittedOnboardingScreen from './components/ScreenFittedOnboardingScreen';
 import DashboardScreen from './components/DashboardScreen';
+import WorkoutsScreen from './components/WorkoutsScreen';
+import NutritionScreen from './components/NutritionScreen';
+import AccountScreen from './components/AccountScreen';
+import BottomNavigation from './components/BottomNavigation';
 import LoadingScreen from './components/LoadingScreen';
 
 // Constants moved outside component to prevent recreation
@@ -39,6 +43,7 @@ function AppContent() {
     loading,
     authLoading,
     count,
+    activeTab,
     formData,
     onboardingData,
     // Actions from context
@@ -67,7 +72,8 @@ function AppContent() {
     setFormData,
     setOnboardingData,
     setCount,
-    updateFormData
+    updateFormData,
+    setActiveTab
   } = useAppContext();
 
   // Check authentication state on app load
@@ -502,14 +508,36 @@ function AppContent() {
     if (showLogin) return 'Login';
     if (showSignUp) return 'SignUp';
     if (showOnboarding) return 'Onboarding';
-    if (isAuthenticated && user && !showOnboarding && !authLoading && !loading) return 'Dashboard';
+    if (isAuthenticated && user && !showOnboarding && !authLoading && !loading) return 'Authenticated';
     return 'None';
   }, [showLanding, showLogin, showSignUp, showOnboarding, isAuthenticated, user, authLoading, loading]);
 
-  const routeOrder = { Landing: 0, Login: 1, SignUp: 2, Onboarding: 3, Dashboard: 4, None: -1 };
+  const routeOrder = { Landing: 0, Login: 1, SignUp: 2, Onboarding: 3, Authenticated: 4, None: -1 };
   const prevIndexRef = useRef(routeOrder[route]);
   const direction = routeOrder[route] >= (prevIndexRef.current ?? 0) ? 1 : -1;
   useEffect(() => { prevIndexRef.current = routeOrder[route]; }, [route]);
+
+  const renderAuthenticatedScreen = () => {
+    const commonProps = {
+      user,
+      onLogout: handleLogout,
+      loading,
+      styles,
+    };
+
+    switch (activeTab) {
+      case 'home':
+        return <DashboardScreen {...commonProps} />;
+      case 'workouts':
+        return <WorkoutsScreen {...commonProps} />;
+      case 'nutrition':
+        return <NutritionScreen {...commonProps} />;
+      case 'account':
+        return <AccountScreen {...commonProps} />;
+      default:
+        return <DashboardScreen {...commonProps} />;
+    }
+  };
 
   const renderRoute = () => {
     switch (route) {
@@ -567,6 +595,18 @@ function AppContent() {
             loading={loading}
             styles={styles}
           />
+        );
+      case 'Authenticated':
+        return (
+          <View style={{ flex: 1 }}>
+            <View style={{ flex: 1 }}>
+              {renderAuthenticatedScreen()}
+            </View>
+            <BottomNavigation
+              activeTab={activeTab}
+              onTabPress={setActiveTab}
+            />
+          </View>
         );
       default:
         return null;
