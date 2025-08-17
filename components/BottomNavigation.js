@@ -26,7 +26,7 @@ const BottomNavigation = ({ activeTab, onTabPress }) => {
           <Ionicons
             name={tab.icon}
             size={22}
-            color={activeTab === tab.id ? '#4A90E2' : '#8E8E93'}
+            color={activeTab === tab.id ? '#4682B4' : '#8E8E93'}
             style={{ marginBottom: 2 }}
           />
           <Text style={[
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   activeTab: {
-    backgroundColor: '#F0F8FF',
+    backgroundColor: '#E6F3FF',
   },
   label: {
     fontSize: fonts.small,
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   activeLabel: {
-    color: '#4A90E2',
+    color: '#4682B4',
     fontWeight: '600',
   },
 });

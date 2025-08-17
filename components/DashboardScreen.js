@@ -135,9 +135,10 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
 
     return (
       <View style={{
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'white',
         borderRadius: scaleWidth(16),
         padding: spacing.md,
+        marginBottom: spacing.md,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.04,
@@ -183,7 +184,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
               size={100}
               strokeWidth={8}
               progress={calorieProgress}
-              color="#34C759"
+              color="#FF9500"
             />
           </View>
 
@@ -247,7 +248,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
                 width: 8,
                 height: 8,
                 borderRadius: 4,
-                backgroundColor: '#34C759',
+                backgroundColor: '#FF9500',
                 marginBottom: spacing.xs,
               }} />
               <Text style={{ fontSize: fonts.small, color: '#1D1D1F', fontWeight: '600', textAlign: 'center' }}>Calories</Text>
@@ -263,7 +264,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
           <TouchableOpacity
             style={{
               flex: 1,
-              backgroundColor: '#4A90E2',
+              backgroundColor: '#ADD8E6',
               borderRadius: 8,
               paddingVertical: spacing.xs,
               marginRight: spacing.xs / 2,
@@ -279,7 +280,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
           <TouchableOpacity
             style={{
               flex: 1,
-              backgroundColor: '#34C759',
+              backgroundColor: '#B0E0E6',
               borderRadius: 8,
               paddingVertical: spacing.xs,
               marginLeft: spacing.xs / 2,
@@ -1252,7 +1253,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
         </Text>
         <TouchableOpacity
           style={{
-            backgroundColor: '#007AFF',
+            backgroundColor: '#87CEEB',
             borderRadius: 8,
             padding: 12,
             alignItems: 'center'
@@ -1501,7 +1502,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.04,
           shadowRadius: 8,
-          elevation: 2
+          elevation: 2,
         }}>
           {/* Streak Section */}
           <View style={{

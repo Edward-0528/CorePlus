@@ -5,11 +5,6 @@ import { spacing, fonts } from '../utils/responsive';
 const WorkoutsScreen = ({ user, onLogout, loading, styles }) => {
   return (
     <ScrollView style={localStyles.container}>
-      <View style={localStyles.header}>
-        <Text style={localStyles.title}>Workouts</Text>
-        <Text style={localStyles.subtitle}>Track your fitness journey</Text>
-      </View>
-      
       <View style={localStyles.content}>
         <View style={localStyles.card}>
           <Text style={localStyles.cardTitle}>Today's Workout</Text>
@@ -41,23 +36,9 @@ const localStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F7',
   },
-  header: {
-    padding: spacing.lg,
-    paddingTop: spacing.xl,
-    backgroundColor: '#FFFFFF',
-  },
-  title: {
-    fontSize: fonts.hero,
-    fontWeight: 'bold',
-    color: '#1D1D1F',
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    fontSize: fonts.regular,
-    color: '#8E8E93',
-  },
   content: {
     padding: spacing.md,
+    paddingTop: spacing.lg,
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -82,7 +63,7 @@ const localStyles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   button: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#87CEEB',
     borderRadius: 12,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,

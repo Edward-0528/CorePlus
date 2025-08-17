@@ -23,11 +23,6 @@ const AccountScreen = ({ user, onLogout, loading, styles }) => {
 
   return (
     <ScrollView style={localStyles.container}>
-      <View style={localStyles.header}>
-        <Text style={localStyles.title}>Account</Text>
-        <Text style={localStyles.subtitle}>Manage your profile and settings</Text>
-      </View>
-      
       <View style={localStyles.content}>
         <View style={localStyles.card}>
           <Text style={localStyles.cardTitle}>Profile Information</Text>
@@ -88,23 +83,9 @@ const localStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F7',
   },
-  header: {
-    padding: spacing.lg,
-    paddingTop: spacing.xl,
-    backgroundColor: '#FFFFFF',
-  },
-  title: {
-    fontSize: fonts.hero,
-    fontWeight: 'bold',
-    color: '#1D1D1F',
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    fontSize: fonts.regular,
-    color: '#8E8E93',
-  },
   content: {
     padding: spacing.md,
+    paddingTop: spacing.lg,
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -155,7 +136,7 @@ const localStyles = StyleSheet.create({
     color: '#C7C7CC',
   },
   button: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#87CEEB',
     borderRadius: 12,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
@@ -168,7 +149,7 @@ const localStyles = StyleSheet.create({
     color: '#FFFFFF',
   },
   logoutButton: {
-    backgroundColor: '#FF3B30',
+    backgroundColor: '#FFB6C1',
     marginTop: spacing.lg,
   },
   logoutText: {
