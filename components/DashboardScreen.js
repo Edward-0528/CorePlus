@@ -10,6 +10,7 @@ import { styles as appStyles } from '../styles/AppStyles';
 import { responsivePadding, fonts, spacing, scaleWidth, scaleHeight } from '../utils/responsive';
 import Svg, { Path, Defs, LinearGradient, Stop, Circle, G } from 'react-native-svg';
 import ConfettiCannon from 'react-native-confetti-cannon';
+import { Ionicons } from '@expo/vector-icons';
 
 const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
   const { count, setCount } = useAppContext();
@@ -1527,27 +1528,27 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
             activeOpacity={0.8}
           >
             <View style={{
-              backgroundColor: '#4A90E2',
+              backgroundColor: '#D1D1D6',
               borderRadius: scaleWidth(20),
               height: scaleWidth(36),
               justifyContent: 'center',
               position: 'relative',
               overflow: 'hidden',
-              shadowColor: '#4A9EFF',
+              shadowColor: '#000',
               shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.2,
+              shadowOpacity: 0.08,
               shadowRadius: 4,
               elevation: 3
             }}>
               {/* Dynamic progress background that fills as user slides */}
-              <Animated.View style={{
+        <Animated.View style={{
                 position: 'absolute',
                 top: 0,
                 left: 0,
                 bottom: 0,
                 backgroundColor: slideValue.interpolate({
                   inputRange: [0, 100],
-                  outputRange: ['rgba(74, 158, 255, 0.2)', 'rgba(52, 199, 89, 0.8)'],
+                  outputRange: ['rgba(58, 58, 60, 0.15)', 'rgba(52, 199, 89, 0.9)'],
                   extrapolate: 'clamp'
                 }),
                 width: slideValue.interpolate({
@@ -1559,10 +1560,10 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
               }} />
               
               {/* Motivational text that changes as user slides */}
-              <Animated.Text style={{
+        <Animated.Text style={{
                 color: slideValue.interpolate({
-                  inputRange: [0, 50, 100],
-                  outputRange: ['#6C757D', '#495057', '#FFFFFF'],
+                  inputRange: [0, 80, 100],
+          outputRange: ['#111111', '#111111', '#FFFFFF'],
                   extrapolate: 'clamp'
                 }),
                 textAlign: 'center',
@@ -1570,13 +1571,16 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
                 fontWeight: '600',
                 opacity: slideValue.interpolate({
                   inputRange: [0, 50, 100],
-                  outputRange: [0.8, 0.9, 1],
+                  outputRange: [0.95, 0.98, 1],
                   extrapolate: 'clamp'
                 }),
+                textShadowColor: 'rgba(0, 0, 0, 0.12)',
+                textShadowOffset: { width: 0, height: 1 },
+                textShadowRadius: 1,
                 transform: [{
                   scale: slideValue.interpolate({
                     inputRange: [0, 100],
-                    outputRange: [1, 1.05],
+                    outputRange: [1, 1.03],
                     extrapolate: 'clamp'
                   })
                 }],
@@ -1595,7 +1599,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
                   height: scaleWidth(30),
                   backgroundColor: slideValue.interpolate({
                     inputRange: [0, 75, 100],
-                    outputRange: ['#4A9EFF', '#FF9500', '#34C759'],
+                    outputRange: ['#FFFFFF', '#FFCC00', '#34C759'],
                     extrapolate: 'clamp'
                   }),
                   borderRadius: scaleWidth(15),
@@ -1603,7 +1607,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
                   alignItems: 'center',
                   shadowColor: slideValue.interpolate({
                     inputRange: [0, 100],
-                    outputRange: ['#4A9EFF', '#34C759'],
+                    outputRange: ['#000000', '#34C759'],
                     extrapolate: 'clamp'
                   }),
                   shadowOffset: { width: 0, height: 2 },
@@ -1668,13 +1672,11 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
                   }],
                   zIndex: 2
                 }}>
-                  <Text style={{
-                    fontSize: scaleWidth(16),
-                    color: '#FFFFFF',
-                    fontWeight: 'bold'
-                  }}>
-                    {'>'}
-                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={scaleWidth(18)}
+                    color={"#111"}
+                  />
                 </Animated.View>
               </Animated.View>
             </View>
