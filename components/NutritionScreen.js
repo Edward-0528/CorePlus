@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, SafeAreaView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 import { spacing, fonts, scaleWidth } from '../utils/responsive';
+import FoodCameraScreen from './FoodCameraScreen';
+import FoodPredictionCard from './FoodPredictionCard';
 
 const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250, goal = 2000 }) => {
   const radius = (size - stroke) / 2;
@@ -64,10 +66,19 @@ const MealAddButton = ({ onPress }) => (
   </TouchableOpacity>
 );
 
-const MealEntryModal = ({ visible, onClose, onAddMeal }) => {
+const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera }) => {
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [mealName, setMealName] = useState('');
   const [calories, setCalories] = useState('');
+
+  // Reset modal state when closed
+  React.useEffect(() => {
+    if (!visible) {
+      setSelectedMethod(null);
+      setMealName('');
+      setCalories('');
+    }
+  }, [visible]);
 
   const entryMethods = [
     {
@@ -102,8 +113,11 @@ const MealEntryModal = ({ visible, onClose, onAddMeal }) => {
 
   const handleMethodSelect = (method) => {
     setSelectedMethod(method);
-    // For now, just show a simple manual entry for demonstration
-    if (method === 'manual') {
+    
+    if (method.id === 'photo') {
+      // Open camera for food photo analysis
+      onOpenCamera();
+    } else if (method.id === 'manual') {
       // Keep modal open for manual entry
     } else {
       // For other methods, show placeholder alert
@@ -218,37 +232,39 @@ const MealEntryModal = ({ visible, onClose, onAddMeal }) => {
 };
 
 const NutritionScreen = () => {
-  // Placeholder demo values
+  // Goals
   const calorieGoal = 2000;
-  const calories = 1250;
-  const progress = (calories / calorieGoal) * 100;
+  const carbsGoal = 258; // ~50% of calories
+  const proteinGoal = 125; // ~25% of calories  
+  const fatGoal = 56; // ~25% of calories
   
   // State for meal logging
   const [showMealModal, setShowMealModal] = useState(false);
-  const [loggedMeals, setLoggedMeals] = useState([
-    { 
-      id: 1, 
-      name: 'Oatmeal with Berries', 
-      calories: 280, 
-      carbs: 45, 
-      protein: 8, 
-      fat: 6, 
-      time: '8:30 AM', 
-      method: 'photo' 
-    },
-    { 
-      id: 2, 
-      name: 'Grilled Chicken Wrap', 
-      calories: 420, 
-      carbs: 35, 
-      protein: 32, 
-      fat: 18, 
-      time: '12:45 PM', 
-      method: 'search' 
-    },
-  ]);
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [showPredictionCard, setShowPredictionCard] = useState(false);
+  const [foodPredictions, setFoodPredictions] = useState([]);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [loggedMeals, setLoggedMeals] = useState([]);
 
-  const handleAddMeal = (meal) => {
+  // Memoize calculations to prevent unnecessary re-renders
+  const nutritionTotals = useMemo(() => {
+    const totalCalories = loggedMeals.reduce((sum, meal) => sum + meal.calories, 0);
+    const totalCarbs = loggedMeals.reduce((sum, meal) => sum + meal.carbs, 0);
+    const totalProtein = loggedMeals.reduce((sum, meal) => sum + meal.protein, 0);
+    const totalFat = loggedMeals.reduce((sum, meal) => sum + meal.fat, 0);
+    
+    return {
+      totalCalories,
+      totalCarbs,
+      totalProtein,
+      totalFat,
+      progress: (totalCalories / calorieGoal) * 100
+    };
+  }, [loggedMeals, calorieGoal]);
+
+  const { totalCalories, totalCarbs, totalProtein, totalFat, progress } = nutritionTotals;
+
+  const handleAddMeal = useCallback((meal) => {
     const newMeal = {
       id: Date.now(),
       ...meal,
@@ -258,10 +274,63 @@ const NutritionScreen = () => {
       fat: meal.fat || Math.round(meal.calories * 0.25 / 9), // Default: 25% calories from fat
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
-    setLoggedMeals([...loggedMeals, newMeal]);
-  };
+    setLoggedMeals(prevMeals => [...prevMeals, newMeal]);
+  }, []);
 
-  const handleDeleteMeal = (mealId) => {
+  const handleCameraAnalysis = useCallback((predictions, imageUri) => {
+    console.log('📱 Camera analysis result received:', predictions);
+    
+    if (predictions && predictions.length > 0) {
+      // Store predictions and image, then show selection card
+      setFoodPredictions(predictions);
+      setCapturedImage(imageUri);
+      setShowCameraModal(false); // Close camera
+      setShowPredictionCard(true); // Show prediction card
+    } else {
+      // Analysis failed, show error
+      Alert.alert(
+        'Analysis Failed',
+        'Could not identify the food. Please try again or add manually.',
+        [{ text: 'OK' }]
+      );
+      setShowCameraModal(false);
+    }
+  }, []);
+
+  const handleFoodSelection = useCallback((selectedFood) => {
+    if (selectedFood === null) {
+      // User chose manual entry
+      setShowPredictionCard(false);
+      setShowMealModal(true); // Show manual entry modal
+    } else {
+      // User selected a prediction
+      const mealFromPrediction = {
+        name: selectedFood.name,
+        calories: selectedFood.calories,
+        carbs: selectedFood.carbs,
+        protein: selectedFood.protein,
+        fat: selectedFood.fat,
+        method: 'photo'
+      };
+      
+      handleAddMeal(mealFromPrediction);
+      setShowPredictionCard(false);
+      
+      // Show success message
+      Alert.alert(
+        'Meal Added!',
+        `${selectedFood.name} has been added to your daily log.`,
+        [{ text: 'OK' }]
+      );
+    }
+  }, [handleAddMeal]);
+
+  const openCamera = useCallback(() => {
+    setShowMealModal(false); // Close meal selection modal
+    setShowCameraModal(true); // Open camera modal
+  }, []);
+
+  const handleDeleteMeal = useCallback((mealId) => {
     Alert.alert(
       'Delete Meal',
       'Are you sure you want to remove this meal from your log?',
@@ -274,14 +343,20 @@ const NutritionScreen = () => {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            setLoggedMeals(loggedMeals.filter(meal => meal.id !== mealId));
+            setLoggedMeals(prevMeals => prevMeals.filter(meal => meal.id !== mealId));
           },
         },
       ]
     );
-  };
+  }, []);
+
+  // Modal close handlers
+  const closeMealModal = useCallback(() => setShowMealModal(false), []);
+  const closeCameraModal = useCallback(() => setShowCameraModal(false), []);
+  const closePredictionCard = useCallback(() => setShowPredictionCard(false), []);
 
   return (
+    <>
     <ScrollView style={stylesx.container} contentContainerStyle={{ paddingBottom: spacing.xl }}>
       {/* Hero Intake Card */}
       <View style={stylesx.heroCard}>
@@ -293,13 +368,26 @@ const NutritionScreen = () => {
           <View style={{ flex: 1 }}>
             <Text style={stylesx.heroPercent}>{(Math.round(progress * 10) / 10).toFixed(1)}%</Text>
           </View>
-          <CircularGauge size={scaleWidth(120)} stroke={scaleWidth(12)} progress={progress} value={calories} goal={calorieGoal} />
+          <CircularGauge size={scaleWidth(120)} stroke={scaleWidth(12)} progress={progress} value={totalCalories} goal={calorieGoal} />
         </View>
 
         <View style={{ height: spacing.md }} />
-        <MacroBar label="Carbs" value={206} goal={258} color="#87CEEB" />
-        <MacroBar label="Proteins" value={206} goal={258} color="#B0E0E6" />
-        <MacroBar label="Fats" value={206} goal={258} color="#ADD8E6" />
+        <MacroBar label="Carbs" value={totalCarbs} goal={carbsGoal} color="#87CEEB" />
+        <MacroBar label="Proteins" value={totalProtein} goal={proteinGoal} color="#B0E0E6" />
+        <MacroBar label="Fats" value={totalFat} goal={fatGoal} color="#ADD8E6" />
+        
+        {/* Daily Summary */}
+        <View style={stylesx.dailySummary}>
+          <Text style={stylesx.summaryTitle}>Today's Progress</Text>
+          <View style={stylesx.summaryRow}>
+            <Text style={stylesx.summaryText}>{totalCalories} of {calorieGoal} calories</Text>
+            <Text style={stylesx.summaryText}>
+              {loggedMeals.length === 0 ? 'No meals logged' : 
+               loggedMeals.length === 1 ? '1 meal logged' : 
+               `${loggedMeals.length} meals logged`}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* Meal Logging Section */}
@@ -311,7 +399,7 @@ const NutritionScreen = () => {
         
         <MealAddButton onPress={() => setShowMealModal(true)} />
         
-        {loggedMeals.length > 0 && (
+        {loggedMeals.length > 0 ? (
           <View style={{ marginTop: spacing.md }}>
             <View style={stylesx.mealsHeader}>
               <Text style={stylesx.mealsHeaderText}>Logged Today</Text>
@@ -357,13 +445,24 @@ const NutritionScreen = () => {
               </View>
             ))}
           </View>
+        ) : (
+          <View style={stylesx.emptyStateContainer}>
+            <View style={stylesx.emptyStateIcon}>
+              <Ionicons name="restaurant-outline" size={48} color="#C7C7CC" />
+            </View>
+            <Text style={stylesx.emptyStateTitle}>No meals logged yet</Text>
+            <Text style={stylesx.emptyStateSubtitle}>
+              Start tracking your nutrition by logging your first meal!
+            </Text>
+          </View>
         )}
       </View>
 
       <MealEntryModal
         visible={showMealModal}
-        onClose={() => setShowMealModal(false)}
+        onClose={closeMealModal}
         onAddMeal={handleAddMeal}
+        onOpenCamera={openCamera}
       />
 
       {/* Recently Logged */}
@@ -374,6 +473,31 @@ const NutritionScreen = () => {
         </View>
       </View>
     </ScrollView>
+
+    {/* Camera Modal */}
+    <Modal
+      visible={showCameraModal}
+      animationType="slide"
+      presentationStyle="fullScreen"
+    >
+      <FoodCameraScreen
+        onPhotoTaken={(photoUri) => {
+          console.log('📸 Photo taken:', photoUri);
+        }}
+        onAnalysisComplete={handleCameraAnalysis}
+        onClose={closeCameraModal}
+      />
+    </Modal>
+
+    {/* Food Prediction Card */}
+    <FoodPredictionCard
+      visible={showPredictionCard}
+      predictions={foodPredictions}
+      imageUri={capturedImage}
+      onSelectFood={handleFoodSelection}
+      onClose={closePredictionCard}
+    />
+    </>
   );
 };
 
@@ -410,6 +534,29 @@ const stylesx = StyleSheet.create({
   },
   heroLabel: { fontSize: fonts.regular, color: '#8E8E93', fontWeight: '600' },
   heroPercent: { fontSize: fonts.hero, fontWeight: '800', color: '#1D1D1F' },
+  dailySummary: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: '#F2F2F7',
+  },
+  summaryTitle: {
+    fontSize: fonts.small,
+    fontWeight: '600',
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  summaryText: {
+    fontSize: fonts.medium,
+    color: '#1D1D1F',
+    fontWeight: '500',
+  },
   card: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: spacing.md,
@@ -589,6 +736,30 @@ const stylesx = StyleSheet.create({
     fontSize: fonts.medium,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.md,
+  },
+  emptyStateIcon: {
+    marginBottom: spacing.lg,
+    opacity: 0.7,
+  },
+  emptyStateTitle: {
+    fontSize: fonts.large,
+    fontWeight: '600',
+    color: '#8E8E93',
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  emptyStateSubtitle: {
+    fontSize: fonts.medium,
+    color: '#C7C7CC',
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: spacing.md,
   },
 });
 

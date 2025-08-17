@@ -44,6 +44,7 @@ const responsivePadding = {
 
 // Responsive font sizes
 const fonts = {
+  tiny: scaleFont(10),
   small: scaleFont(12),
   medium: scaleFont(14),
   regular: scaleFont(16),
