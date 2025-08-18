@@ -7,6 +7,9 @@ A modern React Native application built with Expo that runs seamlessly on Expo G
 - **Cross-Platform**: Runs on iOS, Android, and Web
 - **Expo Go Compatible**: Easy testing and development
 - **Modern UI**: Clean, responsive design with modern styling
+- **AI-Powered Food Recognition**: Uses Google Gemini AI for accurate food identification
+- **Smart Nutrition Analysis**: Provides detailed nutritional information with portion estimation
+- **Enhanced Food Database**: Covers 100+ foods with intelligent fallbacks for unknown items
 - **Interactive Counter**: Simple demonstration of React state management
 - **Hot Reload**: Fast development with Expo's hot reload feature
 
@@ -70,6 +73,14 @@ Core+/
 
 ## 🎨 Customization
 
+### Food Recognition & Nutrition Analysis
+The app now uses Google Gemini AI for enhanced food recognition with these capabilities:
+- **High-Accuracy Identification**: Gemini's advanced vision model identifies foods with greater precision
+- **Smart Portion Estimation**: AI analyzes portion sizes and provides realistic nutritional estimates
+- **Comprehensive Nutrition**: Get calories, carbs, protein, and fat content for each food item
+- **Unknown Food Handling**: Even foods not in the database get intelligent nutritional estimates
+- **Multiple Food Detection**: Analyze complex meals with multiple food items
+
 ### Styling
 The app uses React Native's StyleSheet for styling with:
 - Modern color scheme
@@ -90,6 +101,20 @@ This is a basic starter template. You can extend it by:
 - **react**: React library
 - **react-native**: React Native framework
 - **expo-status-bar**: Status bar management
+
+## ⚙️ Configuration
+
+### Gemini AI Setup
+The app uses Google Gemini AI for food recognition. The API key is configured in `foodAnalysisService.js`:
+
+```javascript
+const GEMINI_API_KEY = 'your-api-key-here';
+```
+
+**Important**: For production deployment, consider using environment variables to keep your API key secure:
+- Use Expo's environment variables system
+- Or implement a secure server-side proxy for API calls
+- Never commit API keys to version control
 
 ## 🔧 Scripts
 

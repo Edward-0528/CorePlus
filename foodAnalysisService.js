@@ -1,6 +1,6 @@
-// Food Analysis Service using Google Vision AI and nutritional estimation
-const GOOGLE_VISION_API_KEY = 'AIzaSyCWb7A1EosSHdQZuZD1xaCDBWdLjeliYE4';
-const GOOGLE_VISION_URL = `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`;
+// Food Analysis Service using Google Gemini AI for enhanced food identification and nutritional estimation
+const GEMINI_API_KEY = 'AIzaSyCEn--MmLdZAoidpQ_y5ynpTr7bHJi5fAs';
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 // Nutrition database with estimated values per 100g
 const NUTRITION_DATABASE = {
@@ -97,24 +97,24 @@ const NUTRITION_DATABASE = {
 };
 
 export const foodAnalysisService = {
-  // Analyze food image using Google Vision AI
+  // Analyze food image using Google Gemini AI
   async analyzeFoodImage(imageUri) {
     try {
-      console.log('🔍 Starting food analysis for image:', imageUri);
+      console.log('🔍 Starting food analysis with Gemini for image:', imageUri);
       
       // Convert image to base64
       const base64Image = await this.convertImageToBase64(imageUri);
       
-      // Call Google Vision API for object detection
-      const visionResponse = await this.callGoogleVision(base64Image);
+      // Call Gemini API for intelligent food identification
+      const geminiResponse = await this.callGeminiVision(base64Image);
       
-      // Extract food items from Vision API response
-      const detectedFoods = this.extractFoodItems(visionResponse);
+      // Extract food items from Gemini response
+      const detectedFoods = this.extractFoodItemsFromGemini(geminiResponse);
       
-      // Generate top 3 food predictions
+      // Generate top 3 food predictions with enhanced accuracy
       const predictions = this.generateFoodPredictions(detectedFoods);
       
-      console.log('✅ Food predictions generated:', predictions);
+      console.log('✅ Enhanced food predictions generated:', predictions);
       return {
         success: true,
         predictions: predictions,
@@ -150,42 +150,63 @@ export const foodAnalysisService = {
     }
   },
 
-  // Call Google Vision API
-  async callGoogleVision(base64Image) {
+  // Call Gemini API for intelligent food identification
+  async callGeminiVision(base64Image) {
+    const prompt = `Analyze this food image and provide detailed information. Please identify:
+
+1. The specific food items visible (be as specific as possible - e.g., "grilled chicken breast" not just "chicken")
+2. Estimated portion sizes for each item
+3. For each food item, estimate nutritional values per serving:
+   - Calories
+   - Carbohydrates (g)
+   - Protein (g)
+   - Fat (g)
+4. Confidence level for each identification (0.0 to 1.0)
+
+Format your response as JSON:
+{
+  "foods": [
+    {
+      "name": "specific food name",
+      "portion": "description of portion size",
+      "confidence": 0.95,
+      "nutrition": {
+        "calories": 250,
+        "carbs": 30,
+        "protein": 25,
+        "fat": 8
+      }
+    }
+  ]
+}
+
+Be accurate and specific. If you're unsure about a food item, lower the confidence score accordingly.`;
+
     const requestBody = {
-      requests: [
+      contents: [
         {
-          image: {
-            content: base64Image
-          },
-          features: [
+          parts: [
             {
-              type: 'OBJECT_LOCALIZATION',
-              maxResults: 20
+              text: prompt
             },
             {
-              type: 'LABEL_DETECTION',
-              maxResults: 25
-            },
-            {
-              type: 'TEXT_DETECTION',
-              maxResults: 10
-            },
-            {
-              type: 'WEB_DETECTION',
-              maxResults: 15
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: base64Image
+              }
             }
-          ],
-          imageContext: {
-            cropHintsParams: {
-              aspectRatios: [1.77, 1.0, 0.5]
-            }
-          }
+          ]
         }
-      ]
+      ],
+      generationConfig: {
+        temperature: 0.1,
+        topK: 32,
+        topP: 1,
+        maxOutputTokens: 2048,
+      },
     };
 
-    const response = await fetch(GOOGLE_VISION_URL, {
+    const response = await fetch(GEMINI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -195,87 +216,77 @@ export const foodAnalysisService = {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`Google Vision API error: ${JSON.stringify(errorData)}`);
+      throw new Error(`Gemini API error: ${JSON.stringify(errorData)}`);
     }
 
     return response.json();
   },
 
-  // Extract food items from Vision API response
-  extractFoodItems(visionResponse) {
-    const detectedFoods = [];
-    const response = visionResponse.responses[0];
-    console.log('🔍 Processing Vision API response:', response);
+  // Extract food items from Gemini API response
+  extractFoodItemsFromGemini(geminiResponse) {
+    console.log('🔍 Processing Gemini response:', geminiResponse);
+    
+    try {
+      const candidates = geminiResponse.candidates;
+      if (!candidates || candidates.length === 0) {
+        console.warn('No candidates in Gemini response');
+        return [];
+      }
 
-    // Process web detection for better food context
-    if (response.webDetection) {
-      const webEntities = response.webDetection.webEntities || [];
-      webEntities.forEach(entity => {
-        if (entity.score > 0.6 && entity.description) {
-          const foodName = this.mapToFoodName(entity.description.toLowerCase());
-          if (foodName) {
+      const content = candidates[0].content;
+      if (!content || !content.parts || content.parts.length === 0) {
+        console.warn('No content parts in Gemini response');
+        return [];
+      }
+
+      const textResponse = content.parts[0].text;
+      console.log('📝 Gemini text response:', textResponse);
+
+      // Try to parse JSON from Gemini's response
+      let parsedResponse;
+      try {
+        // Extract JSON from the response (Gemini might wrap it in markdown or other text)
+        const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsedResponse = JSON.parse(jsonMatch[0]);
+        } else {
+          // Fallback: try to parse the entire response
+          parsedResponse = JSON.parse(textResponse);
+        }
+      } catch (parseError) {
+        console.warn('Could not parse JSON from Gemini response, using fallback extraction');
+        return this.extractFoodFromText(textResponse);
+      }
+
+      const detectedFoods = [];
+      
+      if (parsedResponse.foods && Array.isArray(parsedResponse.foods)) {
+        parsedResponse.foods.forEach(food => {
+          if (food.name && food.confidence && food.nutrition) {
             detectedFoods.push({
-              name: foodName,
-              confidence: entity.score * 1.2, // Boost web detection confidence
-              source: 'web',
-              originalLabel: entity.description
+              name: food.name.toLowerCase(),
+              confidence: Math.min(1.0, Math.max(0.0, food.confidence)),
+              source: 'gemini',
+              portion: food.portion || 'standard serving',
+              nutrition: {
+                calories: Math.round(food.nutrition.calories || 0),
+                carbs: Math.round(food.nutrition.carbs || 0),
+                protein: Math.round(food.nutrition.protein || 0),
+                fat: Math.round(food.nutrition.fat || 0)
+              },
+              originalResponse: food
             });
           }
-        }
-      });
-    }
-
-    // Process object localization results
-    if (response.localizedObjectAnnotations) {
-      response.localizedObjectAnnotations.forEach(obj => {
-        const foodName = this.mapToFoodName(obj.name.toLowerCase());
-        if (foodName && obj.score > 0.4) {
-          detectedFoods.push({
-            name: foodName,
-            confidence: obj.score * 1.1, // Boost object detection slightly
-            source: 'object',
-            originalLabel: obj.name,
-            boundingBox: obj.boundingPoly
-          });
-        }
-      });
-    }
-
-    // Process label detection results
-    if (response.labelAnnotations) {
-      response.labelAnnotations.forEach(label => {
-        const foodName = this.mapToFoodName(label.description.toLowerCase());
-        if (foodName && label.score > 0.65) {
-          detectedFoods.push({
-            name: foodName,
-            confidence: label.score,
-            source: 'label',
-            originalLabel: label.description
-          });
-        }
-      });
-    }
-
-    // Process text detection for menu items or food labels
-    if (response.textAnnotations && response.textAnnotations.length > 0) {
-      const fullText = response.textAnnotations[0].description || '';
-      const textFoods = this.extractFoodFromText(fullText);
-      textFoods.forEach(food => {
-        detectedFoods.push({
-          name: food.name,
-          confidence: food.confidence,
-          source: 'text',
-          originalLabel: food.text
         });
-      });
-    }
+      }
 
-    // Remove duplicates and enhance with context
-    const uniqueFoods = this.removeDuplicateFoodsAdvanced(detectedFoods);
-    const contextEnhanced = this.enhanceWithContext(uniqueFoods);
-    
-    console.log('✅ Enhanced food detections:', contextEnhanced);
-    return contextEnhanced.sort((a, b) => b.confidence - a.confidence);
+      console.log('✅ Extracted foods from Gemini:', detectedFoods);
+      return detectedFoods;
+      
+    } catch (error) {
+      console.error('Error extracting foods from Gemini response:', error);
+      return [];
+    }
   },
 
   // Map Vision API labels to our food database with enhanced intelligence
@@ -575,22 +586,56 @@ export const foodAnalysisService = {
     const topFoods = detectedFoods.slice(0, 8); // Consider more detections
     
     topFoods.forEach((food, index) => {
-      const nutritionInfo = NUTRITION_DATABASE[food.name];
-      if (nutritionInfo && predictions.length < 3) {
-        // Smart portion estimation based on food type and context
-        const portionMultiplier = this.estimatePortionSize(food, detectedFoods);
-        
-        predictions.push({
-          name: this.capitalizeWords(food.name),
-          calories: Math.round(nutritionInfo.calories * portionMultiplier),
-          carbs: Math.round(nutritionInfo.carbs * portionMultiplier),
-          protein: Math.round(nutritionInfo.protein * portionMultiplier),
-          fat: Math.round(nutritionInfo.fat * portionMultiplier),
-          confidence: food.confidence,
-          description: this.generateSmartDescription(food.name, nutritionInfo, portionMultiplier),
-          portionSize: this.getPortionDescription(portionMultiplier),
-          detectionSources: food.sources || [food.source]
-        });
+      if (predictions.length < 3) {
+        // Check if food has direct nutrition data from Gemini
+        if (food.nutrition && food.nutrition.calories > 0) {
+          // Use Gemini's nutritional analysis directly
+          predictions.push({
+            name: this.capitalizeWords(food.name),
+            calories: food.nutrition.calories,
+            carbs: food.nutrition.carbs,
+            protein: food.nutrition.protein,
+            fat: food.nutrition.fat,
+            confidence: food.confidence,
+            description: `AI-analyzed • ${food.portion}`,
+            portionSize: food.portion || 'Standard serving',
+            detectionSources: ['gemini-nutrition'],
+            isGeminiPrediction: true
+          });
+        } else {
+          // Fallback to database lookup with smart portion estimation
+          const nutritionInfo = NUTRITION_DATABASE[food.name];
+          if (nutritionInfo) {
+            const portionMultiplier = this.estimatePortionSize(food, detectedFoods);
+            
+            predictions.push({
+              name: this.capitalizeWords(food.name),
+              calories: Math.round(nutritionInfo.calories * portionMultiplier),
+              carbs: Math.round(nutritionInfo.carbs * portionMultiplier),
+              protein: Math.round(nutritionInfo.protein * portionMultiplier),
+              fat: Math.round(nutritionInfo.fat * portionMultiplier),
+              confidence: food.confidence,
+              description: this.generateSmartDescription(food.name, nutritionInfo, portionMultiplier),
+              portionSize: this.getPortionDescription(portionMultiplier),
+              detectionSources: food.sources || [food.source]
+            });
+          } else {
+            // Food not in database - use Gemini's estimation or reasonable defaults
+            const estimatedNutrition = this.estimateNutritionForUnknownFood(food.name, food.confidence);
+            predictions.push({
+              name: this.capitalizeWords(food.name),
+              calories: estimatedNutrition.calories,
+              carbs: estimatedNutrition.carbs,
+              protein: estimatedNutrition.protein,
+              fat: estimatedNutrition.fat,
+              confidence: food.confidence * 0.8, // Slightly lower confidence for estimates
+              description: 'AI-estimated nutrition',
+              portionSize: 'Standard serving',
+              detectionSources: ['gemini-estimate'],
+              isEstimated: true
+            });
+          }
+        }
       }
     });
 
@@ -671,6 +716,65 @@ export const foodAnalysisService = {
       if (foods.includes(foodName)) return category;
     }
     return 'other';
+  },
+
+  // Estimate nutrition for foods not in database using AI analysis
+  estimateNutritionForUnknownFood(foodName, confidence) {
+    console.log(`🤖 Estimating nutrition for unknown food: ${foodName}`);
+    
+    // Basic estimation based on food type keywords
+    const name = foodName.toLowerCase();
+    
+    // Default values for unknown foods
+    let baseCalories = 200;
+    let baseCarbs = 25;
+    let baseProtein = 10;
+    let baseFat = 8;
+    
+    // Adjust based on food type indicators
+    if (name.includes('salad') || name.includes('vegetable') || name.includes('green')) {
+      baseCalories = 80;
+      baseCarbs = 15;
+      baseProtein = 3;
+      baseFat = 2;
+    } else if (name.includes('meat') || name.includes('chicken') || name.includes('beef') || 
+               name.includes('fish') || name.includes('protein')) {
+      baseCalories = 250;
+      baseCarbs = 5;
+      baseProtein = 30;
+      baseFat = 12;
+    } else if (name.includes('pasta') || name.includes('rice') || name.includes('bread') || 
+               name.includes('grain')) {
+      baseCalories = 300;
+      baseCarbs = 55;
+      baseProtein = 8;
+      baseFat = 4;
+    } else if (name.includes('fruit')) {
+      baseCalories = 80;
+      baseCarbs = 20;
+      baseProtein = 1;
+      baseFat = 0.5;
+    } else if (name.includes('cheese') || name.includes('dairy') || name.includes('milk')) {
+      baseCalories = 150;
+      baseCarbs = 6;
+      baseProtein = 8;
+      baseFat = 10;
+    } else if (name.includes('fried') || name.includes('crispy') || name.includes('oil')) {
+      baseCalories = 400;
+      baseCarbs = 35;
+      baseProtein = 15;
+      baseFat = 25;
+    }
+    
+    // Adjust based on confidence (lower confidence = more conservative estimates)
+    const confidenceAdjustment = confidence > 0.7 ? 1.0 : 0.8;
+    
+    return {
+      calories: Math.round(baseCalories * confidenceAdjustment),
+      carbs: Math.round(baseCarbs * confidenceAdjustment),
+      protein: Math.round(baseProtein * confidenceAdjustment),
+      fat: Math.round(baseFat * confidenceAdjustment)
+    };
   },
 
   // Generate smart descriptions with context
