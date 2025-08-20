@@ -10,6 +10,7 @@ import { socialAuthService } from './socialAuthService';
 import { biometricService } from './biometricService';
 import { styles } from './styles/AppStyles';
 import { AppProvider, useAppContext } from './contexts/AppContext';
+import { DailyCaloriesProvider } from './contexts/DailyCaloriesContext';
 
 // Import components
 import LandingScreen from './components/LandingScreen';
@@ -654,12 +655,14 @@ function AppContent() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppProvider>
-        <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
-          <AppContent />
-          <StatusBar style="auto" />
-        </SafeAreaView>
-      </AppProvider>
+      <DailyCaloriesProvider>
+        <AppProvider>
+          <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
+            <AppContent />
+            <StatusBar style="auto" />
+          </SafeAreaView>
+        </AppProvider>
+      </DailyCaloriesProvider>
     </SafeAreaProvider>
   );
 }

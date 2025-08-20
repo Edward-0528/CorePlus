@@ -1,6 +1,16 @@
 // Food Analysis Service using Google Gemini AI for enhanced food identification and nutritional estimation
 const GEMINI_API_KEY = 'AIzaSyCEn--MmLdZAoidpQ_y5ynpTr7bHJi5fAs';
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_MODEL = 'gemini-1.5-flash'; // Explicitly define model
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+// Cost tracking - log usage for monitoring
+const logApiUsage = (action, details = {}) => {
+  console.log(`📊 API Usage: ${action}`, {
+    model: GEMINI_MODEL,
+    timestamp: new Date().toISOString(),
+    ...details
+  });
+};
 
 // Nutrition database with estimated values per 100g
 const NUTRITION_DATABASE = {
@@ -97,9 +107,36 @@ const NUTRITION_DATABASE = {
 };
 
 export const foodAnalysisService = {
+  // Usage tracking for cost control
+  dailyUsageCount: 0,
+  lastResetDate: new Date().toDateString(),
+  MAX_DAILY_CALLS: 1000, // Safety limit
+
+  // Check if under usage limits
+  checkUsageLimits() {
+    const today = new Date().toDateString();
+    if (this.lastResetDate !== today) {
+      this.dailyUsageCount = 0;
+      this.lastResetDate = today;
+    }
+    
+    if (this.dailyUsageCount >= this.MAX_DAILY_CALLS) {
+      throw new Error('Daily API limit reached. Using fallback nutrition database.');
+    }
+    
+    this.dailyUsageCount++;
+    logApiUsage('usage_check', { 
+      dailyCount: this.dailyUsageCount, 
+      limit: this.MAX_DAILY_CALLS 
+    });
+  },
+
   // Analyze food image using Google Gemini AI
   async analyzeFoodImage(imageUri) {
     try {
+      // Check usage limits before making API call
+      this.checkUsageLimits();
+      
       console.log('🔍 Starting food analysis with Gemini for image:', imageUri);
       
       // Convert image to base64
@@ -152,6 +189,12 @@ export const foodAnalysisService = {
 
   // Call Gemini API for intelligent food identification
   async callGeminiVision(base64Image) {
+    // Log API usage for cost monitoring
+    logApiUsage('food_analysis_start', { 
+      model: GEMINI_MODEL,
+      imageSize: base64Image.length 
+    });
+
     const prompt = `Analyze this food image and provide detailed information. Please identify:
 
 1. The specific food items visible (be as specific as possible - e.g., "grilled chicken breast" not just "chicken")
@@ -214,8 +257,15 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
       body: JSON.stringify(requestBody)
     });
 
+    // Log successful API call
+    logApiUsage('api_call_complete', {
+      status: response.status,
+      model: GEMINI_MODEL
+    });
+
     if (!response.ok) {
       const errorData = await response.json();
+      logApiUsage('api_error', { error: errorData });
       throw new Error(`Gemini API error: ${JSON.stringify(errorData)}`);
     }
 

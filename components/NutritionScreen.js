@@ -1,10 +1,12 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, SafeAreaView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 import { spacing, fonts, scaleWidth } from '../utils/responsive';
 import FoodCameraScreen from './FoodCameraScreen';
 import FoodPredictionCard from './FoodPredictionCard';
+import { useDailyCalories } from '../contexts/DailyCaloriesContext';
+import { mealService } from '../services/mealService';
 
 const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250, goal = 2000 }) => {
   const radius = (size - stroke) / 2;
@@ -245,6 +247,51 @@ const NutritionScreen = () => {
   const [foodPredictions, setFoodPredictions] = useState([]);
   const [capturedImage, setCapturedImage] = useState(null);
   const [loggedMeals, setLoggedMeals] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const { setDailyCalories } = useDailyCalories();
+
+  // Load today's meals from Supabase on component mount
+  useEffect(() => {
+    loadTodaysMeals();
+  }, []);
+
+  const loadTodaysMeals = async () => {
+    try {
+      setIsLoading(true);
+      const result = await mealService.getTodaysMeals();
+      
+      if (result.success) {
+        // Convert Supabase meals to local format
+        const formattedMeals = result.meals.map(meal => ({
+          id: meal.id,
+          name: meal.meal_name,
+          calories: meal.calories,
+          carbs: meal.carbs,
+          protein: meal.protein,
+          fat: meal.fat,
+          method: meal.meal_method,
+          time: meal.meal_time,
+          date: meal.meal_date,
+          imageUri: meal.image_uri,
+          confidence: meal.confidence_score
+        }));
+        
+        setLoggedMeals(formattedMeals);
+        
+        // Update daily calories context
+        const totalCalories = formattedMeals.reduce((sum, meal) => sum + meal.calories, 0);
+        setDailyCalories(totalCalories);
+        
+        console.log('✅ Loaded meals from database:', formattedMeals.length, 'meals');
+      } else {
+        console.error('Failed to load meals:', result.error);
+      }
+    } catch (error) {
+      console.error('Error loading meals:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Memoize calculations to prevent unnecessary re-renders
   const nutritionTotals = useMemo(() => {
@@ -264,18 +311,52 @@ const NutritionScreen = () => {
 
   const { totalCalories, totalCarbs, totalProtein, totalFat, progress } = nutritionTotals;
 
-  const handleAddMeal = useCallback((meal) => {
-    const newMeal = {
-      id: Date.now(),
-      ...meal,
-      // Add default nutrition values if not provided
-      carbs: meal.carbs || Math.round(meal.calories * 0.5 / 4), // Default: 50% calories from carbs
-      protein: meal.protein || Math.round(meal.calories * 0.25 / 4), // Default: 25% calories from protein
-      fat: meal.fat || Math.round(meal.calories * 0.25 / 9), // Default: 25% calories from fat
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setLoggedMeals(prevMeals => [...prevMeals, newMeal]);
-  }, []);
+  const handleAddMeal = useCallback(async (meal) => {
+    try {
+      // Add meal to Supabase
+      const result = await mealService.addMeal({
+        name: meal.name,
+        calories: meal.calories,
+        carbs: meal.carbs || Math.round(meal.calories * 0.5 / 4), // Default: 50% calories from carbs
+        protein: meal.protein || Math.round(meal.calories * 0.25 / 4), // Default: 25% calories from protein
+        fat: meal.fat || Math.round(meal.calories * 0.25 / 9), // Default: 25% calories from fat
+        method: meal.method || 'manual',
+        imageUri: meal.imageUri,
+        confidence: meal.confidence
+      });
+
+      if (result.success) {
+        // Format the meal for local state
+        const formattedMeal = {
+          id: result.meal.id,
+          name: result.meal.meal_name,
+          calories: result.meal.calories,
+          carbs: result.meal.carbs,
+          protein: result.meal.protein,
+          fat: result.meal.fat,
+          method: result.meal.meal_method,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          date: result.meal.meal_date,
+          imageUri: result.meal.image_uri,
+          confidence: result.meal.confidence_score
+        };
+
+        // Update local state
+        setLoggedMeals(prevMeals => [...prevMeals, formattedMeal]);
+        
+        // Update daily calories context
+        setDailyCalories(prevCalories => prevCalories + formattedMeal.calories);
+        
+        console.log('✅ Meal added successfully');
+      } else {
+        console.error('Failed to add meal:', result.error);
+        Alert.alert('Error', 'Failed to save meal. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error adding meal:', error);
+      Alert.alert('Error', 'Failed to save meal. Please try again.');
+    }
+  }, [setDailyCalories]);
 
   const handleCameraAnalysis = useCallback((predictions, imageUri) => {
     console.log('📱 Camera analysis result received:', predictions);
@@ -330,7 +411,7 @@ const NutritionScreen = () => {
     setShowCameraModal(true); // Open camera modal
   }, []);
 
-  const handleDeleteMeal = useCallback((mealId) => {
+  const handleDeleteMeal = useCallback(async (mealId) => {
     Alert.alert(
       'Delete Meal',
       'Are you sure you want to remove this meal from your log?',
@@ -342,13 +423,39 @@ const NutritionScreen = () => {
         {
           text: 'Delete',
           style: 'destructive',
-          onPress: () => {
-            setLoggedMeals(prevMeals => prevMeals.filter(meal => meal.id !== mealId));
+          onPress: async () => {
+            try {
+              // Delete from Supabase
+              const result = await mealService.deleteMeal(mealId);
+              
+              if (result.success) {
+                // Update local state
+                setLoggedMeals(prevMeals => {
+                  const mealToDelete = prevMeals.find(meal => meal.id === mealId);
+                  const updatedMeals = prevMeals.filter(meal => meal.id !== mealId);
+                  
+                  // Update daily calories context
+                  if (mealToDelete) {
+                    setDailyCalories(prevCalories => prevCalories - mealToDelete.calories);
+                  }
+                  
+                  return updatedMeals;
+                });
+                
+                console.log('✅ Meal deleted from database and local state');
+              } else {
+                console.error('Failed to delete meal:', result.error);
+                Alert.alert('Error', 'Failed to delete meal. Please try again.');
+              }
+            } catch (error) {
+              console.error('Error deleting meal:', error);
+              Alert.alert('Error', 'Failed to delete meal. Please try again.');
+            }
           },
         },
       ]
     );
-  }, []);
+  }, [setDailyCalories]);
 
   // Modal close handlers
   const closeMealModal = useCallback(() => setShowMealModal(false), []);
@@ -399,7 +506,17 @@ const NutritionScreen = () => {
         
         <MealAddButton onPress={() => setShowMealModal(true)} />
         
-        {loggedMeals.length > 0 ? (
+        {isLoading ? (
+          <View style={stylesx.emptyStateContainer}>
+            <View style={stylesx.emptyStateIcon}>
+              <Ionicons name="restaurant-outline" size={48} color="#C7C7CC" />
+            </View>
+            <Text style={stylesx.emptyStateTitle}>Loading your meals...</Text>
+            <Text style={stylesx.emptyStateSubtitle}>
+              Please wait while we fetch your nutrition data
+            </Text>
+          </View>
+        ) : loggedMeals.length > 0 ? (
           <View style={{ marginTop: spacing.md }}>
             <View style={stylesx.mealsHeader}>
               <Text style={stylesx.mealsHeaderText}>Logged Today</Text>

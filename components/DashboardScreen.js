@@ -2,6 +2,7 @@ import React, { memo, useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Alert, useWindowDimensions, SafeAreaView, Modal, TextInput, Animated, PanResponder, Switch, Easing } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAppContext } from '../contexts/AppContext';
+import { useDailyCalories } from '../contexts/DailyCaloriesContext';
 import OptimizedButton from './common/OptimizedButton';
 import AnimatedBackground from './common/AnimatedBackground';
 import LeaderboardScreen from './LeaderboardScreen';
@@ -14,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
   const { count, setCount } = useAppContext();
+  const { dailyCalories } = useDailyCalories();
   const [userProfile, setUserProfile] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -31,7 +33,6 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
   const [streakLoading, setStreakLoading] = useState(false);
   const [weeklyWorkouts, setWeeklyWorkouts] = useState([]);
   const [workoutDates, setWorkoutDates] = useState(new Set());
-  const [dailyCalories, setDailyCalories] = useState(0);
   const [calorieGoal, setCalorieGoal] = useState(2000);
   const [userRank, setUserRank] = useState(null);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -251,7 +252,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
                 backgroundColor: '#FF9500',
                 marginBottom: spacing.xs,
               }} />
-              <Text style={{ fontSize: fonts.small, color: '#1D1D1F', fontWeight: '600', textAlign: 'center' }}>Calories</Text>
+              <Text style={{ fontSize: fonts.small, color: '#1D1D1F', fontWeight: '600', textAlign: 'center' }}>Daily Intake</Text>
               <Text style={{ fontSize: fonts.small, color: '#8E8E93', textAlign: 'center' }}>
                 {dailyCalories} cal
               </Text>
@@ -259,40 +260,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
           </View>
         </View>
 
-        {/* Compact Action Buttons */}
-        <View style={{ flexDirection: 'row', width: '100%' }}>
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              backgroundColor: '#ADD8E6',
-              borderRadius: 8,
-              paddingVertical: spacing.xs,
-              marginRight: spacing.xs / 2,
-              alignItems: 'center',
-            }}
-            onPress={handleWaterIntake}
-          >
-            <Text style={{ fontSize: fonts.small, fontWeight: '600', color: '#FFFFFF' }}>
-              +Water
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              backgroundColor: '#B0E0E6',
-              borderRadius: 8,
-              paddingVertical: spacing.xs,
-              marginLeft: spacing.xs / 2,
-              alignItems: 'center',
-            }}
-            onPress={() => setDailyCalories(prev => prev + 200)}
-          >
-            <Text style={{ fontSize: fonts.small, fontWeight: '600', color: '#FFFFFF' }}>
-              +200 cal
-            </Text>
-          </TouchableOpacity>
-        </View>
+        
       </View>
     );
   };
@@ -1279,52 +1247,101 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
     </ScrollView>
   );
 
-  const renderCalories = () => (
-    <ScrollView style={{ flex: 1, paddingHorizontal: responsivePadding.container, paddingVertical: 20 }}>
-      <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: '#1A1A1A' }}>
-        Calorie Tracker
-      </Text>
-      
-      <View style={{
-        backgroundColor: '#F8F9FA',
-        borderRadius: 12,
-        padding: 20,
-        marginBottom: 16
-      }}>
-        <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 16, color: '#1A1A1A' }}>
-          Today's Intake
+  const renderCalories = () => {
+    const intakeProgress = (dailyCalories / calorieGoal) * 100;
+    const progressWidth = Math.min(Math.max(intakeProgress, 0), 100);
+    
+    return (
+      <ScrollView style={{ flex: 1, paddingHorizontal: responsivePadding.container, paddingVertical: 20 }}>
+        <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: '#1A1A1A' }}>
+          Daily Intake
         </Text>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
-          <Text style={{ color: '#6C757D' }}>Consumed</Text>
-          <Text style={{ fontWeight: '600', color: '#1A1A1A' }}>1,250 / 2,000 cal</Text>
-        </View>
+        
         <View style={{
-          backgroundColor: '#E9ECEF',
-          height: 8,
-          borderRadius: 4,
+          backgroundColor: '#F8F9FA',
+          borderRadius: 12,
+          padding: 20,
           marginBottom: 16
         }}>
+          <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 16, color: '#1A1A1A' }}>
+            Today's Progress
+          </Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
+            <Text style={{ color: '#6C757D' }}>Consumed</Text>
+            <Text style={{ fontWeight: '600', color: '#1A1A1A' }}>
+              {dailyCalories} / {calorieGoal} cal
+            </Text>
+          </View>
           <View style={{
-            backgroundColor: '#34C759',
+            backgroundColor: '#E9ECEF',
             height: 8,
             borderRadius: 4,
-            width: '62%'
-          }} />
+            marginBottom: 16
+          }}>
+            <View style={{
+              backgroundColor: progressWidth >= 100 ? '#FF6B6B' : '#34C759',
+              height: 8,
+              borderRadius: 4,
+              width: `${progressWidth}%`
+            }} />
+          </View>
+          
+          {/* Progress Status */}
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ 
+              fontSize: 14, 
+              color: progressWidth >= 100 ? '#FF6B6B' : '#34C759',
+              fontWeight: '600'
+            }}>
+              {progressWidth >= 100 
+                ? `Goal exceeded by ${dailyCalories - calorieGoal} calories`
+                : `${calorieGoal - dailyCalories} calories remaining`
+              }
+            </Text>
+            <Text style={{ fontSize: 12, color: '#6C757D', marginTop: 4 }}>
+              {Math.round(intakeProgress)}% of daily goal
+            </Text>
+          </View>
+          
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#87CEEB',
+              borderRadius: 8,
+              padding: 12,
+              alignItems: 'center'
+            }}
+            onPress={() => setActiveTab('nutrition')}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Log Food</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={{
-            backgroundColor: '#34C759',
-            borderRadius: 8,
-            padding: 12,
-            alignItems: 'center'
-          }}
-          onPress={() => Alert.alert('Coming Soon!', 'Calorie tracking feature will be available soon!')}
-        >
-          <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Log Food</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
-  );
+        
+        {/* Additional Info Card */}
+        <View style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 12,
+          padding: 20,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 8,
+          elevation: 2,
+        }}>
+          <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 12, color: '#1A1A1A' }}>
+            Nutrition Tips
+          </Text>
+          <Text style={{ fontSize: 14, color: '#6C757D', lineHeight: 20 }}>
+            {dailyCalories < calorieGoal * 0.5 
+              ? "Start your day with a nutritious breakfast to fuel your body!"
+              : dailyCalories >= calorieGoal 
+              ? "Great job reaching your calorie goal! Focus on nutrient-dense foods."
+              : "You're making good progress! Remember to stay hydrated and eat balanced meals."
+            }
+          </Text>
+        </View>
+      </ScrollView>
+    );
+  };
 
   const renderProgress = () => (
     <ScrollView style={{ flex: 1, paddingHorizontal: responsivePadding.container, paddingVertical: 20 }}>
