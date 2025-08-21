@@ -287,7 +287,29 @@ function AppContent() {
       }
       
       console.log('Fitness profile saved successfully:', data);
-      
+
+      // Generate an initial adaptive workout plan for the user
+      try {
+        const { planService } = await import('./services/planService');
+        const profileForPlan = {
+          goal: onboardingData.mainGoal,
+          experience: onboardingData.experience || 'beginner',
+          daysAvailablePerWeek: onboardingData.daysPerWeek || 3,
+          sessionLengthMinutes: onboardingData.sessionLength || 30,
+          preferredSplit: onboardingData.preferredSplit || 'auto',
+          equipment: onboardingData.equipment || []
+        };
+
+        const planResult = await planService.generatePlanForUser(user.id, profileForPlan);
+        if (planResult.success) {
+          console.log('Generated workout plan for user:', planResult.planId);
+        } else {
+          console.warn('Plan generation failed:', planResult.error);
+        }
+      } catch (planError) {
+        console.error('Error generating plan:', planError);
+      }
+
       // Smooth transition to dashboard
       setShowOnboarding(false);
       setLoading(false);

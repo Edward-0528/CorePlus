@@ -1,5 +1,5 @@
-import React, { memo } from 'react';
-import { View, Text, TouchableOpacity, TextInput, useWindowDimensions } from 'react-native';
+import React, { memo, useState } from 'react';
+import { View, Text, TouchableOpacity, TextInput, useWindowDimensions, Modal, FlatList, ActivityIndicator } from 'react-native';
 
 const ScreenFittedStep4 = memo(({ 
   onboardingData, 
@@ -176,7 +176,7 @@ const ScreenFittedStep4 = memo(({
           </View>
         </View>
 
-        {/* Fixed Bottom Navigation - Higher up from bottom */}
+  {/* Fixed Bottom Navigation - Higher up from bottom */}
         <View style={{ 
           height: buttonHeight,
           flexDirection: 'row', 
@@ -207,28 +207,13 @@ const ScreenFittedStep4 = memo(({
               Back
             </Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={{
-              backgroundColor: (canComplete && !loading) ? '#007AFF' : '#E9ECEF',
-              height: 50,
-              borderRadius: 12,
-              flex: 0.55,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            onPress={onCompleteOnboarding}
-            disabled={!canComplete || loading}
-            activeOpacity={0.7}
-          >
-            <Text style={{
-              fontSize: 16,
-              fontWeight: '600',
-              color: (canComplete && !loading) ? '#FFFFFF' : '#ADB5BD'
-            }}>
-              {loading ? 'Creating...' : 'Complete Setup'}
-            </Text>
-          </TouchableOpacity>
+          {/* Preview button */}
+          <PreviewButton
+            canComplete={canComplete}
+            loading={loading}
+            onboardingData={onboardingData}
+            onCompleteOnboarding={onCompleteOnboarding}
+          />
         </View>
       </View>
     </View>
@@ -241,3 +226,109 @@ const ScreenFittedStep4 = memo(({
 ScreenFittedStep4.displayName = 'ScreenFittedStep4';
 
 export default ScreenFittedStep4;
+
+// --- Preview button + modal component ---
+const PreviewButton = ({ canComplete, loading, onboardingData, onCompleteOnboarding }) => {
+  const [modalVisible, setModalVisible] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewPlan, setPreviewPlan] = useState(null);
+
+  const userId = 'preview-user'; // placeholder; planService doesn't use userId when previewing
+
+  const handlePreview = async () => {
+    if (!canComplete) return;
+    setPreviewLoading(true);
+    setModalVisible(true);
+    try {
+      const { planService } = await import('../../services/planService');
+      const profileForPlan = {
+        goal: onboardingData.mainGoal,
+        experience: onboardingData.experience || 'beginner',
+        daysAvailablePerWeek: onboardingData.daysPerWeek || 3,
+        sessionLengthMinutes: onboardingData.sessionLength || 30,
+        preferredSplit: onboardingData.preferredSplit || 'auto',
+        equipment: onboardingData.equipment || []
+      };
+
+      const res = await planService.generatePlanForUser(userId, profileForPlan, { preview: true });
+      if (res.success) setPreviewPlan(res.plan);
+      else setPreviewPlan({ error: res.error || 'Failed to generate preview' });
+    } catch (err) {
+      setPreviewPlan({ error: err.message || String(err) });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleAccept = () => {
+    setModalVisible(false);
+    // Proceed to complete onboarding (which will persist)
+    onCompleteOnboarding();
+  };
+
+  return (
+    <>
+      <TouchableOpacity
+        style={{
+          backgroundColor: (canComplete && !loading) ? '#28A745' : '#E9ECEF',
+          height: 50,
+          borderRadius: 12,
+          flex: 0.55,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        onPress={handlePreview}
+        disabled={!canComplete || loading}
+        activeOpacity={0.7}
+      >
+        <Text style={{
+          fontSize: 16,
+          fontWeight: '600',
+          color: (canComplete && !loading) ? '#FFFFFF' : '#ADB5BD'
+        }}>
+          {loading ? 'Creating...' : 'Preview Plan'}
+        </Text>
+      </TouchableOpacity>
+
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 20, maxHeight: '80%' }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 12 }}>Preview Workout Plan</Text>
+            {previewLoading && <ActivityIndicator size="large" color="#007AFF" />}
+            {!previewLoading && previewPlan && previewPlan.workouts && (
+              <FlatList
+                data={previewPlan.workouts}
+                keyExtractor={(item, idx) => `${item.week}-${item.day}-${idx}`}
+                renderItem={({ item }) => (
+                  <View style={{ paddingVertical: 8, borderBottomColor: '#EEE', borderBottomWidth: 1 }}>
+                    <Text style={{ fontWeight: '600' }}>{item.workout.title}</Text>
+                    <Text style={{ color: '#6C757D' }}>{item.workout.exercises.map(e => e.name).join(', ')}</Text>
+                  </View>
+                )}
+              />
+            )}
+
+            {!previewLoading && previewPlan && previewPlan.error && (
+              <Text style={{ color: 'red' }}>{previewPlan.error}</Text>
+            )}
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }}>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={{ padding: 12 }}>
+                <Text style={{ color: '#6C757D' }}>Close</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={handleAccept} style={{ padding: 12 }}>
+                <Text style={{ color: '#007AFF', fontWeight: '700' }}>Accept & Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+};
