@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
+import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, fonts } from '../utils/responsive';
 
@@ -9,6 +10,7 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [facing, setFacing] = useState('back');
+  const [flashEffect, setFlashEffect] = useState(false);
   const cameraRef = useRef(null);
 
   useEffect(() => {
@@ -23,13 +25,23 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
       try {
         setIsAnalyzing(true);
         
-        // Take photo
+        // Provide haptic feedback instead of shutter sound
+        if (Haptics?.impactAsync) {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+        
+        // Show visual flash effect
+        setFlashEffect(true);
+        setTimeout(() => setFlashEffect(false), 150);
+        
+        // Take photo with muted shutter
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.8,
           base64: false,
+          mute: true, // This mutes the camera shutter sound
         });
 
-        console.log('📸 Photo taken:', photo.uri);
+        console.log('📸 Photo taken (muted):', photo.uri);
 
         // Save to device
         await MediaLibrary.saveToLibraryAsync(photo.uri);
@@ -147,6 +159,11 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
             )}
           </View>
         </View>
+        
+        {/* Flash Effect Overlay */}
+        {flashEffect && (
+          <View style={styles.flashOverlay} />
+        )}
       </CameraView>
     </View>
   );
@@ -264,6 +281,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     textAlign: 'center',
+  },
+  flashOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#FFFFFF',
+    opacity: 0.8,
+    zIndex: 1000,
   },
 });
 

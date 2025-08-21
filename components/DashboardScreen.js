@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Alert, useWindowDimensions, S
 import { StatusBar } from 'expo-status-bar';
 import { useAppContext } from '../contexts/AppContext';
 import { useDailyCalories } from '../contexts/DailyCaloriesContext';
+import { useMealManager } from '../hooks/useMealManager';
 import OptimizedButton from './common/OptimizedButton';
 import AnimatedBackground from './common/AnimatedBackground';
 import LeaderboardScreen from './LeaderboardScreen';
@@ -15,7 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
   const { count, setCount } = useAppContext();
-  const { dailyCalories } = useDailyCalories();
+  const { dailyCalories, dailyMacros, mealsLoading } = useDailyCalories();
+  const mealManager = useMealManager();
   const [userProfile, setUserProfile] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -154,11 +156,11 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
           marginBottom: spacing.md,
           alignSelf: 'flex-start',
         }}>
-          Activity Rings
+          Activity Rings {mealsLoading && <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>• Loading...</Text>}
         </Text>
 
         {/* Ring Chart Container - Smaller size to match other cards */}
-        <View style={{ position: 'relative', marginBottom: spacing.md }}>
+        <View style={{ position: 'relative', marginBottom: spacing.md, opacity: mealsLoading ? 0.6 : 1 }}>
           {/* Outer ring - Workout Progress */}
           <View style={{ position: 'absolute', top: 0, left: 0 }}>
             <RingChart
@@ -208,7 +210,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
               color: '#8E8E93',
               marginTop: 2,
             }}>
-              Overall
+              {mealsLoading ? 'Loading...' : 'Overall'}
             </Text>
           </View>
         </View>

@@ -1,16 +1,14 @@
 // Food Analysis Service using Google Gemini AI for enhanced food identification and nutritional estimation
-const GEMINI_API_KEY = 'AIzaSyCEn--MmLdZAoidpQ_y5ynpTr7bHJi5fAs';
-const GEMINI_MODEL = 'gemini-1.5-flash'; // Explicitly define model
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
-// Cost tracking - log usage for monitoring
-const logApiUsage = (action, details = {}) => {
-  console.log(`📊 API Usage: ${action}`, {
-    model: GEMINI_MODEL,
-    timestamp: new Date().toISOString(),
-    ...details
-  });
-};
+// Validate API key
+if (!GEMINI_API_KEY) {
+  throw new Error(
+    'Missing Gemini API key. Please check your .env file and ensure EXPO_PUBLIC_GEMINI_API_KEY is set.'
+  );
+}
+
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
 // Nutrition database with estimated values per 100g
 const NUTRITION_DATABASE = {
@@ -107,36 +105,9 @@ const NUTRITION_DATABASE = {
 };
 
 export const foodAnalysisService = {
-  // Usage tracking for cost control
-  dailyUsageCount: 0,
-  lastResetDate: new Date().toDateString(),
-  MAX_DAILY_CALLS: 1000, // Safety limit
-
-  // Check if under usage limits
-  checkUsageLimits() {
-    const today = new Date().toDateString();
-    if (this.lastResetDate !== today) {
-      this.dailyUsageCount = 0;
-      this.lastResetDate = today;
-    }
-    
-    if (this.dailyUsageCount >= this.MAX_DAILY_CALLS) {
-      throw new Error('Daily API limit reached. Using fallback nutrition database.');
-    }
-    
-    this.dailyUsageCount++;
-    logApiUsage('usage_check', { 
-      dailyCount: this.dailyUsageCount, 
-      limit: this.MAX_DAILY_CALLS 
-    });
-  },
-
   // Analyze food image using Google Gemini AI
   async analyzeFoodImage(imageUri) {
     try {
-      // Check usage limits before making API call
-      this.checkUsageLimits();
-      
       console.log('🔍 Starting food analysis with Gemini for image:', imageUri);
       
       // Convert image to base64
@@ -189,21 +160,18 @@ export const foodAnalysisService = {
 
   // Call Gemini API for intelligent food identification
   async callGeminiVision(base64Image) {
-    // Log API usage for cost monitoring
-    logApiUsage('food_analysis_start', { 
-      model: GEMINI_MODEL,
-      imageSize: base64Image.length 
-    });
-
-    const prompt = `Analyze this food image and provide detailed information. Please identify:
+    const prompt = `Analyze this food image and provide detailed nutritional information. Please identify:
 
 1. The specific food items visible (be as specific as possible - e.g., "grilled chicken breast" not just "chicken")
 2. Estimated portion sizes for each item
-3. For each food item, estimate nutritional values per serving:
+3. For each food item, estimate complete nutritional values per serving:
    - Calories
    - Carbohydrates (g)
    - Protein (g)
    - Fat (g)
+   - Fiber (g)
+   - Sugar (g)
+   - Sodium (mg)
 4. Confidence level for each identification (0.0 to 1.0)
 
 Format your response as JSON:
@@ -217,7 +185,10 @@ Format your response as JSON:
         "calories": 250,
         "carbs": 30,
         "protein": 25,
-        "fat": 8
+        "fat": 8,
+        "fiber": 5,
+        "sugar": 3,
+        "sodium": 150
       }
     }
   ]
@@ -257,15 +228,8 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
       body: JSON.stringify(requestBody)
     });
 
-    // Log successful API call
-    logApiUsage('api_call_complete', {
-      status: response.status,
-      model: GEMINI_MODEL
-    });
-
     if (!response.ok) {
       const errorData = await response.json();
-      logApiUsage('api_error', { error: errorData });
       throw new Error(`Gemini API error: ${JSON.stringify(errorData)}`);
     }
 
@@ -322,7 +286,10 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
                 calories: Math.round(food.nutrition.calories || 0),
                 carbs: Math.round(food.nutrition.carbs || 0),
                 protein: Math.round(food.nutrition.protein || 0),
-                fat: Math.round(food.nutrition.fat || 0)
+                fat: Math.round(food.nutrition.fat || 0),
+                fiber: Math.round(food.nutrition.fiber || 0),
+                sugar: Math.round(food.nutrition.sugar || 0),
+                sodium: Math.round(food.nutrition.sodium || 0)
               },
               originalResponse: food
             });
@@ -646,6 +613,9 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
             carbs: food.nutrition.carbs,
             protein: food.nutrition.protein,
             fat: food.nutrition.fat,
+            fiber: food.nutrition.fiber || 0,
+            sugar: food.nutrition.sugar || 0,
+            sodium: food.nutrition.sodium || 0,
             confidence: food.confidence,
             description: `AI-analyzed • ${food.portion}`,
             portionSize: food.portion || 'Standard serving',
@@ -664,6 +634,9 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
               carbs: Math.round(nutritionInfo.carbs * portionMultiplier),
               protein: Math.round(nutritionInfo.protein * portionMultiplier),
               fat: Math.round(nutritionInfo.fat * portionMultiplier),
+              fiber: Math.round((nutritionInfo.fiber || 2) * portionMultiplier), // Default fiber estimate
+              sugar: Math.round((nutritionInfo.sugar || 3) * portionMultiplier), // Default sugar estimate  
+              sodium: Math.round((nutritionInfo.sodium || 100) * portionMultiplier), // Default sodium estimate
               confidence: food.confidence,
               description: this.generateSmartDescription(food.name, nutritionInfo, portionMultiplier),
               portionSize: this.getPortionDescription(portionMultiplier),
@@ -678,6 +651,9 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
               carbs: estimatedNutrition.carbs,
               protein: estimatedNutrition.protein,
               fat: estimatedNutrition.fat,
+              fiber: estimatedNutrition.fiber || 2,
+              sugar: estimatedNutrition.sugar || 3,
+              sodium: estimatedNutrition.sodium || 100,
               confidence: food.confidence * 0.8, // Slightly lower confidence for estimates
               description: 'AI-estimated nutrition',
               portionSize: 'Standard serving',
@@ -780,6 +756,9 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
     let baseCarbs = 25;
     let baseProtein = 10;
     let baseFat = 8;
+    let baseFiber = 3;
+    let baseSugar = 5;
+    let baseSodium = 150;
     
     // Adjust based on food type indicators
     if (name.includes('salad') || name.includes('vegetable') || name.includes('green')) {
@@ -787,33 +766,51 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
       baseCarbs = 15;
       baseProtein = 3;
       baseFat = 2;
+      baseFiber = 6; // High fiber for vegetables
+      baseSugar = 3;
+      baseSodium = 50;
     } else if (name.includes('meat') || name.includes('chicken') || name.includes('beef') || 
                name.includes('fish') || name.includes('protein')) {
       baseCalories = 250;
       baseCarbs = 5;
       baseProtein = 30;
       baseFat = 12;
+      baseFiber = 0; // Meat has no fiber
+      baseSugar = 0;
+      baseSodium = 200;
     } else if (name.includes('pasta') || name.includes('rice') || name.includes('bread') || 
                name.includes('grain')) {
       baseCalories = 300;
       baseCarbs = 55;
       baseProtein = 8;
       baseFat = 4;
+      baseFiber = 4; // Moderate fiber for grains
+      baseSugar = 2;
+      baseSodium = 100;
     } else if (name.includes('fruit')) {
       baseCalories = 80;
       baseCarbs = 20;
       baseProtein = 1;
       baseFat = 0.5;
+      baseFiber = 4; // Moderate fiber for fruits
+      baseSugar = 15; // High natural sugar
+      baseSodium = 5;
     } else if (name.includes('cheese') || name.includes('dairy') || name.includes('milk')) {
       baseCalories = 150;
       baseCarbs = 6;
       baseProtein = 8;
       baseFat = 10;
+      baseFiber = 0; // Dairy has no fiber
+      baseSugar = 6; // Lactose
+      baseSodium = 180;
     } else if (name.includes('fried') || name.includes('crispy') || name.includes('oil')) {
       baseCalories = 400;
       baseCarbs = 35;
       baseProtein = 15;
       baseFat = 25;
+      baseFiber = 2;
+      baseSugar = 3;
+      baseSodium = 300; // High sodium for fried foods
     }
     
     // Adjust based on confidence (lower confidence = more conservative estimates)
@@ -823,7 +820,10 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
       calories: Math.round(baseCalories * confidenceAdjustment),
       carbs: Math.round(baseCarbs * confidenceAdjustment),
       protein: Math.round(baseProtein * confidenceAdjustment),
-      fat: Math.round(baseFat * confidenceAdjustment)
+      fat: Math.round(baseFat * confidenceAdjustment),
+      fiber: Math.round(baseFiber * confidenceAdjustment),
+      sugar: Math.round(baseSugar * confidenceAdjustment),
+      sodium: Math.round(baseSodium * confidenceAdjustment)
     };
   },
 

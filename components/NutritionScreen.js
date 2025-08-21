@@ -3,10 +3,12 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput,
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 import { spacing, fonts, scaleWidth } from '../utils/responsive';
+import { useDailyCalories } from '../contexts/DailyCaloriesContext';
+import { useMealManager } from '../hooks/useMealManager';
+import { formatTo12Hour } from '../utils/timeUtils';
 import FoodCameraScreen from './FoodCameraScreen';
 import FoodPredictionCard from './FoodPredictionCard';
-import { useDailyCalories } from '../contexts/DailyCaloriesContext';
-import { mealService } from '../services/mealService';
+import FoodSearchModal from './FoodSearchModal';
 
 const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250, goal = 2000 }) => {
   const radius = (size - stroke) / 2;
@@ -14,6 +16,11 @@ const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250,
   const clamped = Math.max(0, Math.min(100, progress)) || 0;
   const dashoffset = circumference - (clamped / 100) * circumference;
   const center = size / 2;
+  
+  // Check if over goal for color changes
+  const isOverGoal = value > goal;
+  const strokeColor = isOverGoal ? "#FF6B6B" : "#87CEEB";
+  const valueColor = isOverGoal ? "#FF6B6B" : "#1D1D1F";
 
   return (
     <View style={{ width: size, height: size }}>
@@ -23,7 +30,7 @@ const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250,
           cx={center}
           cy={center}
           r={radius}
-          stroke="#87CEEB"
+          stroke={strokeColor}
           strokeWidth={stroke}
           strokeDasharray={circumference}
           strokeDashoffset={dashoffset}
@@ -33,23 +40,32 @@ const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250,
         />
       </Svg>
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: fonts.large, fontWeight: '800', color: '#1D1D1F' }}>{value}</Text>
+        <Text style={{ fontSize: fonts.large, fontWeight: '800', color: valueColor }}>
+          {value}{isOverGoal && ' ⚠️'}
+        </Text>
         <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>{goal}</Text>
       </View>
     </View>
   );
 };
 
-const MacroBar = ({ label, value, goal, color = '#ADD8E6' }) => {
+const MacroBar = ({ label, value, goal, color = '#ADD8E6', unit = 'g' }) => {
   const pct = Math.max(0, Math.min(100, (value / goal) * 100)) || 0;
+  const isOverLimit = value > goal;
+  const barColor = isOverLimit ? '#FF6B6B' : color; // Red if over limit, otherwise use default color
+  const textColor = isOverLimit ? '#FF6B6B' : '#8E8E93'; // Red text if over limit
+  
   return (
     <View style={{ marginBottom: spacing.sm }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
         <Text style={{ color: '#1D1D1F', fontWeight: '600' }}>{label}</Text>
-        <Text style={{ color: '#8E8E93' }}>{value} / {goal} g</Text>
+        <Text style={{ color: textColor, fontWeight: isOverLimit ? '600' : 'normal' }}>
+          {Math.round(value)} / {goal} {unit}
+          {isOverLimit && ' ⚠️'}
+        </Text>
       </View>
       <View style={{ height: scaleWidth(6), backgroundColor: '#F2F2F7', borderRadius: 8, overflow: 'hidden' }}>
-        <View style={{ width: `${pct}%`, height: '100%', backgroundColor: color, borderRadius: 8 }} />
+        <View style={{ width: `${pct}%`, height: '100%', backgroundColor: barColor, borderRadius: 8 }} />
       </View>
     </View>
   );
@@ -68,10 +84,78 @@ const MealAddButton = ({ onPress }) => (
   </TouchableOpacity>
 );
 
-const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera }) => {
+const ExpandableNutritionDetails = ({ dailyMicros, isExpanded, onToggle }) => {
+  // Nutrition goals for micronutrients (FDA recommendations)
+  const nutritionGoals = {
+    fiber: 25,      // FDA recommendation (grams)
+    sugar: 50,      // WHO recommendation (<10% of calories for 2000 cal diet)
+    sodium: 2300,   // FDA recommendation (mg)
+  };
+
+  return (
+    <View style={{ marginTop: spacing.md }}>
+      <TouchableOpacity 
+        style={stylesx.expandableToggle} 
+        onPress={onToggle}
+        activeOpacity={0.7}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Ionicons 
+            name="nutrition" 
+            size={16} 
+            color="#4682B4" 
+            style={{ marginRight: spacing.xs }} 
+          />
+          <Text style={stylesx.expandableToggleText}>
+            More Nutrition Details
+          </Text>
+        </View>
+        <Ionicons 
+          name={isExpanded ? "chevron-up" : "chevron-down"} 
+          size={16} 
+          color="#8E8E93" 
+        />
+      </TouchableOpacity>
+      
+      {isExpanded && (
+        <View style={stylesx.expandableContent}>
+          <MacroBar 
+            label="Fiber" 
+            value={dailyMicros.fiber} 
+            goal={nutritionGoals.fiber} 
+            color="#90EE90" 
+            unit="g"
+          />
+          <MacroBar 
+            label="Sugar" 
+            value={dailyMicros.sugar} 
+            goal={nutritionGoals.sugar} 
+            color="#FFB6C1" 
+            unit="g"
+          />
+          <MacroBar 
+            label="Sodium" 
+            value={dailyMicros.sodium} 
+            goal={nutritionGoals.sodium} 
+            color="#DDA0DD" 
+            unit="mg"
+          />
+        </View>
+      )}
+    </View>
+  );
+};
+
+const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera, onOpenSearch }) => {
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [mealName, setMealName] = useState('');
   const [calories, setCalories] = useState('');
+  const [carbs, setCarbs] = useState('');
+  const [protein, setProtein] = useState('');
+  const [fat, setFat] = useState('');
+  const [fiber, setFiber] = useState('');
+  const [sugar, setSugar] = useState('');
+  const [sodium, setSodium] = useState('');
 
   // Reset modal state when closed
   React.useEffect(() => {
@@ -79,6 +163,12 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera }) => {
       setSelectedMethod(null);
       setMealName('');
       setCalories('');
+      setCarbs('');
+      setProtein('');
+      setFat('');
+      setFiber('');
+      setSugar('');
+      setSodium('');
     }
   }, [visible]);
 
@@ -119,6 +209,9 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera }) => {
     if (method.id === 'photo') {
       // Open camera for food photo analysis
       onOpenCamera();
+    } else if (method.id === 'search') {
+      // Open food search modal
+      onOpenSearch();
     } else if (method.id === 'manual') {
       // Keep modal open for manual entry
     } else {
@@ -135,12 +228,24 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera }) => {
     if (mealName.trim() && calories.trim()) {
       onAddMeal({
         name: mealName,
-        calories: parseInt(calories),
+        calories: parseInt(calories) || 0,
+        carbs: parseFloat(carbs) || Math.round((parseInt(calories) || 0) * 0.5 / 4),
+        protein: parseFloat(protein) || Math.round((parseInt(calories) || 0) * 0.25 / 4),
+        fat: parseFloat(fat) || Math.round((parseInt(calories) || 0) * 0.25 / 9),
+        fiber: parseFloat(fiber) || 0,
+        sugar: parseFloat(sugar) || 0,
+        sodium: parseFloat(sodium) || 0,
         method: selectedMethod?.id || 'manual',
         timestamp: new Date().toISOString()
       });
       setMealName('');
       setCalories('');
+      setCarbs('');
+      setProtein('');
+      setFat('');
+      setFiber('');
+      setSugar('');
+      setSodium('');
       setSelectedMethod(null);
       onClose();
     } else {
@@ -222,6 +327,80 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera }) => {
                 />
               </View>
 
+              {/* Basic Macros */}
+              <View style={stylesx.macroInputRow}>
+                <View style={[stylesx.inputContainer, { flex: 1, marginRight: spacing.sm }]}>
+                  <Text style={stylesx.inputLabel}>Carbs (g)</Text>
+                  <TextInput
+                    style={stylesx.textInput}
+                    value={carbs}
+                    onChangeText={setCarbs}
+                    placeholder="Auto"
+                    placeholderTextColor="#8E8E93"
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={[stylesx.inputContainer, { flex: 1, marginRight: spacing.sm }]}>
+                  <Text style={stylesx.inputLabel}>Protein (g)</Text>
+                  <TextInput
+                    style={stylesx.textInput}
+                    value={protein}
+                    onChangeText={setProtein}
+                    placeholder="Auto"
+                    placeholderTextColor="#8E8E93"
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={[stylesx.inputContainer, { flex: 1 }]}>
+                  <Text style={stylesx.inputLabel}>Fat (g)</Text>
+                  <TextInput
+                    style={stylesx.textInput}
+                    value={fat}
+                    onChangeText={setFat}
+                    placeholder="Auto"
+                    placeholderTextColor="#8E8E93"
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+
+              {/* Extended Nutrition */}
+              <View style={stylesx.macroInputRow}>
+                <View style={[stylesx.inputContainer, { flex: 1, marginRight: spacing.sm }]}>
+                  <Text style={stylesx.inputLabel}>Fiber (g)</Text>
+                  <TextInput
+                    style={stylesx.textInput}
+                    value={fiber}
+                    onChangeText={setFiber}
+                    placeholder="0"
+                    placeholderTextColor="#8E8E93"
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={[stylesx.inputContainer, { flex: 1, marginRight: spacing.sm }]}>
+                  <Text style={stylesx.inputLabel}>Sugar (g)</Text>
+                  <TextInput
+                    style={stylesx.textInput}
+                    value={sugar}
+                    onChangeText={setSugar}
+                    placeholder="0"
+                    placeholderTextColor="#8E8E93"
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={[stylesx.inputContainer, { flex: 1 }]}>
+                  <Text style={stylesx.inputLabel}>Sodium (mg)</Text>
+                  <TextInput
+                    style={stylesx.textInput}
+                    value={sodium}
+                    onChangeText={setSodium}
+                    placeholder="0"
+                    placeholderTextColor="#8E8E93"
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+
               <TouchableOpacity style={stylesx.addButton} onPress={handleAddMeal}>
                 <Text style={stylesx.addButtonText}>Add Meal</Text>
               </TouchableOpacity>
@@ -234,120 +413,106 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera }) => {
 };
 
 const NutritionScreen = () => {
+  // Use the enhanced meal manager
+  const { 
+    dailyCalories, 
+    dailyMacros,
+    dailyMicros, 
+    todaysMeals, 
+    mealsLoading,
+    addMeal,
+    deleteMeal 
+  } = useDailyCalories();
+  
+  const mealManager = useMealManager();
+  
+  // State for UI controls
+  const [isNutritionExpanded, setIsNutritionExpanded] = useState(false);
+  
   // Goals
   const calorieGoal = 2000;
   const carbsGoal = 258; // ~50% of calories
   const proteinGoal = 125; // ~25% of calories  
   const fatGoal = 56; // ~25% of calories
   
+  // Auto-selection logic for high confidence predictions
+  const checkForAutoSelection = useCallback((predictions) => {
+    if (!predictions || predictions.length === 0) return false;
+    
+    const topPrediction = predictions[0];
+    const secondPrediction = predictions[1];
+    
+    // Auto-select if:
+    // 1. Confidence is 90% or higher
+    // 2. OR confidence is 80%+ and significantly higher than second option (20+ point difference)
+    // 3. OR there's only one prediction with 70%+ confidence
+    
+    if (topPrediction.confidence >= 0.9) {
+      console.log('🎯 Auto-selecting: High confidence (>=90%)');
+      return true;
+    }
+    
+    if (topPrediction.confidence >= 0.8 && 
+        (!secondPrediction || (topPrediction.confidence - secondPrediction.confidence) >= 0.2)) {
+      console.log('🎯 Auto-selecting: High confidence with clear winner');
+      return true;
+    }
+    
+    if (predictions.length === 1 && topPrediction.confidence >= 0.7) {
+      console.log('🎯 Auto-selecting: Single prediction with good confidence');
+      return true;
+    }
+    
+    console.log('🤔 Showing selection card: Confidence not high enough or too many similar options');
+    return false;
+  }, []);
+  
   // State for meal logging
   const [showMealModal, setShowMealModal] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [showPredictionCard, setShowPredictionCard] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false);
   const [foodPredictions, setFoodPredictions] = useState([]);
   const [capturedImage, setCapturedImage] = useState(null);
-  const [loggedMeals, setLoggedMeals] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const { setDailyCalories } = useDailyCalories();
 
-  // Load today's meals from Supabase on component mount
-  useEffect(() => {
-    loadTodaysMeals();
-  }, []);
-
-  const loadTodaysMeals = async () => {
-    try {
-      setIsLoading(true);
-      const result = await mealService.getTodaysMeals();
-      
-      if (result.success) {
-        // Convert Supabase meals to local format
-        const formattedMeals = result.meals.map(meal => ({
-          id: meal.id,
-          name: meal.meal_name,
-          calories: meal.calories,
-          carbs: meal.carbs,
-          protein: meal.protein,
-          fat: meal.fat,
-          method: meal.meal_method,
-          time: meal.meal_time,
-          date: meal.meal_date,
-          imageUri: meal.image_uri,
-          confidence: meal.confidence_score
-        }));
-        
-        setLoggedMeals(formattedMeals);
-        
-        // Update daily calories context
-        const totalCalories = formattedMeals.reduce((sum, meal) => sum + meal.calories, 0);
-        setDailyCalories(totalCalories);
-        
-        console.log('✅ Loaded meals from database:', formattedMeals.length, 'meals');
-      } else {
-        console.error('Failed to load meals:', result.error);
-      }
-    } catch (error) {
-      console.error('Error loading meals:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // No longer need local loggedMeals state - use todaysMeals from context
+  // No longer need isLoading state for meals - use mealsLoading from context
+  // No longer need loadTodaysMeals function - meals are loaded automatically by context
 
   // Memoize calculations to prevent unnecessary re-renders
+  // Memoize calculations using context data
   const nutritionTotals = useMemo(() => {
-    const totalCalories = loggedMeals.reduce((sum, meal) => sum + meal.calories, 0);
-    const totalCarbs = loggedMeals.reduce((sum, meal) => sum + meal.carbs, 0);
-    const totalProtein = loggedMeals.reduce((sum, meal) => sum + meal.protein, 0);
-    const totalFat = loggedMeals.reduce((sum, meal) => sum + meal.fat, 0);
-    
     return {
-      totalCalories,
-      totalCarbs,
-      totalProtein,
-      totalFat,
-      progress: (totalCalories / calorieGoal) * 100
+      totalCalories: dailyCalories,
+      totalCarbs: dailyMacros.carbs,
+      totalProtein: dailyMacros.protein,
+      totalFat: dailyMacros.fat,
+      progress: (dailyCalories / calorieGoal) * 100
     };
-  }, [loggedMeals, calorieGoal]);
+  }, [dailyCalories, dailyMacros, calorieGoal]);
 
   const { totalCalories, totalCarbs, totalProtein, totalFat, progress } = nutritionTotals;
 
   const handleAddMeal = useCallback(async (meal) => {
     try {
-      // Add meal to Supabase
-      const result = await mealService.addMeal({
+      // Add meal using context method (handles caching automatically)
+      const result = await addMeal({
         name: meal.name,
         calories: meal.calories,
         carbs: meal.carbs || Math.round(meal.calories * 0.5 / 4), // Default: 50% calories from carbs
         protein: meal.protein || Math.round(meal.calories * 0.25 / 4), // Default: 25% calories from protein
         fat: meal.fat || Math.round(meal.calories * 0.25 / 9), // Default: 25% calories from fat
+        fiber: meal.fiber || 0, // Extended nutrition
+        sugar: meal.sugar || 0, // Extended nutrition
+        sodium: meal.sodium || 0, // Extended nutrition
         method: meal.method || 'manual',
         imageUri: meal.imageUri,
         confidence: meal.confidence
       });
 
       if (result.success) {
-        // Format the meal for local state
-        const formattedMeal = {
-          id: result.meal.id,
-          name: result.meal.meal_name,
-          calories: result.meal.calories,
-          carbs: result.meal.carbs,
-          protein: result.meal.protein,
-          fat: result.meal.fat,
-          method: result.meal.meal_method,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          date: result.meal.meal_date,
-          imageUri: result.meal.image_uri,
-          confidence: result.meal.confidence_score
-        };
-
-        // Update local state
-        setLoggedMeals(prevMeals => [...prevMeals, formattedMeal]);
-        
-        // Update daily calories context
-        setDailyCalories(prevCalories => prevCalories + formattedMeal.calories);
-        
-        console.log('✅ Meal added successfully');
+        console.log('✅ Meal added successfully with extended nutrition');
+        // Context automatically updates dailyCalories, dailyMacros, dailyMicros, and todaysMeals
       } else {
         console.error('Failed to add meal:', result.error);
         Alert.alert('Error', 'Failed to save meal. Please try again.');
@@ -356,17 +521,41 @@ const NutritionScreen = () => {
       console.error('Error adding meal:', error);
       Alert.alert('Error', 'Failed to save meal. Please try again.');
     }
-  }, [setDailyCalories]);
+  }, [addMeal]);
 
   const handleCameraAnalysis = useCallback((predictions, imageUri) => {
     console.log('📱 Camera analysis result received:', predictions);
     
     if (predictions && predictions.length > 0) {
-      // Store predictions and image, then show selection card
-      setFoodPredictions(predictions);
-      setCapturedImage(imageUri);
-      setShowCameraModal(false); // Close camera
-      setShowPredictionCard(true); // Show prediction card
+      // Check if we should auto-select the highest confidence prediction
+      const shouldAutoSelect = checkForAutoSelection(predictions);
+      
+      if (shouldAutoSelect) {
+        // Auto-select the highest confidence prediction
+        const selectedFood = predictions[0]; // Predictions are sorted by confidence
+        const mealFromPrediction = {
+          name: selectedFood.name,
+          calories: selectedFood.calories,
+          carbs: selectedFood.carbs,
+          protein: selectedFood.protein,
+          fat: selectedFood.fat,
+          fiber: selectedFood.fiber || 0,
+          sugar: selectedFood.sugar || 0,
+          sodium: selectedFood.sodium || 0,
+          method: 'photo'
+        };
+        
+        handleAddMeal(mealFromPrediction);
+        setShowCameraModal(false);
+        
+        console.log(`✅ Auto-added: ${selectedFood.name} with ${Math.round(selectedFood.confidence * 100)}% confidence`);
+      } else {
+        // Show prediction card for user selection
+        setFoodPredictions(predictions);
+        setCapturedImage(imageUri);
+        setShowCameraModal(false);
+        setShowPredictionCard(true);
+      }
     } else {
       // Analysis failed, show error
       Alert.alert(
@@ -376,7 +565,7 @@ const NutritionScreen = () => {
       );
       setShowCameraModal(false);
     }
-  }, []);
+  }, [checkForAutoSelection, handleAddMeal]);
 
   const handleFoodSelection = useCallback((selectedFood) => {
     if (selectedFood === null) {
@@ -391,6 +580,9 @@ const NutritionScreen = () => {
         carbs: selectedFood.carbs,
         protein: selectedFood.protein,
         fat: selectedFood.fat,
+        fiber: selectedFood.fiber || 0,
+        sugar: selectedFood.sugar || 0,
+        sodium: selectedFood.sodium || 0,
         method: 'photo'
       };
       
@@ -411,6 +603,11 @@ const NutritionScreen = () => {
     setShowCameraModal(true); // Open camera modal
   }, []);
 
+  const openSearch = useCallback(() => {
+    setShowMealModal(false); // Close meal selection modal
+    setShowSearchModal(true); // Open search modal
+  }, []);
+
   const handleDeleteMeal = useCallback(async (mealId) => {
     Alert.alert(
       'Delete Meal',
@@ -425,24 +622,12 @@ const NutritionScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Delete from Supabase
-              const result = await mealService.deleteMeal(mealId);
+              // Delete using context method (handles caching automatically)
+              const result = await deleteMeal(mealId);
               
               if (result.success) {
-                // Update local state
-                setLoggedMeals(prevMeals => {
-                  const mealToDelete = prevMeals.find(meal => meal.id === mealId);
-                  const updatedMeals = prevMeals.filter(meal => meal.id !== mealId);
-                  
-                  // Update daily calories context
-                  if (mealToDelete) {
-                    setDailyCalories(prevCalories => prevCalories - mealToDelete.calories);
-                  }
-                  
-                  return updatedMeals;
-                });
-                
-                console.log('✅ Meal deleted from database and local state');
+                console.log('✅ Meal deleted successfully');
+                // Context automatically updates dailyCalories, dailyMacros, and todaysMeals
               } else {
                 console.error('Failed to delete meal:', result.error);
                 Alert.alert('Error', 'Failed to delete meal. Please try again.');
@@ -455,7 +640,7 @@ const NutritionScreen = () => {
         },
       ]
     );
-  }, [setDailyCalories]);
+  }, [deleteMeal]);
 
   // Modal close handlers
   const closeMealModal = useCallback(() => setShowMealModal(false), []);
@@ -483,18 +668,12 @@ const NutritionScreen = () => {
         <MacroBar label="Proteins" value={totalProtein} goal={proteinGoal} color="#B0E0E6" />
         <MacroBar label="Fats" value={totalFat} goal={fatGoal} color="#ADD8E6" />
         
-        {/* Daily Summary */}
-        <View style={stylesx.dailySummary}>
-          <Text style={stylesx.summaryTitle}>Today's Progress</Text>
-          <View style={stylesx.summaryRow}>
-            <Text style={stylesx.summaryText}>{totalCalories} of {calorieGoal} calories</Text>
-            <Text style={stylesx.summaryText}>
-              {loggedMeals.length === 0 ? 'No meals logged' : 
-               loggedMeals.length === 1 ? '1 meal logged' : 
-               `${loggedMeals.length} meals logged`}
-            </Text>
-          </View>
-        </View>
+        {/* Expandable Nutrition Details */}
+        <ExpandableNutritionDetails 
+          dailyMicros={dailyMicros}
+          isExpanded={isNutritionExpanded}
+          onToggle={() => setIsNutritionExpanded(!isNutritionExpanded)}
+        />
       </View>
 
       {/* Meal Logging Section */}
@@ -506,7 +685,7 @@ const NutritionScreen = () => {
         
         <MealAddButton onPress={() => setShowMealModal(true)} />
         
-        {isLoading ? (
+        {mealsLoading ? (
           <View style={stylesx.emptyStateContainer}>
             <View style={stylesx.emptyStateIcon}>
               <Ionicons name="restaurant-outline" size={48} color="#C7C7CC" />
@@ -516,12 +695,12 @@ const NutritionScreen = () => {
               Please wait while we fetch your nutrition data
             </Text>
           </View>
-        ) : loggedMeals.length > 0 ? (
+        ) : todaysMeals.length > 0 ? (
           <View style={{ marginTop: spacing.md }}>
             <View style={stylesx.mealsHeader}>
               <Text style={stylesx.mealsHeaderText}>Logged Today</Text>
             </View>
-            {loggedMeals.map((meal) => (
+            {todaysMeals.map((meal) => (
               <View key={meal.id} style={stylesx.loggedMealRow}>
                 <View style={stylesx.mealLeft}>
                   <View style={[stylesx.mealMethodIcon, { backgroundColor: getMealMethodColor(meal.method) }]}>
@@ -529,7 +708,9 @@ const NutritionScreen = () => {
                   </View>
                   <View style={stylesx.mealTextContainer}>
                     <View style={stylesx.mealTitleRow}>
-                      <Text style={stylesx.loggedMealName}>{meal.name}</Text>
+                      <Text style={stylesx.loggedMealName} numberOfLines={2} ellipsizeMode="tail">
+                        {meal.name}
+                      </Text>
                       <TouchableOpacity 
                         style={stylesx.deleteButton}
                         onPress={() => handleDeleteMeal(meal.id)}
@@ -580,13 +761,14 @@ const NutritionScreen = () => {
         onClose={closeMealModal}
         onAddMeal={handleAddMeal}
         onOpenCamera={openCamera}
+        onOpenSearch={openSearch}
       />
 
       {/* Recently Logged */}
       <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={{ fontSize: fonts.large, fontWeight: '700', color: '#1D1D1F' }}>Meal History</Text>
-          <TouchableOpacity><Text style={{ color: '#8E8E93', fontWeight: '600' }}>View All</Text></TouchableOpacity>
+          
         </View>
       </View>
     </ScrollView>
@@ -613,6 +795,13 @@ const NutritionScreen = () => {
       imageUri={capturedImage}
       onSelectFood={handleFoodSelection}
       onClose={closePredictionCard}
+    />
+
+    {/* Food Search Modal */}
+    <FoodSearchModal
+      visible={showSearchModal}
+      onClose={() => setShowSearchModal(false)}
+      onAddMeal={handleAddMeal}
     />
     </>
   );
@@ -651,29 +840,6 @@ const stylesx = StyleSheet.create({
   },
   heroLabel: { fontSize: fonts.regular, color: '#8E8E93', fontWeight: '600' },
   heroPercent: { fontSize: fonts.hero, fontWeight: '800', color: '#1D1D1F' },
-  dailySummary: {
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-  },
-  summaryTitle: {
-    fontSize: fonts.small,
-    fontWeight: '600',
-    color: '#8E8E93',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: spacing.xs,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  summaryText: {
-    fontSize: fonts.medium,
-    color: '#1D1D1F',
-    fontWeight: '500',
-  },
   card: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: spacing.md,
@@ -687,13 +853,15 @@ const stylesx = StyleSheet.create({
   mealTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 2,
   },
   deleteButton: {
     padding: 2,
     borderRadius: 12,
     backgroundColor: '#FFF5F5',
+    marginLeft: spacing.sm,
+    flexShrink: 0, // Prevent shrinking
   },
   mealIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F8F9FA', alignItems: 'center', justifyContent: 'center', marginRight: spacing.md },
   mealTitle: { fontSize: fonts.large, fontWeight: '700', color: '#1D1D1F' },
@@ -759,6 +927,8 @@ const stylesx = StyleSheet.create({
     fontWeight: '600', 
     color: '#1D1D1F',
     marginBottom: 2,
+    flex: 1, // Allow text to take available space
+    marginRight: spacing.xs, // Small gap from delete button
   },
   loggedMealTime: { 
     fontSize: fonts.small, 
@@ -833,6 +1003,10 @@ const stylesx = StyleSheet.create({
   backText: { fontSize: fonts.medium, color: '#4682B4', marginLeft: spacing.xs },
   inputContainer: { marginBottom: spacing.md },
   inputLabel: { fontSize: fonts.medium, fontWeight: '600', color: '#1D1D1F', marginBottom: spacing.xs },
+  macroInputRow: {
+    flexDirection: 'row',
+    marginBottom: spacing.sm,
+  },
   textInput: {
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
@@ -877,6 +1051,26 @@ const stylesx = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: spacing.md,
+  },
+  // New styles for expandable nutrition
+  expandableToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 8,
+    marginBottom: spacing.xs,
+  },
+  expandableToggleText: {
+    fontSize: fonts.medium,
+    fontWeight: '500',
+    color: '#4682B4',
+  },
+  expandableContent: {
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.xs,
   },
 });
 

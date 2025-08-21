@@ -1,10 +1,8 @@
 import 'react-native-reanimated';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Alert, Linking, View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { AnimatePresence, MotiView } from 'moti';
-import { Easing } from 'react-native-reanimated';
 import { authService } from './authService';
 import { socialAuthService } from './socialAuthService';
 import { biometricService } from './biometricService';
@@ -513,11 +511,6 @@ function AppContent() {
     return 'None';
   }, [showLanding, showLogin, showSignUp, showOnboarding, isAuthenticated, user, authLoading, loading]);
 
-  const routeOrder = { Landing: 0, Login: 1, SignUp: 2, Onboarding: 3, Authenticated: 4, None: -1 };
-  const prevIndexRef = useRef(routeOrder[route]);
-  const direction = routeOrder[route] >= (prevIndexRef.current ?? 0) ? 1 : -1;
-  useEffect(() => { prevIndexRef.current = routeOrder[route]; }, [route]);
-
   const renderAuthenticatedScreen = () => {
     const commonProps = {
       user,
@@ -624,30 +617,10 @@ function AppContent() {
     return <LoadingScreen styles={styles} message={message} />;
   }
 
-  // Animated page transitions
+  // Simple page transitions without animation
   return (
-    <View style={{ flex: 1, overflow: 'hidden' }}>
-      <AnimatePresence exitBeforeEnter initial={false}>
-        {route !== 'None' && (
-          <MotiView
-            key={route}
-            from={{ transform: [{ translateX: 32 * direction }] }}
-            animate={{ transform: [{ translateX: 0 }] }}
-            exit={{ transform: [{ translateX: -32 * direction }] }}
-            transition={{
-              type: 'timing',
-              duration: 360,
-              easing: Easing.bezier(0.2, 0.0, 0.0, 1)
-            }}
-            style={[
-              StyleSheet.absoluteFill,
-              { renderToHardwareTextureAndroid: true, shouldRasterizeIOS: true }
-            ]}
-          >
-            {renderRoute()}
-          </MotiView>
-        )}
-      </AnimatePresence>
+    <View style={{ flex: 1 }}>
+      {route !== 'None' && renderRoute()}
     </View>
   );
 }
@@ -655,14 +628,14 @@ function AppContent() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <DailyCaloriesProvider>
-        <AppProvider>
+      <AppProvider>
+        <DailyCaloriesProvider>
           <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
             <AppContent />
             <StatusBar style="auto" />
           </SafeAreaView>
-        </AppProvider>
-      </DailyCaloriesProvider>
+        </DailyCaloriesProvider>
+      </AppProvider>
     </SafeAreaProvider>
   );
 }
