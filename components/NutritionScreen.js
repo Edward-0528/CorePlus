@@ -8,7 +8,9 @@ import { useMealManager } from '../hooks/useMealManager';
 import { formatTo12Hour } from '../utils/timeUtils';
 import FoodCameraScreen from './FoodCameraScreen';
 import FoodPredictionCard from './FoodPredictionCard';
+import MultiFoodSelectionCard from './MultiFoodSelectionCard';
 import FoodSearchModal from './FoodSearchModal';
+import { generateElegantMealTitle, generateCompactFoodsList } from '../utils/mealTitleGenerator';
 
 const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250, goal = 2000 }) => {
   const radius = (size - stroke) / 2;
@@ -471,6 +473,7 @@ const NutritionScreen = () => {
   const [showMealModal, setShowMealModal] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [showPredictionCard, setShowPredictionCard] = useState(false);
+  const [showMultiSelectionCard, setShowMultiSelectionCard] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [foodPredictions, setFoodPredictions] = useState([]);
   const [capturedImage, setCapturedImage] = useState(null);
@@ -527,35 +530,13 @@ const NutritionScreen = () => {
     console.log('📱 Camera analysis result received:', predictions);
     
     if (predictions && predictions.length > 0) {
-      // Check if we should auto-select the highest confidence prediction
-      const shouldAutoSelect = checkForAutoSelection(predictions);
+      // Always show multi-selection interface instead of auto-selecting
+      setFoodPredictions(predictions);
+      setCapturedImage(imageUri);
+      setShowCameraModal(false);
+      setShowMultiSelectionCard(true);
       
-      if (shouldAutoSelect) {
-        // Auto-select the highest confidence prediction
-        const selectedFood = predictions[0]; // Predictions are sorted by confidence
-        const mealFromPrediction = {
-          name: selectedFood.name,
-          calories: selectedFood.calories,
-          carbs: selectedFood.carbs,
-          protein: selectedFood.protein,
-          fat: selectedFood.fat,
-          fiber: selectedFood.fiber || 0,
-          sugar: selectedFood.sugar || 0,
-          sodium: selectedFood.sodium || 0,
-          method: 'photo'
-        };
-        
-        handleAddMeal(mealFromPrediction);
-        setShowCameraModal(false);
-        
-        console.log(`✅ Auto-added: ${selectedFood.name} with ${Math.round(selectedFood.confidence * 100)}% confidence`);
-      } else {
-        // Show prediction card for user selection
-        setFoodPredictions(predictions);
-        setCapturedImage(imageUri);
-        setShowCameraModal(false);
-        setShowPredictionCard(true);
-      }
+      console.log(`📋 Showing ${predictions.length} food options for multi-selection`);
     } else {
       // Analysis failed, show error
       Alert.alert(
@@ -565,7 +546,7 @@ const NutritionScreen = () => {
       );
       setShowCameraModal(false);
     }
-  }, [checkForAutoSelection, handleAddMeal]);
+  }, []);
 
   const handleFoodSelection = useCallback((selectedFood) => {
     if (selectedFood === null) {
@@ -595,6 +576,76 @@ const NutritionScreen = () => {
         `${selectedFood.name} has been added to your daily log.`,
         [{ text: 'OK' }]
       );
+    }
+  }, [handleAddMeal]);
+
+  const handleMultipleFoodSelection = useCallback(async (selectedFoods) => {
+    if (selectedFoods === null) {
+      // User chose manual entry
+      setShowMultiSelectionCard(false);
+      setShowMealModal(true); // Show manual entry modal
+    } else if (selectedFoods && selectedFoods.length > 0) {
+      // User selected multiple predictions - combine into a single elegant meal
+      try {
+        if (selectedFoods.length === 1) {
+          // Single food - add as-is
+          const mealFromPrediction = {
+            name: selectedFoods[0].name,
+            calories: selectedFoods[0].calories,
+            carbs: selectedFoods[0].carbs,
+            protein: selectedFoods[0].protein,
+            fat: selectedFoods[0].fat,
+            fiber: selectedFoods[0].fiber || 0,
+            sugar: selectedFoods[0].sugar || 0,
+            sodium: selectedFoods[0].sodium || 0,
+            method: 'photo'
+          };
+          
+          await handleAddMeal(mealFromPrediction);
+        } else {
+          // Multiple foods - combine into one elegant meal
+          const elegantTitle = generateElegantMealTitle(selectedFoods);
+          const compactDescription = generateCompactFoodsList(selectedFoods);
+          
+          const totalCalories = selectedFoods.reduce((sum, food) => sum + food.calories, 0);
+          const totalCarbs = selectedFoods.reduce((sum, food) => sum + food.carbs, 0);
+          const totalProtein = selectedFoods.reduce((sum, food) => sum + food.protein, 0);
+          const totalFat = selectedFoods.reduce((sum, food) => sum + food.fat, 0);
+          const totalFiber = selectedFoods.reduce((sum, food) => sum + (food.fiber || 0), 0);
+          const totalSugar = selectedFoods.reduce((sum, food) => sum + (food.sugar || 0), 0);
+          const totalSodium = selectedFoods.reduce((sum, food) => sum + (food.sodium || 0), 0);
+          
+          const combinedMeal = {
+            name: elegantTitle,
+            calories: Math.round(totalCalories),
+            carbs: Math.round(totalCarbs),
+            protein: Math.round(totalProtein),
+            fat: Math.round(totalFat),
+            fiber: Math.round(totalFiber),
+            sugar: Math.round(totalSugar),
+            sodium: Math.round(totalSodium),
+            method: 'photo',
+            description: compactDescription // Store the detailed component list
+          };
+          
+          await handleAddMeal(combinedMeal);
+        }
+        
+        setShowMultiSelectionCard(false);
+        
+        // Show success message
+        const totalCalories = selectedFoods.reduce((sum, food) => sum + food.calories, 0);
+        const successTitle = selectedFoods.length === 1 ? selectedFoods[0].name : generateElegantMealTitle(selectedFoods);
+        
+        Alert.alert(
+          'Meal Added!',
+          `${successTitle} (${Math.round(totalCalories)} calories) has been added to your daily log.`,
+          [{ text: 'OK' }]
+        );
+      } catch (error) {
+        console.error('Error adding meal:', error);
+        Alert.alert('Error', 'Failed to save meal. Please try again.');
+      }
     }
   }, [handleAddMeal]);
 
@@ -795,6 +846,15 @@ const NutritionScreen = () => {
       imageUri={capturedImage}
       onSelectFood={handleFoodSelection}
       onClose={closePredictionCard}
+    />
+
+    {/* Multi Food Selection Card */}
+    <MultiFoodSelectionCard
+      visible={showMultiSelectionCard}
+      predictions={foodPredictions}
+      imageUri={capturedImage}
+      onSelectFoods={handleMultipleFoodSelection}
+      onClose={() => setShowMultiSelectionCard(false)}
     />
 
     {/* Food Search Modal */}

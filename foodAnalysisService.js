@@ -600,11 +600,13 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
     }
 
     // Process each detected food with smart portion estimation
-    const topFoods = detectedFoods.slice(0, 8); // Consider more detections
+    const topFoods = detectedFoods.slice(0, 15); // Consider more detections
+    const highConfidenceFoods = topFoods.filter(food => food.confidence > 0.4); // Only include foods with >40% confidence
     
-    topFoods.forEach((food, index) => {
-      if (predictions.length < 3) {
-        // Check if food has direct nutrition data from Gemini
+    console.log(`🎯 Processing ${highConfidenceFoods.length} high confidence foods (>40%) out of ${topFoods.length} total detections`);
+    
+    highConfidenceFoods.forEach((food, index) => {
+      // Check if food has direct nutrition data from Gemini
         if (food.nutrition && food.nutrition.calories > 0) {
           // Use Gemini's nutritional analysis directly
           predictions.push({
@@ -662,19 +664,7 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
             });
           }
         }
-      }
     });
-
-    // If we still need more predictions, create intelligent variations
-    while (predictions.length < 3 && predictions.length > 0) {
-      const basePrediction = predictions[0];
-      const variation = this.createIntelligentVariation(basePrediction, predictions.length);
-      if (variation) {
-        predictions.push(variation);
-      } else {
-        break;
-      }
-    }
 
     // If still no predictions, use fallbacks
     if (predictions.length === 0) {
