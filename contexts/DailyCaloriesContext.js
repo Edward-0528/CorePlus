@@ -13,14 +13,49 @@ export const DailyCaloriesProvider = ({ children }) => {
   const [todaysMeals, setTodaysMeals] = useState([]);
   const [mealsLoading, setMealsLoading] = useState(false);
   const [lastCacheUpdate, setLastCacheUpdate] = useState(null);
+  const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Cache keys
-  const TODAY_MEALS_KEY = `meals_${new Date().toISOString().split('T')[0]}`;
+  // Generate cache key based on current date
+  const getTodayMealsKey = () => `meals_${currentDate}`;
   const LAST_CACHE_KEY = 'last_meal_cache_update';
 
-  // Load cached meals only when user is authenticated
+  // Check for date changes every minute and on authentication change
+  useEffect(() => {
+    const checkDateChange = () => {
+      const today = new Date().toISOString().split('T')[0];
+      if (today !== currentDate) {
+        console.log('🕛 Date changed! Moving to new day:', today);
+        console.log('Previous date:', currentDate);
+        console.log('New date:', today);
+        
+        // Update current date state
+        setCurrentDate(today);
+        
+        // Reset today's meals for the new day
+        console.log('🔄 Resetting meals for new day');
+        setTodaysMeals([]);
+        setDailyCalories(0);
+        setDailyMacros({ carbs: 0, protein: 0, fat: 0 });
+        setDailyMicros({ fiber: 0, sugar: 0, sodium: 0 });
+      }
+    };
+
+    // Check immediately when component mounts or auth state changes
+    checkDateChange();
+    
+    // Set up interval to check every 30 seconds (more frequent for testing)
+    const interval = setInterval(checkDateChange, 30000);
+    
+    return () => clearInterval(interval);
+  }, [currentDate, isAuthenticated]);
+
+  // Cache keys
+  const TODAY_MEALS_KEY = getTodayMealsKey();
+
+  // Load meals when date changes or authentication status changes
   useEffect(() => {
     if (isAuthenticated) {
+      console.log('📅 Loading meals for date:', currentDate);
       loadCachedMeals();
     } else {
       // Clear meals when user is not authenticated
@@ -29,7 +64,7 @@ export const DailyCaloriesProvider = ({ children }) => {
       setDailyMacros({ carbs: 0, protein: 0, fat: 0 });
       setDailyMicros({ fiber: 0, sugar: 0, sodium: 0 });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentDate]);
 
   const loadCachedMeals = async () => {
     // Don't try to load if user is not authenticated
@@ -42,7 +77,8 @@ export const DailyCaloriesProvider = ({ children }) => {
       setMealsLoading(true);
       
       // Try to load from cache first
-      const cachedMeals = await AsyncStorage.getItem(TODAY_MEALS_KEY);
+      const todayKey = getTodayMealsKey();
+      const cachedMeals = await AsyncStorage.getItem(todayKey);
       const cachedUpdateTime = await AsyncStorage.getItem(LAST_CACHE_KEY);
       
       if (cachedMeals) {
@@ -86,7 +122,8 @@ export const DailyCaloriesProvider = ({ children }) => {
         updateMealState(meals);
         
         // Cache the fresh data
-        await AsyncStorage.setItem(TODAY_MEALS_KEY, JSON.stringify(meals));
+        const todayKey = getTodayMealsKey();
+        await AsyncStorage.setItem(todayKey, JSON.stringify(meals));
         await AsyncStorage.setItem(LAST_CACHE_KEY, Date.now().toString());
         setLastCacheUpdate(Date.now().toString());
         
@@ -105,7 +142,16 @@ export const DailyCaloriesProvider = ({ children }) => {
   const updateMealState = (meals) => {
     // Format meals to match UI expectations
     const formattedMeals = meals.map(meal => {
-      const formattedTime = meal.meal_time ? formatMealTime(meal.meal_time) : 'No time recorded';
+      // Handle both raw database meals (meal_time) and already formatted meals (time)
+      let formattedTime;
+      
+      if (meal.time && !meal.meal_time) {
+        // This is an already formatted meal, preserve its time
+        formattedTime = meal.time;
+      } else {
+        // This is a raw meal from database, format it
+        formattedTime = meal.meal_time ? formatMealTime(meal.meal_time) : 'Unknown';
+      }
       
       return {
         id: meal.id,
@@ -118,7 +164,7 @@ export const DailyCaloriesProvider = ({ children }) => {
         sugar: meal.sugar || 0,
         sodium: meal.sodium || 0,
         method: meal.meal_method || meal.method,
-        // Use actual meal time from database, don't fall back to current time
+        // Use preserved or formatted time
         time: formattedTime,
         date: meal.meal_date || meal.date,
         imageUri: meal.image_uri || meal.imageUri,
@@ -146,8 +192,12 @@ export const DailyCaloriesProvider = ({ children }) => {
   const formatMealTime = (timeValue) => {
     try {
       if (!timeValue) {
-        console.warn('No time value provided for meal');
-        return 'No time';
+        return 'Unknown';
+      }
+      
+      // If it's already a formatted time string (HH:MM), return it
+      if (typeof timeValue === 'string' && /^\d{1,2}:\d{2}/.test(timeValue)) {
+        return timeValue;
       }
       
       // If timeValue is in HH:mm:ss format (string from database)
@@ -163,14 +213,13 @@ export const DailyCaloriesProvider = ({ children }) => {
       // If timeValue is a full date string
       const date = new Date(timeValue);
       if (isNaN(date.getTime())) {
-        console.warn('Invalid date format for meal time:', timeValue);
-        return 'Invalid time';
+        return 'Unknown';
       }
       
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch (error) {
       console.warn('Error formatting meal time:', error, 'timeValue:', timeValue);
-      return 'Error parsing time';
+      return 'Unknown';
     }
   };
 
@@ -199,6 +248,15 @@ export const DailyCaloriesProvider = ({ children }) => {
     }
   };
 
+  // Debug function to manually trigger date change (for testing)
+  const debugChangeDayForTesting = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    console.log('🧪 DEBUG: Manually changing date to:', tomorrowStr);
+    setCurrentDate(tomorrowStr);
+  };
+
   const deleteMeal = async (mealId) => {
     // Check authentication before attempting to delete meal
     if (!isAuthenticated) {
@@ -215,7 +273,8 @@ export const DailyCaloriesProvider = ({ children }) => {
         updateMealState(updatedMeals);
         
         // Update cache
-        await AsyncStorage.setItem(TODAY_MEALS_KEY, JSON.stringify(updatedMeals));
+        const todayKey = getTodayMealsKey();
+        await AsyncStorage.setItem(todayKey, JSON.stringify(updatedMeals));
         await AsyncStorage.setItem(LAST_CACHE_KEY, Date.now().toString());
         
         return { success: true };
@@ -230,7 +289,8 @@ export const DailyCaloriesProvider = ({ children }) => {
 
   const clearCache = async () => {
     try {
-      await AsyncStorage.removeItem(TODAY_MEALS_KEY);
+      const todayKey = getTodayMealsKey();
+      await AsyncStorage.removeItem(todayKey);
       await AsyncStorage.removeItem(LAST_CACHE_KEY);
       setTodaysMeals([]);
       setDailyCalories(0);
@@ -257,7 +317,8 @@ export const DailyCaloriesProvider = ({ children }) => {
     deleteMeal,
     refreshMealsFromServer,
     clearCache,
-    loadCachedMeals
+    loadCachedMeals,
+    debugChangeDayForTesting
   };
 
   return (

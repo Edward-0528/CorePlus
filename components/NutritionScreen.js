@@ -10,6 +10,8 @@ import FoodCameraScreen from './FoodCameraScreen';
 import FoodPredictionCard from './FoodPredictionCard';
 import MultiFoodSelectionCard from './MultiFoodSelectionCard';
 import FoodSearchModal from './FoodSearchModal';
+import MealHistorySection from './MealHistorySection';
+import TodaysMealsSection from './TodaysMealsSection';
 import { generateElegantMealTitle, generateCompactFoodsList } from '../utils/mealTitleGenerator';
 
 const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250, goal = 2000 }) => {
@@ -74,15 +76,9 @@ const MacroBar = ({ label, value, goal, color = '#ADD8E6', unit = 'g' }) => {
 };
 
 const MealAddButton = ({ onPress }) => (
-  <TouchableOpacity style={stylesx.addMealButton} onPress={onPress}>
-    <View style={stylesx.addMealIcon}>
-      <Ionicons name="add" size={24} color="#4682B4" />
-    </View>
-    <View style={stylesx.addMealTextContainer}>
-      <Text style={stylesx.addMealTitle}>Log a Meal</Text>
-      <Text style={stylesx.addMealSubtitle}>Photo, search, or manual entry</Text>
-    </View>
-    <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+  <TouchableOpacity style={stylesx.addMealButton} onPress={onPress} activeOpacity={0.8}>
+    <Ionicons name="add-outline" size={20} color="#6B7280" />
+    <Text style={stylesx.addMealTitle}>Add Meal</Text>
   </TouchableOpacity>
 );
 
@@ -103,7 +99,7 @@ const ExpandableNutritionDetails = ({ dailyMicros, isExpanded, onToggle }) => {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Ionicons 
-            name="nutrition" 
+            name="bar-chart-outline" 
             size={16} 
             color="#4682B4" 
             style={{ marginRight: spacing.xs }} 
@@ -113,7 +109,7 @@ const ExpandableNutritionDetails = ({ dailyMicros, isExpanded, onToggle }) => {
           </Text>
         </View>
         <Ionicons 
-          name={isExpanded ? "chevron-up" : "chevron-down"} 
+          name={isExpanded ? "chevron-up-outline" : "chevron-down-outline"} 
           size={16} 
           color="#8E8E93" 
         />
@@ -179,28 +175,28 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera, onOpenSearc
       id: 'photo',
       title: 'Take Photo',
       subtitle: 'Capture your meal',
-      icon: 'camera',
+      icon: 'camera-outline',
       color: '#FF6B6B'
     },
     {
       id: 'search',
       title: 'Search Food',
       subtitle: 'Find from database',
-      icon: 'search',
+      icon: 'search-outline',
       color: '#4A90E2'
     },
     {
       id: 'barcode',
       title: 'Scan Barcode',
       subtitle: 'Quick product scan',
-      icon: 'barcode',
+      icon: 'barcode-outline',
       color: '#FF9500'
     },
     {
       id: 'manual',
       title: 'Manual Entry',
       subtitle: 'Add calories directly',
-      icon: 'create',
+      icon: 'create-outline',
       color: '#34C759'
     }
   ];
@@ -214,32 +210,37 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera, onOpenSearc
     } else if (method.id === 'search') {
       // Open food search modal
       onOpenSearch();
-    } else if (method.id === 'manual') {
-      // Keep modal open for manual entry
-    } else {
-      // For other methods, show placeholder alert
+    } else if (method.id === 'barcode') {
+      // For now, show manual entry form with barcode context
+      // In the future, this could integrate with expo-barcode-scanner
       Alert.alert(
-        method.title,
-        `${method.subtitle} feature coming soon!`,
+        'Barcode Scanner',
+        'Please enter the product information manually for now. Barcode scanning feature will be added soon.',
         [{ text: 'OK' }]
       );
+    } else if (method.id === 'manual') {
+      // Keep modal open for manual entry
     }
   };
 
   const handleAddMeal = () => {
     if (mealName.trim() && calories.trim()) {
+      const caloriesValue = parseInt(calories) || 0;
+      
       onAddMeal({
         name: mealName,
-        calories: parseInt(calories) || 0,
-        carbs: parseFloat(carbs) || Math.round((parseInt(calories) || 0) * 0.5 / 4),
-        protein: parseFloat(protein) || Math.round((parseInt(calories) || 0) * 0.25 / 4),
-        fat: parseFloat(fat) || Math.round((parseInt(calories) || 0) * 0.25 / 9),
+        calories: caloriesValue,
+        carbs: parseFloat(carbs) || Math.round(caloriesValue * 0.5 / 4), // Default 50% carbs if not specified
+        protein: parseFloat(protein) || Math.round(caloriesValue * 0.25 / 4), // Default 25% protein if not specified
+        fat: parseFloat(fat) || Math.round(caloriesValue * 0.25 / 9), // Default 25% fat if not specified
         fiber: parseFloat(fiber) || 0,
         sugar: parseFloat(sugar) || 0,
         sodium: parseFloat(sodium) || 0,
         method: selectedMethod?.id || 'manual',
         timestamp: new Date().toISOString()
       });
+      
+      // Reset form
       setMealName('');
       setCalories('');
       setCarbs('');
@@ -251,48 +252,51 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera, onOpenSearc
       setSelectedMethod(null);
       onClose();
     } else {
-      Alert.alert('Missing Information', 'Please enter both meal name and calories.');
+      Alert.alert(
+        'Missing Information', 
+        selectedMethod?.id === 'barcode' 
+          ? 'Please enter both product name and calories.' 
+          : 'Please enter both meal name and calories.'
+      );
     }
   };
 
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
+      transparent
+      animationType="fade"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={stylesx.modalContainer}>
-        <View style={stylesx.modalHeader}>
-          <TouchableOpacity onPress={onClose}>
-            <Text style={stylesx.modalCancel}>Cancel</Text>
-          </TouchableOpacity>
-          <Text style={stylesx.modalTitle}>Add Meal</Text>
-          <View style={{ width: 50 }} />
-        </View>
+      <View style={stylesx.modalOverlay}>
+        <View style={stylesx.modalContainer}>
+          <View style={stylesx.modalHeader}>
+            <Text style={stylesx.modalTitle}>Add Meal</Text>
+          </View>
 
-        <ScrollView style={stylesx.modalContent}>
-          {!selectedMethod ? (
-            // Method Selection
-            <View>
-              <Text style={stylesx.sectionTitle}>How would you like to log this meal?</Text>
-              {entryMethods.map((method) => (
-                <TouchableOpacity
-                  key={method.id}
-                  style={stylesx.methodButton}
-                  onPress={() => handleMethodSelect(method)}
-                >
-                  <View style={[stylesx.methodIcon, { backgroundColor: `${method.color}20` }]}>
-                    <Ionicons name={method.icon} size={24} color={method.color} />
+          <ScrollView style={stylesx.modalContent} showsVerticalScrollIndicator={false}>
+            {!selectedMethod ? (
+              // Method Selection
+              <View style={stylesx.methodsList}>
+                {entryMethods.map((method, index) => (
+                  <View key={method.id}>
+                    <TouchableOpacity
+                      style={stylesx.methodButton}
+                      onPress={() => handleMethodSelect(method)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[stylesx.methodIcon, { backgroundColor: `${method.color}20` }]}>
+                        <Ionicons name={method.icon} size={24} color={method.color} />
+                      </View>
+                      <View style={stylesx.methodTextContainer}>
+                        <Text style={stylesx.methodTitle}>{method.title}</Text>
+                        <Text style={stylesx.methodSubtitle}>{method.subtitle}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    {index < entryMethods.length - 1 && <View style={stylesx.methodDivider} />}
                   </View>
-                  <View style={stylesx.methodTextContainer}>
-                    <Text style={stylesx.methodTitle}>{method.title}</Text>
-                    <Text style={stylesx.methodSubtitle}>{method.subtitle}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
-                </TouchableOpacity>
-              ))}
-            </View>
+                ))}
+              </View>
           ) : (
             // Manual Entry Form (for demonstration)
             <View>
@@ -300,25 +304,37 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera, onOpenSearc
                 style={stylesx.backButton} 
                 onPress={() => setSelectedMethod(null)}
               >
-                <Ionicons name="chevron-back" size={20} color="#4682B4" />
+                <Ionicons name="arrow-back-outline" size={20} color="#4682B4" />
                 <Text style={stylesx.backText}>Back to methods</Text>
               </TouchableOpacity>
 
-              <Text style={stylesx.sectionTitle}>Manual Entry</Text>
+              <Text style={stylesx.sectionTitle}>
+                {selectedMethod?.id === 'barcode' ? 'Product Entry' : 'Manual Entry'}
+              </Text>
+              
+              {selectedMethod?.id === 'barcode' && (
+                <View style={stylesx.instructionContainer}>
+                  <Text style={stylesx.instructionText}>
+                    Enter the product information from the nutrition label
+                  </Text>
+                </View>
+              )}
               
               <View style={stylesx.inputContainer}>
-                <Text style={stylesx.inputLabel}>Meal Name</Text>
+                <Text style={stylesx.inputLabel}>
+                  {selectedMethod?.id === 'barcode' ? 'Product Name' : 'Meal Name'}
+                </Text>
                 <TextInput
                   style={stylesx.textInput}
                   value={mealName}
                   onChangeText={setMealName}
-                  placeholder="e.g., Grilled Chicken Salad"
+                  placeholder={selectedMethod?.id === 'barcode' ? "e.g., Protein Bar - Chocolate" : "e.g., Grilled Chicken Salad"}
                   placeholderTextColor="#8E8E93"
                 />
               </View>
 
               <View style={stylesx.inputContainer}>
-                <Text style={stylesx.inputLabel}>Calories</Text>
+                <Text style={stylesx.inputLabel}>Calories (per serving)</Text>
                 <TextInput
                   style={stylesx.textInput}
                   value={calories}
@@ -329,7 +345,8 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera, onOpenSearc
                 />
               </View>
 
-              {/* Basic Macros */}
+              {/* Macronutrients Section */}
+              <Text style={stylesx.sectionSubtitle}>Macronutrients</Text>
               <View style={stylesx.macroInputRow}>
                 <View style={[stylesx.inputContainer, { flex: 1, marginRight: spacing.sm }]}>
                   <Text style={stylesx.inputLabel}>Carbs (g)</Text>
@@ -337,7 +354,7 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera, onOpenSearc
                     style={stylesx.textInput}
                     value={carbs}
                     onChangeText={setCarbs}
-                    placeholder="Auto"
+                    placeholder="0"
                     placeholderTextColor="#8E8E93"
                     keyboardType="numeric"
                   />
@@ -348,7 +365,7 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera, onOpenSearc
                     style={stylesx.textInput}
                     value={protein}
                     onChangeText={setProtein}
-                    placeholder="Auto"
+                    placeholder="0"
                     placeholderTextColor="#8E8E93"
                     keyboardType="numeric"
                   />
@@ -359,14 +376,15 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera, onOpenSearc
                     style={stylesx.textInput}
                     value={fat}
                     onChangeText={setFat}
-                    placeholder="Auto"
+                    placeholder="0"
                     placeholderTextColor="#8E8E93"
                     keyboardType="numeric"
                   />
                 </View>
               </View>
 
-              {/* Extended Nutrition */}
+              {/* Additional Nutrients Section */}
+              <Text style={stylesx.sectionSubtitle}>Additional Information (Optional)</Text>
               <View style={stylesx.macroInputRow}>
                 <View style={[stylesx.inputContainer, { flex: 1, marginRight: spacing.sm }]}>
                   <Text style={stylesx.inputLabel}>Fiber (g)</Text>
@@ -409,7 +427,13 @@ const MealEntryModal = ({ visible, onClose, onAddMeal, onOpenCamera, onOpenSearc
             </View>
           )}
         </ScrollView>
-      </SafeAreaView>
+        
+        {/* Close Button */}
+        <TouchableOpacity style={stylesx.modalCloseButton} onPress={onClose}>
+          <Text style={stylesx.modalCloseText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+      </View>
     </Modal>
   );
 };
@@ -423,13 +447,15 @@ const NutritionScreen = () => {
     todaysMeals, 
     mealsLoading,
     addMeal,
-    deleteMeal 
+    deleteMeal,
+    debugChangeDayForTesting 
   } = useDailyCalories();
   
   const mealManager = useMealManager();
   
   // State for UI controls
   const [isNutritionExpanded, setIsNutritionExpanded] = useState(false);
+  const [todaysMealCount, setTodaysMealCount] = useState(0);
   
   // Goals
   const calorieGoal = 2000;
@@ -693,6 +719,30 @@ const NutritionScreen = () => {
     );
   }, [deleteMeal]);
 
+  // Direct delete function without confirmation (for when confirmation is already handled)
+  const handleDirectDeleteMeal = useCallback(async (mealId) => {
+    try {
+      // Delete using context method (handles caching automatically)
+      const result = await deleteMeal(mealId);
+      
+      if (result.success) {
+        console.log('✅ Meal deleted successfully');
+        // Context automatically updates dailyCalories, dailyMacros, and todaysMeals
+      } else {
+        console.error('Failed to delete meal:', result.error);
+        Alert.alert('Error', 'Failed to delete meal. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deleting meal:', error);
+      Alert.alert('Error', 'Failed to delete meal. Please try again.');
+    }
+  }, [deleteMeal]);
+
+  // Handle meal count changes from TodaysMealsSection
+  const handleMealCountChange = useCallback((count) => {
+    setTodaysMealCount(count);
+  }, []);
+
   // Modal close handlers
   const closeMealModal = useCallback(() => setShowMealModal(false), []);
   const closeCameraModal = useCallback(() => setShowCameraModal(false), []);
@@ -730,81 +780,29 @@ const NutritionScreen = () => {
       {/* Meal Logging Section */}
       <View style={stylesx.card}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-          <Ionicons name="restaurant" size={18} color="#4682B4" />
+          <Ionicons name="restaurant-outline" size={18} color="#4682B4" />
           <Text style={stylesx.sectionHeader}>Today's Meals</Text>
         </View>
         
-        <MealAddButton onPress={() => setShowMealModal(true)} />
-        
-        {mealsLoading ? (
-          <View style={stylesx.emptyStateContainer}>
-            <View style={stylesx.emptyStateIcon}>
-              <Ionicons name="restaurant-outline" size={48} color="#C7C7CC" />
-            </View>
-            <Text style={stylesx.emptyStateTitle}>Loading your meals...</Text>
-            <Text style={stylesx.emptyStateSubtitle}>
-              Please wait while we fetch your nutrition data
-            </Text>
-          </View>
-        ) : todaysMeals.length > 0 ? (
-          <View style={{ marginTop: spacing.md }}>
-            <View style={stylesx.mealsHeader}>
-              <Text style={stylesx.mealsHeaderText}>Logged Today</Text>
-            </View>
-            {todaysMeals.map((meal) => (
-              <View key={meal.id} style={stylesx.loggedMealRow}>
-                <View style={stylesx.mealLeft}>
-                  <View style={[stylesx.mealMethodIcon, { backgroundColor: getMealMethodColor(meal.method) }]}>
-                    <Ionicons name={getMealMethodIcon(meal.method)} size={16} color="#FFF" />
-                  </View>
-                  <View style={stylesx.mealTextContainer}>
-                    <View style={stylesx.mealTitleRow}>
-                      <Text style={stylesx.loggedMealName} numberOfLines={2} ellipsizeMode="tail">
-                        {meal.name}
-                      </Text>
-                      <TouchableOpacity 
-                        style={stylesx.deleteButton}
-                        onPress={() => handleDeleteMeal(meal.id)}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <Ionicons name="remove-circle" size={20} color="#FF6B6B" />
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={stylesx.loggedMealTime}>{meal.time}</Text>
-                    <View style={stylesx.nutritionRow}>
-                      <View style={stylesx.nutritionItem}>
-                        <Text style={stylesx.nutritionValue}>{meal.calories}</Text>
-                        <Text style={stylesx.nutritionLabel}>cal</Text>
-                      </View>
-                      <View style={stylesx.nutritionItem}>
-                        <Text style={stylesx.nutritionValue}>{meal.carbs}g</Text>
-                        <Text style={stylesx.nutritionLabel}>carbs</Text>
-                      </View>
-                      <View style={stylesx.nutritionItem}>
-                        <Text style={stylesx.nutritionValue}>{meal.protein}g</Text>
-                        <Text style={stylesx.nutritionLabel}>protein</Text>
-                      </View>
-                      <View style={stylesx.nutritionItem}>
-                        <Text style={stylesx.nutritionValue}>{meal.fat}g</Text>
-                        <Text style={stylesx.nutritionLabel}>fat</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View style={stylesx.emptyStateContainer}>
-            <View style={stylesx.emptyStateIcon}>
-              <Ionicons name="restaurant-outline" size={48} color="#C7C7CC" />
-            </View>
-            <Text style={stylesx.emptyStateTitle}>No meals logged yet</Text>
-            <Text style={stylesx.emptyStateSubtitle}>
-              Start tracking your nutrition by logging your first meal!
+        {/* Meal count display */}
+        {todaysMealCount > 0 && (
+          <View style={{ marginBottom: spacing.md }}>
+            <Text style={stylesx.mealCountText}>
+              {todaysMealCount} meal{todaysMealCount !== 1 ? 's' : ''}
             </Text>
           </View>
         )}
+        
+        <MealAddButton onPress={() => setShowMealModal(true)} />
+        
+        <TodaysMealsSection 
+          meals={todaysMeals}
+          onDeleteMeal={handleDirectDeleteMeal}
+          onMealCountChange={handleMealCountChange}
+          getMealMethodIcon={getMealMethodIcon}
+          getMealMethodColor={getMealMethodColor}
+          isLoading={mealsLoading}
+        />
       </View>
 
       <MealEntryModal
@@ -815,13 +813,12 @@ const NutritionScreen = () => {
         onOpenSearch={openSearch}
       />
 
-      {/* Recently Logged */}
-      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ fontSize: fonts.large, fontWeight: '700', color: '#1D1D1F' }}>Meal History</Text>
-          
-        </View>
-      </View>
+      {/* Meal History */}
+      <MealHistorySection 
+        mealManager={mealManager}
+        getMealMethodIcon={getMealMethodIcon}
+        getMealMethodColor={getMealMethodColor}
+      />
     </ScrollView>
 
     {/* Camera Modal */}
@@ -927,28 +924,25 @@ const stylesx = StyleSheet.create({
   mealTitle: { fontSize: fonts.large, fontWeight: '700', color: '#1D1D1F' },
   mealSub: { fontSize: fonts.small, color: '#8E8E93', marginTop: 2 },
   sectionHeader: { fontSize: fonts.large, fontWeight: '700', color: '#1D1D1F', marginLeft: spacing.xs },
+  mealCountText: { fontSize: fonts.small, color: '#8E8E93', fontWeight: '500', marginLeft: spacing.xs },
   addMealButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#E6F3FF',
-    borderStyle: 'dashed',
-  },
-  addMealIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E6F3FF',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: spacing.sm,
   },
-  addMealTextContainer: { flex: 1 },
-  addMealTitle: { fontSize: fonts.medium, fontWeight: '600', color: '#1D1D1F' },
-  addMealSubtitle: { fontSize: fonts.small, color: '#8E8E93', marginTop: 2 },
+  addMealTitle: { 
+    fontSize: fonts.medium, 
+    fontWeight: '500', 
+    color: '#6B7280',
+    marginLeft: spacing.xs,
+  },
   mealsHeader: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.xs,
@@ -1016,7 +1010,34 @@ const stylesx = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
-  modalContainer: { flex: 1, backgroundColor: '#F5F5F7' },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    width: '95%',
+    maxHeight: '90%',
+    minHeight: '70%',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+  },
+  modalCloseButton: {
+    backgroundColor: '#f5f5f5',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  modalCloseText: {
+    color: '#666',
+    fontSize: 16,
+    fontWeight: '500',
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1031,18 +1052,39 @@ const stylesx = StyleSheet.create({
   modalTitle: { fontSize: fonts.large, fontWeight: '600', color: '#1D1D1F' },
   modalContent: { flex: 1, padding: spacing.md },
   sectionTitle: { fontSize: fonts.large, fontWeight: '700', color: '#1D1D1F', marginBottom: spacing.md },
+  sectionSubtitle: { 
+    fontSize: fonts.medium, 
+    fontWeight: '600', 
+    color: '#1D1D1F', 
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+  },
+  instructionContainer: {
+    backgroundColor: '#F2F2F7',
+    padding: spacing.md,
+    borderRadius: 8,
+    marginBottom: spacing.md,
+  },
+  instructionText: {
+    fontSize: fonts.small,
+    color: '#8E8E93',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  methodsList: {
+    backgroundColor: '#FFFFFF',
+  },
   methodButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginBottom: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+  },
+  methodDivider: {
+    height: 1,
+    backgroundColor: '#F2F2F7',
+    marginHorizontal: spacing.md,
   },
   methodIcon: {
     width: 48,

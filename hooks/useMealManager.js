@@ -42,17 +42,22 @@ export const useMealManager = () => {
   // Helper function to format meal time
   const formatMealTime = (timeValue) => {
     try {
-      if (!timeValue) return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (!timeValue) return 'Unknown';
+      
+      // If it's already a formatted time string (HH:MM), return it
+      if (typeof timeValue === 'string' && /^\d{1,2}:\d{2}/.test(timeValue)) {
+        return timeValue;
+      }
       
       const date = new Date(timeValue);
       if (isNaN(date.getTime())) {
-        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return 'Unknown';
       }
       
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch (error) {
       console.warn('Error formatting meal time:', error);
-      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return 'Unknown';
     }
   };
 

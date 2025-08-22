@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } fr
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import * as MediaLibrary from 'expo-media-library';
 import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, fonts } from '../utils/responsive';
 
@@ -11,7 +12,141 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [facing, setFacing] = useState('back');
   const [flashEffect, setFlashEffect] = useState(false);
+  const [shutterSound, setShutterSound] = useState(null);
   const cameraRef = useRef(null);
+
+  useEffect(() => {
+    (async () => {
+      const { status: mediaStatus } = await MediaLibrary.requestPermissionsAsync();
+      console.log('Media permissions:', mediaStatus);
+      
+      // Initialize pleasant shutter sound
+      await initializeShutterSound();
+    })();
+
+    // Cleanup sound on unmount
+    return () => {
+      if (shutterSound) {
+        shutterSound.unloadAsync();
+      }
+    };
+  }, []);
+
+  const initializeShutterSound = async () => {
+    try {
+      // Set audio mode for pleasant sound playback
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        staysActiveInBackground: false,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+
+      // Create a pleasant soft sound effect
+      // Using a generated pleasant tone instead of harsh camera shutter
+      const { sound } = await Audio.Sound.createAsync(
+        // Create a soft, pleasant camera sound
+        { uri: generatePleasantShutterTone() },
+        { 
+          shouldPlay: false, 
+          volume: 0.5,
+          rate: 1.0 
+        }
+      );
+      
+      setShutterSound(sound);
+      console.log('🔊 Pleasant shutter sound initialized');
+    } catch (error) {
+      console.warn('Could not initialize custom shutter sound:', error);
+      // Will fallback to haptic feedback only
+    }
+  };
+
+  // Generate a pleasant, soft camera sound (data URI)
+  const generatePleasantShutterTone = () => {
+    // Create a gentle, pleasant "soft click" sound
+    // This replaces the harsh mechanical camera shutter with something softer
+    const audioContext = {
+      sampleRate: 44100,
+      duration: 0.15, // Short, pleasant 150ms sound
+      frequency1: 1000, // Pleasant mid-range tone
+      frequency2: 1200, // Slight harmonic for richness
+    };
+
+    const { sampleRate, duration, frequency1, frequency2 } = audioContext;
+    const samples = Math.floor(sampleRate * duration);
+    const buffer = new ArrayBuffer(44 + samples * 2); // WAV header + data
+    const view = new DataView(buffer);
+
+    // WAV file header
+    const writeString = (offset, string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + samples * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, 1, true); // Mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, samples * 2, true);
+
+    // Generate pleasant audio data
+    for (let i = 0; i < samples; i++) {
+      const t = i / sampleRate;
+      
+      // Create a pleasant envelope (quick attack, gentle decay)
+      const envelope = Math.exp(-t * 8) * Math.sin(Math.PI * t / duration * 2);
+      
+      // Two gentle sine waves for a pleasant, soft sound
+      const tone1 = Math.sin(2 * Math.PI * frequency1 * t) * 0.3;
+      const tone2 = Math.sin(2 * Math.PI * frequency2 * t) * 0.2;
+      
+      // Combine tones with envelope for a soft, pleasant click
+      const sample = (tone1 + tone2) * envelope * 0.4;
+      
+      // Convert to 16-bit PCM
+      const pcm = Math.max(-32768, Math.min(32767, Math.floor(sample * 32767)));
+      view.setInt16(44 + i * 2, pcm, true);
+    }
+
+    // Convert to base64 data URI
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return `data:audio/wav;base64,${btoa(binary)}`;
+  };
+
+  const playPleasantShutterSound = async () => {
+    try {
+      if (shutterSound) {
+        await shutterSound.replayAsync();
+        console.log('🔊 Played pleasant shutter sound');
+      } else {
+        // Fallback to gentle haptic feedback
+        if (Haptics?.impactAsync) {
+          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to play shutter sound:', error);
+      // Fallback to haptic feedback
+      if (Haptics?.impactAsync) {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -25,23 +160,21 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
       try {
         setIsAnalyzing(true);
         
-        // Provide haptic feedback instead of shutter sound
-        if (Haptics?.impactAsync) {
-          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        }
+        // Play pleasant custom shutter sound instead of default
+        await playPleasantShutterSound();
         
         // Show visual flash effect
         setFlashEffect(true);
         setTimeout(() => setFlashEffect(false), 150);
         
-        // Take photo with muted shutter
+        // Take photo with muted default shutter (our custom sound is better)
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.8,
           base64: false,
-          mute: true, // This mutes the camera shutter sound
+          mute: true, // Mute harsh default sound, use our pleasant one
         });
 
-        console.log('📸 Photo taken (muted):', photo.uri);
+        console.log('📸 Photo taken with pleasant sound:', photo.uri);
 
         // Save to device
         await MediaLibrary.saveToLibraryAsync(photo.uri);

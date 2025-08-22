@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Alert, Linking, View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { authService } from './authService';
 import { socialAuthService } from './socialAuthService';
 import { biometricService } from './biometricService';
@@ -649,15 +650,17 @@ function AppContent() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <AppProvider>
-        <DailyCaloriesProvider>
-          <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
-            <AppContent />
-            <StatusBar style="auto" />
-          </SafeAreaView>
-        </DailyCaloriesProvider>
-      </AppProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <AppProvider>
+          <DailyCaloriesProvider>
+            <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
+              <AppContent />
+              <StatusBar style="auto" />
+            </SafeAreaView>
+          </DailyCaloriesProvider>
+        </AppProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
