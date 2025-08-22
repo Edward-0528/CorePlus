@@ -448,7 +448,8 @@ const NutritionScreen = () => {
     mealsLoading,
     addMeal,
     deleteMeal,
-    debugChangeDayForTesting 
+    debugChangeDayForTesting,
+    forceRefreshToday 
   } = useDailyCalories();
   
   const mealManager = useMealManager();
@@ -793,6 +794,14 @@ const NutritionScreen = () => {
           </View>
         )}
         
+        {/* Temporary fix button for date transition issue */}
+        <TouchableOpacity 
+          style={stylesx.fixButton} 
+          onPress={forceRefreshToday}
+        >
+          <Text style={stylesx.fixButtonText}>🔄 Fix Today's Meals</Text>
+        </TouchableOpacity>
+        
         <MealAddButton onPress={() => setShowMealModal(true)} />
         
         <TodaysMealsSection 
@@ -942,6 +951,19 @@ const stylesx = StyleSheet.create({
     fontWeight: '500', 
     color: '#6B7280',
     marginLeft: spacing.xs,
+  },
+  fixButton: {
+    backgroundColor: '#FF6B6B',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 8,
+    marginBottom: spacing.md,
+    alignItems: 'center',
+  },
+  fixButtonText: {
+    color: '#FFFFFF',
+    fontSize: fonts.medium,
+    fontWeight: '600',
   },
   mealsHeader: {
     paddingVertical: spacing.xs,
