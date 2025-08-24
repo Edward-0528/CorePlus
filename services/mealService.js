@@ -114,6 +114,56 @@ export const mealService = {
     }
   },
 
+  // Get all historical meals (not today)
+  async getHistoricalMeals(daysBack = 30) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - daysBack);
+      const pastDateStr = pastDate.toISOString().split('T')[0];
+
+      console.log(`🔍 Fetching historical meals from ${pastDateStr} to yesterday (excluding today: ${today})`);
+
+      const { data, error } = await supabase
+        .from('meals')
+        .select('*')
+        .eq('user_id', user.id)
+        .lt('meal_date', today) // Less than today (yesterday and before)
+        .gte('meal_date', pastDateStr) // Greater than or equal to past date
+        .order('meal_date', { ascending: false })
+        .order('meal_time', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching historical meals:', error);
+        throw error;
+      }
+
+      console.log(`📊 Found ${data?.length || 0} historical meals`);
+
+      // Group meals by date
+      const groupedMeals = {};
+      data?.forEach(meal => {
+        const date = meal.meal_date;
+        if (!groupedMeals[date]) {
+          groupedMeals[date] = [];
+        }
+        groupedMeals[date].push(meal);
+      });
+
+      return { success: true, meals: data || [], groupedMeals };
+
+    } catch (error) {
+      console.error('❌ Failed to fetch historical meals:', error);
+      return { success: false, error: error.message, meals: [], groupedMeals: {} };
+    }
+  },
+
   // Delete a meal
   async deleteMeal(mealId) {
     try {

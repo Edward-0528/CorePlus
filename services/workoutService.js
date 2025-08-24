@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseConfig';
+import { workoutCacheService } from './workoutCacheService';
 
 class WorkoutService {
   // ==================== WORKOUT TEMPLATES ====================
@@ -192,6 +193,9 @@ class WorkoutService {
 
       if (error) throw error;
 
+      // Invalidate relevant caches after successful insert
+      await workoutCacheService.invalidateAll(['workoutHistory', 'todaysWorkouts', 'userWorkoutStats']);
+
       return {
         success: true,
         workout: data
@@ -207,10 +211,24 @@ class WorkoutService {
   }
 
   /**
-   * Get user's workout history
+   * Get user's workout history with caching
    */
-  async getWorkoutHistory(limit = 50, offset = 0) {
+  async getWorkoutHistory(limit = 50, offset = 0, useCache = true) {
+    const cacheKey = `history_${limit}_${offset}`;
+    
     try {
+      // Try cache first if enabled
+      if (useCache) {
+        const cachedData = await workoutCacheService.get('workoutHistory', { limit, offset });
+        if (cachedData) {
+          return {
+            success: true,
+            workouts: cachedData,
+            fromCache: true
+          };
+        }
+      }
+
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
         throw new Error('User not authenticated');
@@ -233,9 +251,16 @@ class WorkoutService {
 
       if (error) throw error;
 
+      const workouts = data || [];
+
+      // Cache the result if successful
+      if (useCache && workouts.length > 0) {
+        await workoutCacheService.set('workoutHistory', workouts, { limit, offset });
+      }
+
       return {
         success: true,
-        workouts: data || []
+        workouts
       };
     } catch (error) {
       console.error('Error fetching workout history:', error);
@@ -248,16 +273,28 @@ class WorkoutService {
   }
 
   /**
-   * Get today's workouts
+   * Get today's workouts with caching
    */
-  async getTodaysWorkouts() {
+  async getTodaysWorkouts(useCache = true) {
     try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Try cache first if enabled
+      if (useCache) {
+        const cachedData = await workoutCacheService.get('todaysWorkouts', { date: today });
+        if (cachedData) {
+          return {
+            success: true,
+            workouts: cachedData,
+            fromCache: true
+          };
+        }
+      }
+
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
         throw new Error('User not authenticated');
       }
-
-      const today = new Date().toISOString().split('T')[0];
 
       const { data, error } = await supabase
         .from('completed_workouts')
@@ -268,9 +305,16 @@ class WorkoutService {
 
       if (error) throw error;
 
+      const workouts = data || [];
+
+      // Cache the result if successful
+      if (useCache) {
+        await workoutCacheService.set('todaysWorkouts', workouts, { date: today });
+      }
+
       return {
         success: true,
-        workouts: data || []
+        workouts
       };
     } catch (error) {
       console.error('Error fetching today\'s workouts:', error);
@@ -300,6 +344,9 @@ class WorkoutService {
 
       if (error) throw error;
 
+      // Invalidate relevant caches
+      await workoutCacheService.invalidateAll(['workoutHistory', 'todaysWorkouts', 'userWorkoutStats']);
+
       return {
         success: true
       };
@@ -315,10 +362,22 @@ class WorkoutService {
   // ==================== USER WORKOUT STATS ====================
 
   /**
-   * Get user's workout statistics
+   * Get user's workout statistics with caching
    */
-  async getUserWorkoutStats() {
+  async getUserWorkoutStats(useCache = true) {
     try {
+      // Try cache first if enabled
+      if (useCache) {
+        const cachedData = await workoutCacheService.get('userWorkoutStats');
+        if (cachedData) {
+          return {
+            success: true,
+            stats: cachedData,
+            fromCache: true
+          };
+        }
+      }
+
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) {
         throw new Error('User not authenticated');
@@ -333,6 +392,8 @@ class WorkoutService {
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
         throw error;
       }
+
+      let stats = data;
 
       // If no stats exist, create initial record
       if (!data) {
@@ -351,16 +412,32 @@ class WorkoutService {
           .single();
 
         if (insertError) throw insertError;
+        stats = newStats;
+      }
 
-        return {
-          success: true,
-          stats: newStats
-        };
+      // Get this week's workout count
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
+      weekStart.setHours(0, 0, 0, 0);
+      
+      const { data: weeklyWorkouts, error: weeklyError } = await supabase
+        .from('completed_workouts')
+        .select('id')
+        .eq('user_id', userData.user.id)
+        .gte('workout_date', weekStart.toISOString().split('T')[0]);
+
+      if (!weeklyError) {
+        stats.total_workouts_this_week = weeklyWorkouts?.length || 0;
+      }
+
+      // Cache the result if successful
+      if (useCache) {
+        await workoutCacheService.set('userWorkoutStats', stats);
       }
 
       return {
         success: true,
-        stats: data
+        stats
       };
     } catch (error) {
       console.error('Error fetching user workout stats:', error);
@@ -393,6 +470,9 @@ class WorkoutService {
         .single();
 
       if (error) throw error;
+
+      // Invalidate user workout stats cache
+      await workoutCacheService.invalidate('userWorkoutStats');
 
       return {
         success: true,

@@ -17,7 +17,7 @@ import SignUpScreen from './components/SignUpScreen';
 import LoginScreen from './components/LoginScreen';
 import ScreenFittedOnboardingScreen from './components/ScreenFittedOnboardingScreen';
 import DashboardScreen from './components/DashboardScreen';
-import WorkoutsScreen from './components/WorkoutsScreen';
+import NewWorkoutsScreen from './components/NewWorkoutsScreen';
 import NutritionScreen from './components/NutritionScreen';
 import AccountScreen from './components/AccountScreen';
 import BottomNavigation from './components/BottomNavigation';
@@ -546,7 +546,7 @@ function AppContent() {
       case 'home':
         return <DashboardScreen {...commonProps} />;
       case 'workouts':
-        return <WorkoutsScreen {...commonProps} />;
+        return <NewWorkoutsScreen {...commonProps} />;
       case 'nutrition':
         return <NutritionScreen {...commonProps} />;
       case 'account':

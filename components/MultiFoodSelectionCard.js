@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, Animated, Dimensions, Image, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, Animated, Dimensions, Image, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, fonts } from '../utils/responsive';
 
-const { height: screenHeight } = Dimensions.get('window');
+const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
 
 const MultiFoodSelectionCard = ({ visible, onClose, predictions, onSelectFoods, imageUri }) => {
   const [slideAnim] = useState(new Animated.Value(screenHeight));
   const [selectedFoods, setSelectedFoods] = useState([]);
+  const [loadingOpacity] = useState(new Animated.Value(1));
+  
+  // Check if we're in loading state (empty predictions array)
+  const isLoading = !predictions || predictions.length === 0;
 
   useEffect(() => {
     if (visible) {
@@ -29,6 +33,25 @@ const MultiFoodSelectionCard = ({ visible, onClose, predictions, onSelectFoods, 
       }).start();
     }
   }, [visible]);
+
+  // Animate loading state changes
+  useEffect(() => {
+    if (isLoading) {
+      // Fade in loading state
+      Animated.timing(loadingOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      // Fade out loading state to reveal content
+      Animated.timing(loadingOpacity, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isLoading]);
 
   const toggleFoodSelection = (prediction, index) => {
     setSelectedFoods(current => {
@@ -127,35 +150,51 @@ const MultiFoodSelectionCard = ({ visible, onClose, predictions, onSelectFoods, 
           </TouchableOpacity>
         </View>
 
-        {/* Photo Preview */}
+        {/* Photo Preview - Compact Version */}
         {imageUri && (
-          <View style={styles.photoContainer}>
-            <Image source={{ uri: imageUri }} style={styles.photoPreview} />
-            <Text style={styles.photoLabel}>Your photo</Text>
+          <View style={styles.compactPhotoContainer}>
+            <Image source={{ uri: imageUri }} style={styles.compactPhotoPreview} />
           </View>
         )}
 
-        {/* Subtitle */}
-        <Text style={styles.subtitle}>
-          Select all the foods in your meal. You can choose multiple items:
-        </Text>
+        {/* Compact Header with Selection Info */}
+        <View style={styles.compactHeader}>
+          <Text style={styles.compactSubtitle}>
+            {isLoading ? 'Analyzing your meal...' : 'Select foods from your meal'}
+          </Text>
+          {!isLoading && selectedFoods.length > 0 && (
+            <View style={styles.compactSelectedCount}>
+              <Text style={styles.compactSelectedText}>
+                {selectedFoods.length} selected • {selectedFoods.reduce((sum, food) => sum + food.calories, 0)} cal
+              </Text>
+            </View>
+          )}
+        </View>
 
-        {/* Selected Count */}
-        {selectedFoods.length > 0 && (
-          <View style={styles.selectedCountContainer}>
-            <Text style={styles.selectedCountText}>
-              {selectedFoods.length} item{selectedFoods.length > 1 ? 's' : ''} selected
-            </Text>
-            <Text style={styles.totalCaloriesText}>
-              Total: {selectedFoods.reduce((sum, food) => sum + food.calories, 0)} calories
-            </Text>
-          </View>
+        {/* Loading State Overlay */}
+        {isLoading && (
+          <Animated.View style={[styles.loadingOverlay, { opacity: loadingOpacity }]}>
+            <View style={styles.loadingContent}>
+              <View style={styles.loadingRing}>
+                <ActivityIndicator size="large" color="#4682B4" />
+              </View>
+              <Text style={styles.loadingTitle}>Analyzing your meal</Text>
+              <Text style={styles.loadingSubtitle}>Our AI is identifying the foods in your photo</Text>
+              
+              {/* Loading animation dots */}
+              <View style={styles.loadingDots}>
+                <View style={[styles.loadingDot, styles.loadingDot1]} />
+                <View style={[styles.loadingDot, styles.loadingDot2]} />
+                <View style={[styles.loadingDot, styles.loadingDot3]} />
+              </View>
+            </View>
+          </Animated.View>
         )}
 
         {/* Predictions List */}
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
           <View style={styles.predictionsContainer}>
-            {predictions.map((prediction, index) => (
+            {!isLoading && predictions.map((prediction, index) => (
               <TouchableOpacity
                 key={index}
                 style={[
@@ -279,42 +318,44 @@ const MultiFoodSelectionCard = ({ visible, onClose, predictions, onSelectFoods, 
           </View>
         </ScrollView>
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtonsContainer}>
-          {/* Submit Button */}
-          <TouchableOpacity 
-            style={[
-              styles.submitButton,
-              selectedFoods.length === 0 && styles.disabledButton
-            ]}
-            onPress={handleSubmit}
-            disabled={selectedFoods.length === 0}
-          >
-            <Ionicons 
-              name="checkmark-circle" 
-              size={20} 
-              color={selectedFoods.length > 0 ? "#FFFFFF" : "#C7C7CC"} 
-            />
-            <Text style={[
-              styles.submitButtonText,
-              selectedFoods.length === 0 && styles.disabledButtonText
-            ]}>
-              Add {selectedFoods.length > 0 ? `${selectedFoods.length} ` : ''}Food{selectedFoods.length > 1 ? 's' : ''}
-            </Text>
-          </TouchableOpacity>
+        {/* Action Buttons - Hidden during loading */}
+        {!isLoading && (
+          <View style={styles.actionButtonsContainer}>
+            {/* Submit Button */}
+            <TouchableOpacity 
+              style={[
+                styles.submitButton,
+                selectedFoods.length === 0 && styles.disabledButton
+              ]}
+              onPress={handleSubmit}
+              disabled={selectedFoods.length === 0}
+            >
+              <Ionicons 
+                name="checkmark-circle" 
+                size={20} 
+                color={selectedFoods.length > 0 ? "#FFFFFF" : "#C7C7CC"} 
+              />
+              <Text style={[
+                styles.submitButtonText,
+                selectedFoods.length === 0 && styles.disabledButtonText
+              ]}>
+                Add {selectedFoods.length > 0 ? `${selectedFoods.length} ` : ''}Food{selectedFoods.length > 1 ? 's' : ''}
+              </Text>
+            </TouchableOpacity>
 
-          {/* Manual Entry Option */}
-          <TouchableOpacity 
-            style={styles.manualEntryButton}
-            onPress={() => {
-              onSelectFoods(null); // Signal manual entry
-              handleClose();
-            }}
-          >
-            <Ionicons name="create-outline" size={20} color="#8E8E93" />
-            <Text style={styles.manualEntryText}>None of these? Add manually</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Manual Entry Option */}
+            <TouchableOpacity 
+              style={styles.manualEntryButton}
+              onPress={() => {
+                onSelectFoods(null); // Signal manual entry
+                handleClose();
+              }}
+            >
+              <Ionicons name="create-outline" size={20} color="#8E8E93" />
+              <Text style={styles.manualEntryText}>Add Manually Instead</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </Animated.View>
     </Modal>
   );
@@ -395,6 +436,99 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     fontWeight: '500',
   },
+  // Compact photo styles
+  compactPhotoContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  compactPhotoPreview: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+  },
+  // Compact header styles
+  compactHeader: {
+    marginBottom: spacing.md,
+  },
+  compactSubtitle: {
+    fontSize: fonts.small,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  compactSelectedCount: {
+    alignSelf: 'center',
+  },
+  compactSelectedText: {
+    fontSize: fonts.small,
+    fontWeight: '600',
+    color: '#4682B4',
+    textAlign: 'center',
+  },
+  // Loading state styles
+  loadingOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  loadingContent: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 8,
+    minWidth: screenWidth * 0.8,
+  },
+  loadingRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F8F9FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  loadingTitle: {
+    fontSize: fonts.large,
+    fontWeight: '700',
+    color: '#1D1D1F',
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  loadingSubtitle: {
+    fontSize: fonts.medium,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    lineHeight: 20,
+  },
+  loadingDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4682B4',
+    marginHorizontal: 4,
+  },
+  loadingDot1: {
+    opacity: 0.4,
+  },
+  loadingDot2: {
+    opacity: 0.7,
+  },
+  loadingDot3: {
+    opacity: 1,
+  },
   subtitle: {
     fontSize: fonts.medium,
     color: '#8E8E93',
@@ -428,16 +562,16 @@ const styles = StyleSheet.create({
   },
   predictionItem: {
     backgroundColor: '#F8F9FA',
-    borderRadius: 16,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 2,
+    borderRadius: 12,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+    borderWidth: 1.5,
     borderColor: '#F0F0F0',
   },
   compactPredictionItem: {
-    padding: spacing.sm,
-    marginBottom: spacing.sm,
-    borderRadius: 12,
+    padding: spacing.xs,
+    marginBottom: spacing.xs,
+    borderRadius: 10,
   },
   selectedPrediction: {
     backgroundColor: '#E6F3FF',

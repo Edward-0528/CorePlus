@@ -11,7 +11,9 @@ export const DailyCaloriesProvider = ({ children }) => {
   const [dailyMacros, setDailyMacros] = useState({ carbs: 0, protein: 0, fat: 0 });
   const [dailyMicros, setDailyMicros] = useState({ fiber: 0, sugar: 0, sodium: 0 });
   const [todaysMeals, setTodaysMeals] = useState([]);
+  const [historicalMeals, setHistoricalMeals] = useState({});
   const [mealsLoading, setMealsLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [lastCacheUpdate, setLastCacheUpdate] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -69,9 +71,11 @@ export const DailyCaloriesProvider = ({ children }) => {
     if (isAuthenticated) {
       console.log('📅 Loading meals for date:', currentDate);
       loadCachedMeals();
+      loadHistoricalMeals(); // Also load historical meals
     } else {
       // Clear meals when user is not authenticated
       setTodaysMeals([]);
+      setHistoricalMeals({});
       setDailyCalories(0);
       setDailyMacros({ carbs: 0, protein: 0, fat: 0 });
       setDailyMicros({ fiber: 0, sugar: 0, sodium: 0 });
@@ -148,6 +152,30 @@ export const DailyCaloriesProvider = ({ children }) => {
       } else {
         console.error('Error refreshing meals from server:', error);
       }
+    }
+  };
+
+  // Load historical meals (non-today meals)
+  const loadHistoricalMeals = async () => {
+    if (!isAuthenticated) {
+      console.log('⏭️ Skipping historical meal fetch - user not authenticated');
+      return;
+    }
+
+    try {
+      setHistoryLoading(true);
+      console.log('📚 Loading historical meals...');
+      
+      const result = await mealService.getHistoricalMeals(30); // Last 30 days
+      
+      if (result.success) {
+        setHistoricalMeals(result.groupedMeals);
+        console.log('✅ Loaded historical meals:', Object.keys(result.groupedMeals).length, 'dates');
+      }
+    } catch (error) {
+      console.error('Error loading historical meals:', error);
+    } finally {
+      setHistoryLoading(false);
     }
   };
 
@@ -269,30 +297,6 @@ export const DailyCaloriesProvider = ({ children }) => {
     setCurrentDate(tomorrowStr);
   };
 
-  // Force refresh data for current date
-  const forceRefreshToday = async () => {
-    console.log('🔄 Force refreshing data for today');
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Clear current state
-    setTodaysMeals([]);
-    setDailyCalories(0);
-    setDailyMacros({ carbs: 0, protein: 0, fat: 0 });
-    setDailyMicros({ fiber: 0, sugar: 0, sodium: 0 });
-    
-    // Clear cache for today
-    const todayKey = `meals_${today}`;
-    await AsyncStorage.removeItem(todayKey);
-    
-    // Set current date to ensure we're using the right cache key
-    setCurrentDate(today);
-    
-    // Force refresh from server
-    if (isAuthenticated) {
-      await refreshMealsFromServer();
-    }
-  };
-
   const deleteMeal = async (mealId) => {
     // Check authentication before attempting to delete meal
     if (!isAuthenticated) {
@@ -344,7 +348,9 @@ export const DailyCaloriesProvider = ({ children }) => {
     dailyMacros,
     dailyMicros,
     todaysMeals,
+    historicalMeals,
     mealsLoading,
+    historyLoading,
     lastCacheUpdate,
     
     // Actions
@@ -352,10 +358,9 @@ export const DailyCaloriesProvider = ({ children }) => {
     addMeal,
     deleteMeal,
     refreshMealsFromServer,
+    loadHistoricalMeals,
     clearCache,
-    loadCachedMeals,
-    debugChangeDayForTesting,
-    forceRefreshToday
+    loadCachedMeals
   };
 
   return (

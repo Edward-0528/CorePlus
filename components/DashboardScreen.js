@@ -8,6 +8,7 @@ import OptimizedButton from './common/OptimizedButton';
 import AnimatedBackground from './common/AnimatedBackground';
 import LeaderboardScreen from './LeaderboardScreen';
 import { biometricService } from '../biometricService';
+import { workoutPlanService } from '../services/workoutPlanService';
 import { styles as appStyles } from '../styles/AppStyles';
 import { responsivePadding, fonts, spacing, scaleWidth, scaleHeight } from '../utils/responsive';
 import Svg, { Path, Defs, LinearGradient, Stop, Circle, G } from 'react-native-svg';
@@ -46,6 +47,9 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
     biometricType: 'Biometric'
   });
   const [showConfetti, setShowConfetti] = useState(false);
+  const [workoutPlanLoading, setWorkoutPlanLoading] = useState(false);
+  const [userWorkoutPlan, setUserWorkoutPlan] = useState(null);
+  const [showWorkoutPlan, setShowWorkoutPlan] = useState(false);
   // Animated water fill state - REMOVED
   // Wave animations for water effect
   const wave1 = useRef(new Animated.Value(0)).current;
@@ -284,6 +288,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
     fetchLeaderboard();
     checkBiometricStatus();
     fetchWorkoutHistory();
+    loadUserWorkoutPlan(); // Load user's workout plan
     
     // Start wave animations for water effect
     const startWaveAnimations = () => {
@@ -953,6 +958,183 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
     }
   };
 
+  // Workout Plan Functions
+  const handleGenerateWorkoutPlan = async () => {
+    if (workoutPlanLoading) return;
+    
+    setWorkoutPlanLoading(true);
+    try {
+      console.log('🏋️ Generating personalized workout plan...');
+      
+      // Get user's fitness profile
+      const profileResult = await workoutPlanService.getUserFitnessProfile(user.id);
+      
+      if (!profileResult.success) {
+        Alert.alert('Profile Required', 'Please complete your fitness profile to generate a workout plan.');
+        return;
+      }
+
+      const userProfile = profileResult.profile;
+      
+      // Generate AI-powered workout plan
+      const planResult = await workoutPlanService.generateAdaptivePlan(user.id, userProfile);
+      
+      if (planResult.success) {
+        setUserWorkoutPlan(planResult.plan);
+        Alert.alert(
+          'Workout Plan Generated! 🎉', 
+          'Your personalized workout plan has been created using AI. It rotates muscle groups to prevent strain and adapts to your fitness goals.',
+          [
+            { text: 'View Plan', onPress: () => setShowWorkoutPlan(true) }
+          ]
+        );
+      } else {
+        Alert.alert('Error', planResult.error || 'Failed to generate workout plan. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error generating workout plan:', error);
+      Alert.alert('Error', 'Failed to generate workout plan. Please check your internet connection and try again.');
+    } finally {
+      setWorkoutPlanLoading(false);
+    }
+  };
+
+  const loadUserWorkoutPlan = async () => {
+    try {
+      const planResult = await workoutPlanService.getUserActivePlan(user.id);
+      if (planResult.success && planResult.plan) {
+        setUserWorkoutPlan(planResult.plan);
+      }
+    } catch (error) {
+      console.error('Error loading user workout plan:', error);
+    }
+  };
+
+  const renderWorkoutPlanModal = () => (
+    <Modal
+      visible={showWorkoutPlan}
+      animationType="slide"
+      presentationStyle="pageSheet"
+    >
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+        <View style={{ flex: 1 }}>
+          {/* Header */}
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 20,
+            paddingVertical: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: '#E5E5EA'
+          }}>
+            <Text style={{ fontSize: 18, fontWeight: '600', color: '#1A1A1A' }}>
+              Your Workout Plan
+            </Text>
+            <TouchableOpacity onPress={() => setShowWorkoutPlan(false)}>
+              <Text style={{ fontSize: 16, color: '#007AFF' }}>Done</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Plan Content */}
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }}>
+            {userWorkoutPlan && (
+              <>
+                <View style={{ marginBottom: 20 }}>
+                  <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1A1A1A', marginBottom: 8 }}>
+                    {userWorkoutPlan.name}
+                  </Text>
+                  {userWorkoutPlan.description && (
+                    <Text style={{ fontSize: 14, color: '#6C757D', marginBottom: 12 }}>
+                      {userWorkoutPlan.description}
+                    </Text>
+                  )}
+                  {userWorkoutPlan.plan_metadata?.ai_generated && (
+                    <View style={{ 
+                      backgroundColor: '#E8F5E8', 
+                      padding: 12, 
+                      borderRadius: 8, 
+                      marginBottom: 16 
+                    }}>
+                      <Text style={{ color: '#34C759', fontSize: 12, fontWeight: '600' }}>
+                        🤖 AI-Generated Plan - Optimized for muscle group rotation and your goals
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Weekly Schedule */}
+                {userWorkoutPlan.plan_metadata?.weekly_schedule && (
+                  <View style={{ marginBottom: 20 }}>
+                    <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, color: '#1A1A1A' }}>
+                      Weekly Schedule ({userWorkoutPlan.plan_metadata.days_per_week} days/week)
+                    </Text>
+                    {userWorkoutPlan.plan_metadata.weekly_schedule.map((workout, index) => (
+                      <View key={index} style={{ 
+                        backgroundColor: '#F8F9FA', 
+                        padding: 16, 
+                        borderRadius: 12, 
+                        marginBottom: 12 
+                      }}>
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: '#1A1A1A', marginBottom: 4 }}>
+                          Day {workout.day}: {workout.workout_name}
+                        </Text>
+                        <Text style={{ fontSize: 14, color: '#6C757D', marginBottom: 8 }}>
+                          Focus: {workout.focus} • Duration: {workout.duration_minutes} min
+                        </Text>
+                        <Text style={{ fontSize: 14, color: '#6C757D' }}>
+                          {workout.exercises?.length || 0} exercises
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Safety Notes */}
+                {userWorkoutPlan.plan_metadata?.safety_notes && (
+                  <View style={{ marginBottom: 20 }}>
+                    <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, color: '#1A1A1A' }}>
+                      Safety Guidelines
+                    </Text>
+                    {userWorkoutPlan.plan_metadata.safety_notes.map((note, index) => (
+                      <Text key={index} style={{ 
+                        fontSize: 14, 
+                        color: '#6C757D', 
+                        marginBottom: 8,
+                        paddingLeft: 16
+                      }}>
+                        • {note}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+
+                {/* Nutrition Tips */}
+                {userWorkoutPlan.plan_metadata?.nutrition_tips && (
+                  <View style={{ marginBottom: 20 }}>
+                    <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, color: '#1A1A1A' }}>
+                      Nutrition Tips
+                    </Text>
+                    {userWorkoutPlan.plan_metadata.nutrition_tips.map((tip, index) => (
+                      <Text key={index} style={{ 
+                        fontSize: 14, 
+                        color: '#6C757D', 
+                        marginBottom: 8,
+                        paddingLeft: 16
+                      }}>
+                        • {tip}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+
   const renderProfileModal = () => (
     <Modal
       visible={showProfileModal}
@@ -1223,14 +1405,18 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
         </Text>
         <TouchableOpacity
           style={{
-            backgroundColor: '#87CEEB',
+            backgroundColor: workoutPlanLoading ? '#B0C4DE' : (userWorkoutPlan ? '#4CAF50' : '#87CEEB'),
             borderRadius: 8,
             padding: 12,
             alignItems: 'center'
           }}
-          onPress={() => Alert.alert('Coming Soon!', 'Workout plans feature will be available soon!')}
+          onPress={userWorkoutPlan ? () => setShowWorkoutPlan(true) : handleGenerateWorkoutPlan}
+          disabled={workoutPlanLoading}
         >
-          <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Start Workout</Text>
+          <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>
+            {workoutPlanLoading ? 'Generating Plan...' : 
+             userWorkoutPlan ? 'View Your Plan' : 'Generate AI Workout Plan'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -1692,6 +1878,9 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
       
       {/* Profile Modal */}
       {renderProfileModal()}
+      
+      {/* Workout Plan Modal */}
+      {renderWorkoutPlanModal()}
       
       {/* Leaderboard Screen */}
       {showLeaderboard && (

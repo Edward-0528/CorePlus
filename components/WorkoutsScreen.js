@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   View, 
   Text, 
@@ -15,6 +15,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, fonts, scaleWidth } from '../utils/responsive';
 import { workoutService } from '../services/workoutService';
+import { workoutCacheService } from '../services/workoutCacheService';
+import { workoutPlanService } from '../services/workoutPlanService';
 
 const CircularProgress = ({ size = 80, strokeWidth = 8, progress = 0, color = '#4A90E2' }) => {
   const radius = (size - strokeWidth) / 2;
@@ -193,24 +195,34 @@ const WorkoutsScreen = ({ user, onLogout, loading, styles }) => {
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [showQuickLog, setShowQuickLog] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [mounted, setMounted] = useState(true);
+  const [workoutPlanLoading, setWorkoutPlanLoading] = useState(false);
+  const [userWorkoutPlan, setUserWorkoutPlan] = useState(null);
+  const [cacheStatus, setCacheStatus] = useState({ stats: false, today: false, history: false });
 
-  const loadWorkoutData = useCallback(async () => {
-    if (!mounted) return; // Prevent updates if component is unmounted
+  const loadWorkoutData = useCallback(async (priorityLoad = false) => {
+    if (!mounted) return;
     
     try {
       setIsLoading(true);
       
-      // Load all workout data in parallel
-      const [statsResult, todayResult, historyResult] = await Promise.all([
-        workoutService.getUserWorkoutStats(),
-        workoutService.getTodaysWorkouts(),
-        workoutService.getWorkoutHistory(20) // Get last 20 workouts
+      // Phase 1: Load critical data first (stats and today's workouts) with cache priority
+      const [statsResult, todayResult] = await Promise.all([
+        workoutService.getUserWorkoutStats(true), // Use cache
+        workoutService.getTodaysWorkouts(true) // Use cache
       ]);
 
-      // Only update state if component is still mounted
+      // Update state if component is still mounted
       if (!mounted) return;
+
+      // Update cache status indicators
+      setCacheStatus(prev => ({
+        ...prev,
+        stats: statsResult.fromCache || false,
+        today: todayResult.fromCache || false
+      }));
 
       if (statsResult.success) {
         setWorkoutStats(statsResult.stats);
@@ -220,13 +232,38 @@ const WorkoutsScreen = ({ user, onLogout, loading, styles }) => {
         setTodaysWorkouts(todayResult.workouts);
       }
 
-      if (historyResult.success) {
-        setWorkoutHistory(historyResult.workouts);
+      // Phase 2: Load workout history with lazy loading (deferred)
+      if (!priorityLoad) {
+        // Defer history loading to next tick for better perceived performance
+        setTimeout(async () => {
+          if (!mounted) return;
+          
+          setIsHistoryLoading(true);
+          try {
+            const historyResult = await workoutService.getWorkoutHistory(20, true); // Use cache
+            
+            if (!mounted) return;
+            
+            setCacheStatus(prev => ({
+              ...prev,
+              history: historyResult.fromCache || false
+            }));
+
+            if (historyResult.success) {
+              setWorkoutHistory(historyResult.workouts);
+            }
+          } catch (error) {
+            console.error('Error loading workout history:', error);
+          } finally {
+            if (mounted) {
+              setIsHistoryLoading(false);
+            }
+          }
+        }, 100); // Small delay for better UX
       }
     } catch (error) {
       console.error('Error loading workout data:', error);
       if (mounted) {
-        // Only show alert if component is still mounted
         Alert.alert('Error', 'Failed to load workout data. Please try again.');
       }
     } finally {
@@ -238,7 +275,17 @@ const WorkoutsScreen = ({ user, onLogout, loading, styles }) => {
 
   useEffect(() => {
     setMounted(true);
+    
+    // Preload critical data immediately
     loadWorkoutData();
+    loadUserWorkoutPlan(); // Load user's workout plan
+    
+    // Warm up cache in background for future loads
+    setTimeout(() => {
+      if (mounted) {
+        workoutCacheService.preload(['workoutHistory', 'todaysWorkouts', 'userWorkoutStats']);
+      }
+    }, 2000);
     
     // Cleanup function to prevent memory leaks
     return () => {
@@ -309,9 +356,88 @@ const WorkoutsScreen = ({ user, onLogout, loading, styles }) => {
     if (!mounted) return;
     
     setRefreshing(true);
-    await loadWorkoutData();
-    if (mounted) {
-      setRefreshing(false);
+    // Force fresh data by disabling cache on refresh
+    setCacheStatus({ stats: false, today: false, history: false });
+    
+    try {
+      // Load all data fresh (bypass cache)
+      const [statsResult, todayResult, historyResult] = await Promise.all([
+        workoutService.getUserWorkoutStats(false), // Bypass cache
+        workoutService.getTodaysWorkouts(false), // Bypass cache
+        workoutService.getWorkoutHistory(20, false) // Bypass cache
+      ]);
+
+      if (!mounted) return;
+
+      if (statsResult.success) {
+        setWorkoutStats(statsResult.stats);
+      }
+
+      if (todayResult.success) {
+        setTodaysWorkouts(todayResult.workouts);
+      }
+
+      if (historyResult.success) {
+        setWorkoutHistory(historyResult.workouts);
+      }
+    } catch (error) {
+      console.error('Error refreshing workout data:', error);
+    } finally {
+      if (mounted) {
+        setRefreshing(false);
+      }
+    }
+  };
+
+  // Workout Plan Functions
+  const handleGenerateWorkoutPlan = async () => {
+    if (workoutPlanLoading) return;
+    
+    setWorkoutPlanLoading(true);
+    try {
+      console.log('🏋️ Generating personalized workout plan...');
+      
+      // Get user's fitness profile
+      const profileResult = await workoutPlanService.getUserFitnessProfile(user.id);
+      
+      if (!profileResult.success) {
+        Alert.alert('Profile Required', 'Please complete your fitness profile in your account settings to generate a workout plan.');
+        return;
+      }
+
+      const userProfile = profileResult.profile;
+      
+      // Generate AI-powered workout plan
+      const planResult = await workoutPlanService.generateAdaptivePlan(user.id, userProfile);
+      
+      if (planResult.success) {
+        setUserWorkoutPlan(planResult.plan);
+        Alert.alert(
+          'Workout Plan Generated! 🎉', 
+          'Your personalized workout plan has been created using AI. It rotates muscle groups to prevent strain and adapts to your fitness goals.',
+          [
+            { text: 'OK', onPress: () => {} }
+          ]
+        );
+      } else {
+        Alert.alert('Error', planResult.error || 'Failed to generate workout plan. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error generating workout plan:', error);
+      Alert.alert('Error', 'Failed to generate workout plan. Please check your internet connection and try again.');
+    } finally {
+      setWorkoutPlanLoading(false);
+    }
+  };
+
+  const loadUserWorkoutPlan = async () => {
+    try {
+      const planResult = await workoutPlanService.getUserActivePlan(user.id);
+      if (planResult.success && planResult.plan) {
+        setUserWorkoutPlan(planResult.plan);
+      }
+    } catch (error) {
+      console.error('Error loading user workout plan:', error);
     }
   };
 
@@ -358,13 +484,35 @@ const WorkoutsScreen = ({ user, onLogout, loading, styles }) => {
               {todaysWorkouts?.length || 0} of {workoutStats?.weekly_goal || 3} weekly workouts
             </Text>
             
+            {cacheStatus.stats && cacheStatus.today && (
+              <Text style={localStyles.cacheIndicator}>⚡ Loaded instantly from cache</Text>
+            )}
+            
             <View style={localStyles.buttonRow}>
               <TouchableOpacity 
-                style={[localStyles.button, { backgroundColor: '#4A90E2' }]}
+                style={[localStyles.button, { backgroundColor: '#4A90E2', flex: 1, marginRight: 8 }]}
                 onPress={() => setShowQuickLog(true)}
               >
                 <Ionicons name="add" size={20} color="#FFF" />
                 <Text style={localStyles.buttonText}>Log Workout</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[localStyles.button, { 
+                  backgroundColor: workoutPlanLoading ? '#B0C4DE' : (userWorkoutPlan ? '#4CAF50' : '#FF6B6B'),
+                  flex: 1
+                }]}
+                onPress={handleGenerateWorkoutPlan}
+                disabled={workoutPlanLoading}
+              >
+                <Ionicons 
+                  name={workoutPlanLoading ? "hourglass" : (userWorkoutPlan ? "checkmark-circle" : "fitness")} 
+                  size={20} 
+                  color="#FFF" 
+                />
+                <Text style={localStyles.buttonText}>
+                  {workoutPlanLoading ? 'Generating...' : 
+                   userWorkoutPlan ? 'Plan Created' : 'Generate Plan'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -405,6 +553,9 @@ const WorkoutsScreen = ({ user, onLogout, loading, styles }) => {
                   onDelete={handleDeleteWorkout}
                 />
               ))}
+              {cacheStatus.today && (
+                <Text style={localStyles.cacheIndicator}>📋 Loaded from cache</Text>
+              )}
             </View>
           )}
 
@@ -417,14 +568,24 @@ const WorkoutsScreen = ({ user, onLogout, loading, styles }) => {
               </TouchableOpacity>
             </View>
             
-            {workoutHistory?.length > 0 ? (
-              workoutHistory.slice(0, 5).map((workout) => (
-                <WorkoutHistoryItem
-                  key={workout.id}
-                  workout={workout}
-                  onDelete={handleDeleteWorkout}
-                />
-              ))
+            {isHistoryLoading ? (
+              <View style={localStyles.historyLoadingContainer}>
+                <ActivityIndicator size="small" color="#4A90E2" />
+                <Text style={localStyles.historyLoadingText}>Loading workout history...</Text>
+              </View>
+            ) : workoutHistory?.length > 0 ? (
+              <>
+                {workoutHistory.slice(0, 5).map((workout) => (
+                  <WorkoutHistoryItem
+                    key={workout.id}
+                    workout={workout}
+                    onDelete={handleDeleteWorkout}
+                  />
+                ))}
+                {cacheStatus.history && (
+                  <Text style={localStyles.cacheIndicator}>📋 Loaded from cache</Text>
+                )}
+              </>
             ) : (
               <Text style={localStyles.cardSubtitle}>No workout history yet. Start your fitness journey!</Text>
             )}
@@ -635,6 +796,25 @@ const localStyles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     marginBottom: spacing.md,
+  },
+  cacheIndicator: {
+    fontSize: fonts.small,
+    color: '#8E8E93',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    opacity: 0.8,
+  },
+  historyLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+  },
+  historyLoadingText: {
+    fontSize: fonts.small,
+    color: '#8E8E93',
+    marginLeft: spacing.xs,
   },
 });
 

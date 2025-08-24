@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, SafeAreaView, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, SafeAreaView, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 import { spacing, fonts, scaleWidth } from '../utils/responsive';
@@ -10,8 +10,8 @@ import FoodCameraScreen from './FoodCameraScreen';
 import FoodPredictionCard from './FoodPredictionCard';
 import MultiFoodSelectionCard from './MultiFoodSelectionCard';
 import FoodSearchModal from './FoodSearchModal';
-import MealHistorySection from './MealHistorySection';
 import TodaysMealsSection from './TodaysMealsSection';
+import MealHistoryCard from './MealHistoryCard';
 import { generateElegantMealTitle, generateCompactFoodsList } from '../utils/mealTitleGenerator';
 
 const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250, goal = 2000 }) => {
@@ -447,12 +447,66 @@ const NutritionScreen = () => {
     todaysMeals, 
     mealsLoading,
     addMeal,
-    deleteMeal,
-    debugChangeDayForTesting,
-    forceRefreshToday 
+    deleteMeal
   } = useDailyCalories();
-  
-  const mealManager = useMealManager();
+
+  // Get meal history data
+  const { mealHistory, historyLoading, loadMealHistory } = useMealManager();
+
+  // Debug logging
+  useEffect(() => {
+    console.log('🍽️ NutritionScreen mounted');
+    console.log('📊 Daily calories:', dailyCalories);
+    console.log('🥗 Today meals count:', todaysMeals?.length || 0);
+  }, [dailyCalories, todaysMeals]);
+
+  // Convert mealHistory object to array format for MealHistoryCard
+  const historicalMealsArray = useMemo(() => {
+    if (!mealHistory || typeof mealHistory !== 'object') return [];
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayDateStr = today.toISOString().split('T')[0]; // Format: "YYYY-MM-DD"
+    
+    console.log('🍽️ Today date for filtering:', todayDateStr);
+    
+    const meals = [];
+    Object.keys(mealHistory).forEach(date => {
+      // Only include dates that are before today
+      if (date !== todayDateStr && Array.isArray(mealHistory[date])) {
+        console.log('🍽️ Processing date:', date, 'with', mealHistory[date].length, 'meals');
+        mealHistory[date].forEach(meal => {
+          meals.push({
+            ...meal,
+            date: date,
+            meal_date: date
+          });
+        });
+      } else if (date === todayDateStr) {
+        console.log('🍽️ Skipping today\'s date:', date, 'with', mealHistory[date]?.length || 0, 'meals');
+      }
+    });
+    
+    console.log('🍽️ Final historicalMealsArray:', meals);
+    return meals;
+  }, [mealHistory]);
+
+  // Load meal history when component mounts
+  useEffect(() => {
+    console.log('📚 Loading meal history...');
+    if (loadMealHistory) {
+      // Generate dates for the last 30 days (excluding today)
+      const dates = [];
+      const today = new Date();
+      for (let i = 1; i <= 30; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        dates.push(date.toISOString().split('T')[0]);
+      }
+      console.log('📅 Loading historical data for dates:', dates);
+      loadMealHistory(dates);
+    }
+  }, [loadMealHistory]);
   
   // State for UI controls
   const [isNutritionExpanded, setIsNutritionExpanded] = useState(false);
@@ -504,6 +558,7 @@ const NutritionScreen = () => {
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [foodPredictions, setFoodPredictions] = useState([]);
   const [capturedImage, setCapturedImage] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // No longer need local loggedMeals state - use todaysMeals from context
   // No longer need isLoading state for meals - use mealsLoading from context
@@ -553,25 +608,38 @@ const NutritionScreen = () => {
     }
   }, [addMeal]);
 
-  const handleCameraAnalysis = useCallback((predictions, imageUri) => {
-    console.log('📱 Camera analysis result received:', predictions);
+  const handleCameraAnalysis = useCallback((predictions, imageUri, isLoading = false, error = null) => {
+    console.log('📱 Camera analysis result received:', { predictions: predictions?.length, isLoading, error });
     
-    if (predictions && predictions.length > 0) {
-      // Always show multi-selection interface instead of auto-selecting
-      setFoodPredictions(predictions);
-      setCapturedImage(imageUri);
-      setShowCameraModal(false);
-      setShowMultiSelectionCard(true);
-      
+    // Always transition to multi-selection screen
+    setFoodPredictions(predictions);
+    setCapturedImage(imageUri);
+    setShowCameraModal(false);
+    setShowMultiSelectionCard(true);
+    
+    // Handle different states
+    if (error) {
+      // Analysis failed
+      setTimeout(() => {
+        Alert.alert(
+          'Analysis Failed',
+          error,
+          [
+            { text: 'Try Again', onPress: () => {
+              setShowMultiSelectionCard(false);
+              setShowCameraModal(true);
+            }},
+            { text: 'Add Manually', onPress: () => {
+              setShowMultiSelectionCard(false);
+              setShowMealModal(true);
+            }}
+          ]
+        );
+      }, 500); // Small delay to allow modal transition
+    } else if (!isLoading && predictions && predictions.length > 0) {
       console.log(`📋 Showing ${predictions.length} food options for multi-selection`);
-    } else {
-      // Analysis failed, show error
-      Alert.alert(
-        'Analysis Failed',
-        'Could not identify the food. Please try again or add manually.',
-        [{ text: 'OK' }]
-      );
-      setShowCameraModal(false);
+    } else if (isLoading) {
+      console.log('📋 Showing loading state in multi-selection');
     }
   }, []);
 
@@ -749,9 +817,34 @@ const NutritionScreen = () => {
   const closeCameraModal = useCallback(() => setShowCameraModal(false), []);
   const closePredictionCard = useCallback(() => setShowPredictionCard(false), []);
 
+  // Refresh handler
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      // Reload meal history data
+      await loadMealHistory();
+      console.log('🔄 Nutrition screen refreshed successfully');
+    } catch (error) {
+      console.error('❌ Error refreshing nutrition screen:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [loadMealHistory]);
+
   return (
     <>
-    <ScrollView style={stylesx.container} contentContainerStyle={{ paddingBottom: spacing.xl }}>
+    <ScrollView 
+      style={stylesx.container} 
+      contentContainerStyle={{ paddingBottom: spacing.xl }}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor="#4682B4"
+          colors={["#4682B4"]}
+        />
+      }
+    >
       {/* Hero Intake Card */}
       <View style={stylesx.heroCard}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
@@ -794,43 +887,47 @@ const NutritionScreen = () => {
           </View>
         )}
         
-        {/* Temporary fix button for date transition issue */}
-        <TouchableOpacity 
-          style={stylesx.fixButton} 
-          onPress={forceRefreshToday}
-        >
-          <Text style={stylesx.fixButtonText}>🔄 Fix Today's Meals</Text>
-        </TouchableOpacity>
-        
         <MealAddButton onPress={() => setShowMealModal(true)} />
         
-        <TodaysMealsSection 
-          meals={todaysMeals}
-          onDeleteMeal={handleDirectDeleteMeal}
-          onMealCountChange={handleMealCountChange}
-          getMealMethodIcon={getMealMethodIcon}
-          getMealMethodColor={getMealMethodColor}
-          isLoading={mealsLoading}
-        />
+        {/* Re-enabling TodaysMealsSection for testing */}
+        {TodaysMealsSection && (
+          <TodaysMealsSection 
+            meals={todaysMeals}
+            onDeleteMeal={handleDirectDeleteMeal}
+            onMealCountChange={handleMealCountChange}
+            getMealMethodIcon={getMealMethodIcon}
+            getMealMethodColor={getMealMethodColor}
+            isLoading={mealsLoading}
+          />
+        )}
+        {/* <View style={{ padding: spacing.md }}>
+          <Text style={{ fontSize: fonts.medium, color: '#666' }}>
+            Today's meals section temporarily disabled for debugging
+          </Text>
+        </View> */}
       </View>
 
-      <MealEntryModal
-        visible={showMealModal}
-        onClose={closeMealModal}
-        onAddMeal={handleAddMeal}
-        onOpenCamera={openCamera}
-        onOpenSearch={openSearch}
-      />
-
-      {/* Meal History */}
-      <MealHistorySection 
-        mealManager={mealManager}
+      {/* Meal History Card */}
+      <MealHistoryCard
+        historicalMeals={historicalMealsArray}
+        onDeleteMeal={handleDirectDeleteMeal}
         getMealMethodIcon={getMealMethodIcon}
         getMealMethodColor={getMealMethodColor}
+        isLoading={historyLoading}
+        daysToShow={7}
       />
     </ScrollView>
 
-    {/* Camera Modal */}
+    {/* Modals */}
+    <MealEntryModal
+      visible={showMealModal}
+      onClose={closeMealModal}
+      onAddMeal={handleAddMeal}
+      onOpenCamera={openCamera}
+      onOpenSearch={openSearch}
+    />
+
+    {/* Camera Modal - Re-enabled for testing */}
     <Modal
       visible={showCameraModal}
       animationType="slide"
@@ -845,7 +942,7 @@ const NutritionScreen = () => {
       />
     </Modal>
 
-    {/* Food Prediction Card */}
+    {/* Food Prediction Card - Re-enabled for testing */}
     <FoodPredictionCard
       visible={showPredictionCard}
       predictions={foodPredictions}
@@ -854,7 +951,7 @@ const NutritionScreen = () => {
       onClose={closePredictionCard}
     />
 
-    {/* Multi Food Selection Card */}
+    {/* Multi Food Selection Card - Re-enabled for testing */}
     <MultiFoodSelectionCard
       visible={showMultiSelectionCard}
       predictions={foodPredictions}
@@ -863,7 +960,7 @@ const NutritionScreen = () => {
       onClose={() => setShowMultiSelectionCard(false)}
     />
 
-    {/* Food Search Modal */}
+    {/* Food Search Modal - Re-enabled for testing */}
     <FoodSearchModal
       visible={showSearchModal}
       onClose={() => setShowSearchModal(false)}
@@ -898,8 +995,9 @@ const stylesx = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F5F7' },
   heroCard: {
     backgroundColor: '#FFFFFF',
-    margin: spacing.md,
+    marginHorizontal: spacing.md,
     marginTop: spacing.lg,
+    marginBottom: spacing.md,
     padding: spacing.lg,
     borderRadius: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
@@ -909,6 +1007,7 @@ const stylesx = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
     padding: spacing.lg,
     borderRadius: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,

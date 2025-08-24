@@ -40,15 +40,49 @@ export const styles = StyleSheet.create({
   backgroundImageStyle: {
     opacity: 1.0,
   },
+  // Video background styles
+  videoBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: 1,
+  },
+  videoOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', // Dark overlay for text readability
+    zIndex: 2,
+  },
+  gradientOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.0)',
+    zIndex: 3,
   },
   landingContent: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     paddingHorizontal: responsivePadding.container,
     paddingVertical: SCREEN_HEIGHT > 700 ? scaleHeight(50) : scaleHeight(30),
+  },
+  topSection: {
+    alignItems: 'center',
+    marginTop: spacing.xl,
+    paddingTop: spacing.xl,
   },
   headerSection: {
     alignItems: 'center',
@@ -118,6 +152,38 @@ export const styles = StyleSheet.create({
     marginBottom: 40,
     paddingHorizontal: 8,
   },
+  // Feature highlights styles
+  featureHighlights: {
+    marginTop: spacing.lg,
+    width: '100%',
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.xs,
+  },
+  featureIcon: {
+    fontSize: 20,
+    marginRight: spacing.md,
+    width: 30,
+    textAlign: 'center',
+  },
+  featureIconStyle: {
+    marginRight: spacing.md,
+    width: 30,
+    textAlign: 'center',
+    opacity: 0.9,
+  },
+  featureText: {
+    fontSize: fonts.medium,
+    color: '#ffffff',
+    fontWeight: '500',
+    opacity: 0.9,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
   bottomSection: {
     width: '100%',
     alignItems: 'center',
@@ -142,7 +208,9 @@ export const styles = StyleSheet.create({
     borderRadius: 4,
   },
   newGetStartedButton: {
-    backgroundColor: '#5DADE2',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#ffffff',
     paddingVertical: scaleHeight(18),
     paddingHorizontal: scaleWidth(32),
     borderRadius: scaleWidth(30),
@@ -151,21 +219,16 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     width: '90%',
     maxWidth: scaleWidth(400),
-    shadowColor: '#5DADE2',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.6,
-    shadowRadius: 15,
-    elevation: 12,
     marginBottom: spacing.md,
   },
   buttonDisabled: {
-    backgroundColor: '#666666',
-    shadowOpacity: 0.1,
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   newGetStartedText: {
     color: '#ffffff',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '300',
     letterSpacing: 0.5,
     flex: 1,
     textAlign: 'center',
@@ -179,7 +242,7 @@ export const styles = StyleSheet.create({
   },
   termsContainer: {
     width: '100%',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: 16,
   },
   checkboxContainer: {
@@ -191,14 +254,15 @@ export const styles = StyleSheet.create({
     height: 20,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#5DADE2',
+    borderColor: '#ffffff',
     backgroundColor: 'transparent',
     marginRight: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#5DADE2',
+    backgroundColor: 'transparent',
+    borderColor: '#ffffff',
   },
   checkmark: {
     color: '#ffffff',
