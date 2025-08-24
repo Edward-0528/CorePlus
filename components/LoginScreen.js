@@ -1,10 +1,14 @@
-import React, { memo, useCallback, useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Alert } from 'react-native';
+import React, { memo, useCallback, useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, TextInput, Alert, Dimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Video } from 'expo-av';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useAppContext } from '../contexts/AppContext';
-import AnimatedBackground from './common/AnimatedBackground';
 import { biometricService } from '../biometricService';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const LoginScreen = memo(({ 
   loading, 
@@ -21,30 +25,35 @@ const LoginScreen = memo(({
     isEnabled: false,
     biometricType: 'Biometric'
   });
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const videoRef = useRef(null);
 
   // Check biometric availability when component mounts
   useEffect(() => {
     checkBiometricStatus();
   }, []);
 
+  useEffect(() => {
+    // Configure video to loop and play automatically
+    if (videoRef.current) {
+      videoRef.current.setIsLoopingAsync(true);
+      videoRef.current.playAsync();
+    }
+  }, []);
+
+  const handleVideoLoad = () => {
+    console.log('✨ Login screen video background loaded');
+    setVideoLoaded(true);
+  };
+
   const checkBiometricStatus = async () => {
     try {
       const info = await biometricService.getBiometricInfo();
       setBiometricInfo(info);
-      
-      // If biometric is available and enabled, show a prompt to use it
-      if (info.isAvailable && info.isEnabled) {
-        setTimeout(() => {
-          Alert.alert(
-            'Quick Login Available',
-            `You can sign in quickly using ${info.biometricType}. Would you like to use it now?`,
-            [
-              { text: 'Use Password', style: 'cancel' },
-              { text: `Use ${info.biometricType}`, onPress: handleBiometricLogin }
-            ]
-          );
-        }, 500); // Small delay to let the screen render first
-      }
+      // No automatic popup - let user choose when to use biometrics
     } catch (error) {
       console.error('Error checking biometric status:', error);
     }
@@ -69,115 +78,163 @@ const LoginScreen = memo(({
   }, [updateFormData]);
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
-      <AnimatedBackground />
-      <StatusBar style="dark" />
+    <SafeAreaView style={styles.landingContainer}>
+      {/* Premium Video Background */}
+      <Video
+        ref={videoRef}
+        source={require('../assets/workout.mp4')}
+        style={styles.videoBackground}
+        shouldPlay
+        isLooping
+        isMuted
+        resizeMode="cover"
+        rate={1.0}
+        volume={0}
+        onLoadStart={() => console.log('Login video loading...')}
+        onLoad={handleVideoLoad}
+        onError={(error) => console.log('Video error:', error)}
+        usePoster={false}
+        posterSource={require('../assets/Athleticman.png')}
+        posterStyle={styles.videoBackground}
+      />
       
-      {/* Header */}
-      <View style={styles.compactHeader}>        
-        <Text style={styles.compactTitle}>Welcome Back</Text>
-        <Text style={styles.compactSubtitle}>we are happy to see you back again!</Text>
-      </View>
-
-      {/* Form Container */}
-      <View style={styles.compactFormContainer}>
-        {/* Email Input */}
-        <View style={styles.compactInputContainer}>
-          <Text style={styles.compactInputLabel}>Email</Text>
-          <View style={styles.compactInputWrapper}>
-            <TextInput
-              style={styles.compactInput}
-              value={formData.email}
-              onChangeText={handleEmailChange}
-              placeholder="CorePlus@gmail.com"
-              placeholderTextColor="#a0aec0"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
-          {formData.email && !formData.email.includes('@') && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorDot}>●</Text>
-              <Text style={styles.errorText}>Invalid email format</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Password Input */}
-        <View style={styles.compactInputContainer}>
-          <Text style={styles.compactInputLabel}>Password</Text>
-          <View style={styles.compactInputWrapper}>
-            <TextInput
-              style={styles.compactInput}
-              value={formData.password}
-              onChangeText={handlePasswordChange}
-              placeholder="••••••••••"
-              placeholderTextColor="#a0aec0"
-              secureTextEntry
-            />
-          </View>
-        </View>
-
-        {/* Login Button */}
-        <TouchableOpacity 
-          style={[styles.compactSignUpButton, loading && styles.compactButtonDisabled]}
-          onPress={onLogin}
-          disabled={loading}
-        >
-          <Text style={styles.compactSignUpText}>
-            {loading ? "Signing in..." : "Login"}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Biometric Login Button - Show if available and enabled */}
-        {biometricInfo.isAvailable && biometricInfo.isEnabled && (
-          <TouchableOpacity 
-            style={[styles.compactBiometricButton]}
-            onPress={handleBiometricLogin}
-            disabled={loading}
-          >
-            <Text style={styles.compactBiometricIcon}>
-              {biometricInfo.biometricType === 'Face ID' ? '👤' : '👆'}
-            </Text>
-            <Text style={styles.compactBiometricText}>
-              Sign in with {biometricInfo.biometricType}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* OR divider - only show if biometric is available */}
-        {biometricInfo.isAvailable && biometricInfo.isEnabled && (
-          <Text style={styles.compactOrText}>or</Text>
-        )}
-
-        {/* Social Login */}
-        <Text style={styles.compactOrText}>Sign in with</Text>
+      {/* Elegant Dark Overlay */}
+      <View style={[styles.videoOverlay, { opacity: videoLoaded ? 1 : 0.8 }]}>
+        {/* Premium Gradient Overlay */}
+        <LinearGradient
+          colors={[
+            'rgba(0,0,0,0.4)',
+            'rgba(0,0,0,0.6)',
+            'rgba(0,0,0,0.8)',
+            'rgba(0,0,0,0.95)'
+          ]}
+          style={styles.gradientOverlay}
+          locations={[0, 0.3, 0.7, 1]}
+        />
         
-        <View style={styles.compactSocialContainer}>
+        <View style={styles.overlay}>
+          {/* Back Button - Top Left */}
           <TouchableOpacity 
-            style={[styles.compactSocialButton, styles.compactAppleButton]}
-            onPress={() => onSocialLogin('apple')}
+            style={styles.topLeftBackButton}
+            onPress={onBackToLanding}
           >
-            <Text style={styles.compactSocialIcon}>A</Text>
-            <Text style={[styles.compactSocialText, styles.compactAppleText]}>Apple</Text>
+            <Ionicons name="arrow-back" size={24} color="#ffffff" />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.compactSocialButton, styles.compactGoogleButton]}
-            onPress={() => onSocialLogin('google')}
-          >
-            <Text style={styles.compactSocialIconGoogle}>G</Text>
-            <Text style={styles.compactSocialText}>Google</Text>
-          </TouchableOpacity>
-        </View>
 
-        {/* Sign Up Link */}
-        <TouchableOpacity onPress={onSwitchToSignUp} style={styles.compactLoginContainer}>
-          <Text style={styles.compactLoginText}>
-            Don't have an account? <Text style={styles.compactLoginLink}>Sign up</Text>
-          </Text>
-        </TouchableOpacity>
-      </View>
+          {/* Centered Content Container */}
+          <View style={styles.centeredFormContainer}>
+            {/* Login Form */}
+            <View style={styles.loginFormContainer}>
+                {/* Email Input */}
+                <View style={styles.loginInputContainer}>
+                  
+                  <TextInput
+                    style={[
+                      styles.loginInput,
+                      emailFocused && styles.loginInputFocused
+                    ]}
+                    value={formData.email}
+                    onChangeText={handleEmailChange}
+                    placeholder="E-Mail"
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    onFocus={() => setEmailFocused(true)}
+                    onBlur={() => setEmailFocused(false)}
+                  />
+                </View>
+
+                {/* Password Input */}
+                <View style={styles.loginInputContainer}>
+                  <View style={{ position: 'relative' }}>
+                    <TextInput
+                      style={[
+                        styles.loginInput,
+                        passwordFocused && styles.loginInputFocused
+                      ]}
+                      value={formData.password}
+                      onChangeText={handlePasswordChange}
+                      placeholder="Password"
+                      placeholderTextColor="rgba(255, 255, 255, 0.4)"
+                      secureTextEntry={!showPassword}
+                      onFocus={() => setPasswordFocused(true)}
+                      onBlur={() => setPasswordFocused(false)}
+                    />
+                    <TouchableOpacity
+                      style={styles.passwordToggle}
+                      onPress={() => setShowPassword(!showPassword)}
+                    >
+                      <Ionicons 
+                        name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                        size={20} 
+                        color="rgba(255, 255, 255, 0.6)" 
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Login Buttons Row */}
+                <View style={styles.loginButtonsRow}>
+                  {/* Sign In Button */}
+                  <TouchableOpacity 
+                    style={[styles.loginPrimaryButton, loading && styles.buttonDisabled]}
+                    onPress={onLogin}
+                    disabled={loading}
+                  >
+                    <Text style={styles.loginPrimaryButtonText}>
+                      {loading ? "Signing in..." : "Sign In"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Biometric Button - Right Side */}
+                  {biometricInfo.isAvailable && biometricInfo.isEnabled && (
+                    <TouchableOpacity 
+                      style={[styles.biometricIconButton, loading && styles.buttonDisabled]}
+                      onPress={handleBiometricLogin}
+                      disabled={loading}
+                    >
+                      
+                      <Ionicons 
+                        name="finger-print" 
+                        size={20} 
+                        color="#ffffff" 
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Social Login */}
+                <View style={styles.socialLoginContainer}>
+                  <View style={styles.socialButtonsContainer}>
+                    <TouchableOpacity 
+                      style={styles.socialButton}
+                      onPress={() => onSocialLogin('apple')}
+                    >
+                      <Ionicons name="logo-apple" size={20} color="#ffffff" />
+                      <Text style={styles.socialButtonText}>Apple</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={styles.socialButton}
+                      onPress={() => onSocialLogin('google')}
+                    >
+                      <Ionicons name="logo-google" size={20} color="#ffffff" />
+                      <Text style={styles.socialButtonText}>Google</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Sign Up Link */}
+                <TouchableOpacity onPress={onSwitchToSignUp} style={styles.switchAuthContainer}>
+                  <Text style={styles.switchAuthText}>
+                    Don't have an account? <Text style={styles.switchAuthLink}>Sign up</Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      <StatusBar style="light" />
     </SafeAreaView>
   );
 });
