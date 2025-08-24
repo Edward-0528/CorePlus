@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, TextInput, SafeAreaView, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
@@ -451,7 +451,10 @@ const NutritionScreen = () => {
   } = useDailyCalories();
 
   // Get meal history data
-  const { mealHistory, historyLoading, loadMealHistory } = useMealManager();
+  const { mealHistory, historyLoading, loadMealHistory, clearMealHistory } = useMealManager();
+  
+  // Track if initial load has been done to prevent multiple loads
+  const hasInitializedRef = useRef(false);
 
   // Debug logging
   useEffect(() => {
@@ -491,22 +494,51 @@ const NutritionScreen = () => {
     return meals;
   }, [mealHistory]);
 
-  // Load meal history when component mounts
+  // Load meal history progressively when component mounts
   useEffect(() => {
+    // Prevent multiple initializations
+    if (hasInitializedRef.current) return;
+    
     console.log('📚 Loading meal history...');
+    let isActive = true; // Prevent race conditions
+    
     if (loadMealHistory) {
-      // Generate dates for the last 30 days (excluding today)
+      hasInitializedRef.current = true;
+      
+      // Start with just the last 7 days for quick loading
       const dates = [];
       const today = new Date();
-      for (let i = 1; i <= 30; i++) {
+      for (let i = 1; i <= 7; i++) {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
         dates.push(date.toISOString().split('T')[0]);
       }
       console.log('📅 Loading historical data for dates:', dates);
       loadMealHistory(dates);
+      
+      // Load more data progressively after initial load
+      const timeoutId = setTimeout(() => {
+        if (isActive) {
+          const extendedDates = [];
+          for (let i = 8; i <= 30; i++) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            extendedDates.push(date.toISOString().split('T')[0]);
+          }
+          if (extendedDates.length > 0) {
+            console.log('📅 Loading extended historical data for dates:', extendedDates);
+            loadMealHistory(extendedDates);
+          }
+        }
+      }, 2000); // Wait 2 seconds before loading extended data
+      
+      // Cleanup function
+      return () => {
+        isActive = false;
+        clearTimeout(timeoutId);
+      };
     }
-  }, [loadMealHistory]);
+  }, []); // Remove loadMealHistory dependency to prevent re-runs
   
   // State for UI controls
   const [isNutritionExpanded, setIsNutritionExpanded] = useState(false);
@@ -817,19 +849,30 @@ const NutritionScreen = () => {
   const closeCameraModal = useCallback(() => setShowCameraModal(false), []);
   const closePredictionCard = useCallback(() => setShowPredictionCard(false), []);
 
-  // Refresh handler
+  // Refresh handler with cache clearing
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      // Reload meal history data
-      await loadMealHistory();
-      console.log('🔄 Nutrition screen refreshed successfully');
+      // Clear cache and reload meal history data for fresh data
+      await clearMealHistory();
+      
+      // Load fresh data starting with recent dates
+      const dates = [];
+      const today = new Date();
+      for (let i = 1; i <= 7; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        dates.push(date.toISOString().split('T')[0]);
+      }
+      
+      await loadMealHistory(dates);
+      console.log('🔄 Nutrition screen refreshed successfully with fresh data');
     } catch (error) {
       console.error('❌ Error refreshing nutrition screen:', error);
     } finally {
       setIsRefreshing(false);
     }
-  }, [loadMealHistory]);
+  }, [loadMealHistory, clearMealHistory]);
 
   return (
     <>

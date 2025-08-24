@@ -62,7 +62,8 @@ export const AppProvider = ({ children }) => {
     heightFeet: '',
     heightInches: '',
     weight: '',
-    goalWeight: ''
+    goalWeight: '',
+    affiliateCode: ''
   });
 
   // Memoized actions to prevent re-renders

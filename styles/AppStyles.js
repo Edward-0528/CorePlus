@@ -352,41 +352,44 @@ export const styles = StyleSheet.create({
   },
   modernLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#4a5568',
+    fontWeight: '300',
+    color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   modernInput: {
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 16,
     fontSize: 16,
-    backgroundColor: '#ffffff',
-    color: '#2d3748',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    color: '#ffffff',
   },
   modernDropdown: {
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   modernDropdownText: {
     fontSize: 16,
-    color: '#2d3748',
+    color: '#ffffff',
   },
   modernDropdownPlaceholder: {
-    color: '#a0aec0',
+    color: 'rgba(255, 255, 255, 0.5)',
   },
   modernDropdownArrow: {
     fontSize: 12,
-    color: '#a0aec0',
+    color: 'rgba(255, 255, 255, 0.6)',
   },
   modernButtonContainer: {
     marginTop: 15,
@@ -864,16 +867,22 @@ export const styles = StyleSheet.create({
   },
   onboardingTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#2d3748',
+    fontWeight: '300',
+    color: '#ffffff',
     textAlign: 'center',
     marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
   onboardingSubtitle: {
     fontSize: 16,
-    color: '#718096',
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     marginBottom: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   progressContainer: {
     alignItems: 'center',
@@ -881,18 +890,21 @@ export const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: 14,
-    color: '#718096',
+    color: 'rgba(255, 255, 255, 0.6)',
     marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   progressBar: {
     width: '80%',
     height: 4,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 2,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#4299e1',
+    backgroundColor: '#ffffff',
     borderRadius: 2,
   },
   stepContainer: {
@@ -920,16 +932,16 @@ export const styles = StyleSheet.create({
     marginBottom: 30,
   },
   goalCard: {
-    backgroundColor: '#ffffff',
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
   },
   goalCardSelected: {
-    borderColor: '#4299e1',
-    backgroundColor: '#ebf8ff',
+    borderColor: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   goalEmoji: {
     fontSize: 32,
@@ -937,20 +949,26 @@ export const styles = StyleSheet.create({
   },
   goalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2d3748',
+    fontWeight: '300',
+    color: '#ffffff',
     marginBottom: 5,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   goalTitleSelected: {
-    color: '#4299e1',
+    color: '#ffffff',
   },
   goalDescription: {
     fontSize: 14,
-    color: '#718096',
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   goalDescriptionSelected: {
-    color: '#4299e1',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
 
   // Activity styles
@@ -1009,22 +1027,26 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   onboardingButton: {
-    backgroundColor: '#4299e1',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#ffffff',
     paddingHorizontal: 30,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 30,
   },
   onboardingButtonFullWidth: {
     width: '100%',
     alignItems: 'center',
   },
   onboardingButtonDisabled: {
-    backgroundColor: '#a0aec0',
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   onboardingButtonText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '300',
     color: '#ffffff',
+    letterSpacing: 0.5,
   },
   onboardingButtonContainer: {
     paddingVertical: 20,
@@ -1032,21 +1054,29 @@ export const styles = StyleSheet.create({
 
   // Summary styles
   summaryContainer: {
-    backgroundColor: '#f7fafc',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 12,
     padding: 20,
     marginBottom: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   summaryTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2d3748',
+    fontWeight: '300',
+    color: '#ffffff',
     marginBottom: 15,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   summaryItem: {
     fontSize: 16,
-    color: '#4a5568',
+    color: 'rgba(255, 255, 255, 0.8)',
     marginBottom: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 
   // Dashboard styles
@@ -1426,5 +1456,20 @@ export const styles = StyleSheet.create({
   switchAuthLink: {
     color: '#ffffff',
     fontWeight: 'bold',
+  },
+  
+  // Loading Screen Styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  
+  // Onboarding Screen Styles
+  onboardingScrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
   },
 });

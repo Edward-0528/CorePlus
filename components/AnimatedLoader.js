@@ -84,6 +84,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   plus: { fontSize: 28, fontWeight: '700', letterSpacing: 0.5 },
-  label: { marginTop: 18, fontSize: 16, color: 'rgba(0,0,0,0.6)', fontWeight: '600' },
-  hint: { marginTop: 8, fontSize: 12, color: 'rgba(0,0,0,0.4)' }
+  label: { 
+    marginTop: 18, 
+    fontSize: 16, 
+    color: '#ffffff', 
+    fontWeight: '300',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  hint: { 
+    marginTop: 8, 
+    fontSize: 12, 
+    color: 'rgba(255, 255, 255, 0.6)',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  }
 });

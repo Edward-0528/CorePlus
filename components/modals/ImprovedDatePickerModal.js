@@ -254,7 +254,7 @@ const ImprovedDatePickerModal = memo(({ visible, onClose, onDateSelect, styles }
               fontWeight: 'bold',
               color: '#1A1A1A'
             }}>
-              Date of Birth
+              Birthday
             </Text>
             <TouchableOpacity 
               onPress={onClose}

@@ -6,7 +6,7 @@ import { useAppContext } from './AppContext';
 const DailyCaloriesContext = createContext();
 
 export const DailyCaloriesProvider = ({ children }) => {
-  const { isAuthenticated } = useAppContext();
+  const { isAuthenticated, user } = useAppContext();
   const [dailyCalories, setDailyCalories] = useState(0);
   const [dailyMacros, setDailyMacros] = useState({ carbs: 0, protein: 0, fat: 0 });
   const [dailyMicros, setDailyMicros] = useState({ fiber: 0, sugar: 0, sodium: 0 });
@@ -16,10 +16,17 @@ export const DailyCaloriesProvider = ({ children }) => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [lastCacheUpdate, setLastCacheUpdate] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [currentUserId, setCurrentUserId] = useState(null); // Track current user
 
-  // Generate cache key based on current date
-  const getTodayMealsKey = () => `meals_${currentDate}`;
-  const LAST_CACHE_KEY = 'last_meal_cache_update';
+  // Generate cache key based on current date and user ID
+  const getTodayMealsKey = () => {
+    const userId = user?.id || 'anonymous';
+    return `meals_${currentDate}_${userId}`;
+  };
+  const LAST_CACHE_KEY = () => {
+    const userId = user?.id || 'anonymous';
+    return `last_meal_cache_update_${userId}`;
+  };
 
   // Check for date changes every minute and on authentication change
   useEffect(() => {
@@ -40,9 +47,11 @@ export const DailyCaloriesProvider = ({ children }) => {
         setDailyMacros({ carbs: 0, protein: 0, fat: 0 });
         setDailyMicros({ fiber: 0, sugar: 0, sodium: 0 });
         
-        // Clear yesterday's cache to prevent confusion
-        const yesterdayKey = `meals_${currentDate}`;
-        AsyncStorage.removeItem(yesterdayKey).catch(console.warn);
+        // Clear yesterday's cache to prevent confusion (user-specific)
+        if (user?.id) {
+          const yesterdayKey = `meals_${currentDate}_${user.id}`;
+          AsyncStorage.removeItem(yesterdayKey).catch(console.warn);
+        }
         
         // Force refresh from server for the new date
         if (isAuthenticated) {
@@ -82,6 +91,47 @@ export const DailyCaloriesProvider = ({ children }) => {
     }
   }, [isAuthenticated, currentDate]);
 
+  // Clear data when user changes (user switching scenario)
+  useEffect(() => {
+    const newUserId = user?.id || null;
+    
+    // Clear data if user changes (including when going from no user to a user)
+    if (currentUserId !== newUserId) {
+      if (currentUserId && newUserId && currentUserId !== newUserId) {
+        console.log('👤 User changed from', currentUserId, 'to', newUserId);
+      } else if (!currentUserId && newUserId) {
+        console.log('👤 New user detected:', newUserId);
+      } else if (currentUserId && !newUserId) {
+        console.log('👤 User logged out');
+      }
+      
+      console.log('🧹 Clearing previous user data');
+      
+      // Clear all user-specific data
+      setTodaysMeals([]);
+      setHistoricalMeals({});
+      setDailyCalories(0);
+      setDailyMacros({ carbs: 0, protein: 0, fat: 0 });
+      setDailyMicros({ fiber: 0, sugar: 0, sodium: 0 });
+      setLastCacheUpdate(null);
+      
+      // Clear cache for the previous user if we have their ID
+      if (currentUserId) {
+        // Import cacheManager dynamically to clear previous user's specific data
+        import('../services/cacheManager')
+          .then(({ cacheManager }) => {
+            cacheManager.clearUserSpecificData(currentUserId);
+          })
+          .catch(console.warn);
+      } else {
+        // If no previous user ID, clear all cache (fallback)
+        clearCache().catch(console.warn);
+      }
+    }
+    
+    setCurrentUserId(newUserId);
+  }, [user?.id, currentUserId]);
+
   const loadCachedMeals = async () => {
     // Don't try to load if user is not authenticated
     if (!isAuthenticated) {
@@ -95,7 +145,7 @@ export const DailyCaloriesProvider = ({ children }) => {
       // Try to load from cache first
       const todayKey = getTodayMealsKey();
       const cachedMeals = await AsyncStorage.getItem(todayKey);
-      const cachedUpdateTime = await AsyncStorage.getItem(LAST_CACHE_KEY);
+      const cachedUpdateTime = await AsyncStorage.getItem(LAST_CACHE_KEY());
       
       if (cachedMeals) {
         const meals = JSON.parse(cachedMeals);
@@ -140,7 +190,7 @@ export const DailyCaloriesProvider = ({ children }) => {
         // Cache the fresh data
         const todayKey = getTodayMealsKey();
         await AsyncStorage.setItem(todayKey, JSON.stringify(meals));
-        await AsyncStorage.setItem(LAST_CACHE_KEY, Date.now().toString());
+        await AsyncStorage.setItem(LAST_CACHE_KEY(), Date.now().toString());
         setLastCacheUpdate(Date.now().toString());
         
         console.log('✅ Refreshed meals from server:', meals.length, 'meals');
@@ -315,7 +365,7 @@ export const DailyCaloriesProvider = ({ children }) => {
         // Update cache
         const todayKey = getTodayMealsKey();
         await AsyncStorage.setItem(todayKey, JSON.stringify(updatedMeals));
-        await AsyncStorage.setItem(LAST_CACHE_KEY, Date.now().toString());
+        await AsyncStorage.setItem(LAST_CACHE_KEY(), Date.now().toString());
         
         return { success: true };
       }
@@ -331,7 +381,7 @@ export const DailyCaloriesProvider = ({ children }) => {
     try {
       const todayKey = getTodayMealsKey();
       await AsyncStorage.removeItem(todayKey);
-      await AsyncStorage.removeItem(LAST_CACHE_KEY);
+      await AsyncStorage.removeItem(LAST_CACHE_KEY());
       setTodaysMeals([]);
       setDailyCalories(0);
       setDailyMacros({ carbs: 0, protein: 0, fat: 0 });

@@ -53,6 +53,10 @@ export const authService = {
   // Sign out
   signOut: async () => {
     try {
+      // Clear all user-specific cached data before signing out
+      const { cacheManager } = await import('./services/cacheManager');
+      await cacheManager.clearAllUserData();
+      
       const { error } = await supabase.auth.signOut();
       if (error) {
         throw error;

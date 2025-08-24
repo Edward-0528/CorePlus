@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mealService } from '../services/mealService';
 import { useDailyCalories } from '../contexts/DailyCaloriesContext';
+import { supabase } from '../supabaseConfig';
 
 export const useMealManager = () => {
   const { 
@@ -18,6 +19,43 @@ export const useMealManager = () => {
   const [mealHistory, setMealHistory] = useState({});
   const [historyLoading, setHistoryLoading] = useState(false);
   const [loadedDates, setLoadedDates] = useState(new Set());
+
+  // Clear all meal history state and cache (useful on login/logout)
+  const clearMealHistory = useCallback(async () => {
+    console.log('🧹 Clearing meal history state and cache');
+    setMealHistory({});
+    setLoadedDates(new Set());
+    setHistoryLoading(false);
+    
+    // Clear recent meal cache (last 30 days) to ensure fresh data
+    try {
+      const today = new Date();
+      for (let i = 0; i <= 30; i++) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        const cacheKey = await getMealCacheKey(dateStr);
+        await AsyncStorage.removeItem(cacheKey);
+      }
+      console.log('✅ Cleared meal history cache');
+    } catch (error) {
+      console.warn('Error clearing meal cache:', error);
+    }
+  }, []);
+
+  // Helper function to get user-specific cache key
+  const getMealCacheKey = async (date) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        return `meals_${date}_${user.id}`;
+      }
+      return `meals_${date}`; // Fallback for backwards compatibility
+    } catch (error) {
+      console.warn('Failed to get user for cache key:', error);
+      return `meals_${date}`; // Fallback
+    }
+  };
 
   // Helper function to format meals consistently
   const formatMeals = (meals) => {
@@ -61,49 +99,63 @@ export const useMealManager = () => {
     }
   };
 
-  // Lazy load meal history for specific dates
+  // Lazy load meal history for specific dates with reduced caching
   const loadMealHistory = useCallback(async (dates = []) => {
     if (!dates.length) return;
 
+    // Check loaded dates inside the function to avoid dependency issues
+    const currentlyLoadedDates = loadedDates;
+    const datesToLoad = dates.filter(date => !currentlyLoadedDates.has(date));
+    
+    if (datesToLoad.length === 0) {
+      return; // All dates already loaded, no need to set loading
+    }
+
     setHistoryLoading(true);
     try {
-      const datesToLoad = dates.filter(date => !loadedDates.has(date));
-      
-      if (datesToLoad.length === 0) {
-        setHistoryLoading(false);
-        return; // All dates already loaded
-      }
-
       console.log('📅 Loading meal history for dates:', datesToLoad);
 
-      // Load from cache first
+      // Reduce caching - only check cache for recent dates (last 7 days)
+      const today = new Date();
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(today.getDate() - 7);
+      
       const cachedData = {};
       for (const date of datesToLoad) {
-        try {
-          const cached = await AsyncStorage.getItem(`meals_${date}`);
-          if (cached) {
-            const rawMeals = JSON.parse(cached);
-            cachedData[date] = formatMeals(rawMeals);
+        const dateObj = new Date(date);
+        // Only use cache for recent dates
+        if (dateObj >= sevenDaysAgo) {
+          try {
+            const cacheKey = await getMealCacheKey(date);
+            const cached = await AsyncStorage.getItem(cacheKey);
+            if (cached) {
+              const rawMeals = JSON.parse(cached);
+              cachedData[date] = formatMeals(rawMeals);
+              console.log(`💾 Loaded ${rawMeals.length} meals from cache for ${date}`);
+            }
+          } catch (error) {
+            console.warn(`Failed to load cached meals for ${date}:`, error);
           }
-        } catch (error) {
-          console.warn(`Failed to load cached meals for ${date}:`, error);
         }
       }
 
-      // Update state with cached data immediately
+      // Update state with cached data immediately (for recent dates only)
       if (Object.keys(cachedData).length > 0) {
         setMealHistory(prev => ({ ...prev, ...cachedData }));
         setLoadedDates(prev => new Set([...prev, ...Object.keys(cachedData)]));
       }
 
-      // Load missing dates from server
+      // Always fetch from server for better data freshness
       const uncachedDates = datesToLoad.filter(date => !cachedData[date]);
       
-      if (uncachedDates.length > 0) {
-        console.log('🌐 Fetching meals from server for dates:', uncachedDates);
+      // Process dates in smaller batches to avoid overwhelming the UI
+      const batchSize = 5;
+      for (let i = 0; i < uncachedDates.length; i += batchSize) {
+        const batch = uncachedDates.slice(i, i + batchSize);
+        console.log('🌐 Fetching meals from server for dates:', batch);
         
-        // Load meals for each date (could be optimized with a batch API call)
-        for (const date of uncachedDates) {
+        // Process batch in parallel for better performance
+        const promises = batch.map(async (date) => {
           try {
             const result = await mealService.getMealsByDate(date);
             
@@ -115,14 +167,29 @@ export const useMealManager = () => {
               setMealHistory(prev => ({ ...prev, [date]: formattedMeals }));
               setLoadedDates(prev => new Set([...prev, date]));
               
-              // Cache the raw data (we'll format it when loading)
-              await AsyncStorage.setItem(`meals_${date}`, JSON.stringify(rawMeals));
+              // Only cache recent data to avoid storage bloat
+              const dateObj = new Date(date);
+              if (dateObj >= sevenDaysAgo) {
+                const cacheKey = await getMealCacheKey(date);
+                await AsyncStorage.setItem(cacheKey, JSON.stringify(rawMeals));
+              }
               
               console.log(`✅ Loaded ${formattedMeals.length} meals for ${date}`);
+              return { date, success: true, count: formattedMeals.length };
             }
+            return { date, success: false, error: 'No data' };
           } catch (error) {
             console.error(`Error loading meals for ${date}:`, error);
+            return { date, success: false, error: error.message };
           }
+        });
+
+        // Wait for batch to complete before processing next batch
+        const results = await Promise.all(promises);
+        
+        // Small delay between batches to not overwhelm the UI
+        if (i + batchSize < uncachedDates.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
     } catch (error) {
@@ -130,7 +197,7 @@ export const useMealManager = () => {
     } finally {
       setHistoryLoading(false);
     }
-  }, [loadedDates]);
+  }, []); // Remove loadedDates dependency to prevent recreation
 
   // Get meals for a specific date (from cache or trigger load)
   const getMealsForDate = useCallback(async (date) => {
@@ -294,6 +361,7 @@ export const useMealManager = () => {
     getMealsForDate,
     getNutritionTotalsForDate,
     getWeeklyNutritionSummary,
-    cleanupOldCache
+    cleanupOldCache,
+    clearMealHistory // Add this for clearing cache on login
   };
 };

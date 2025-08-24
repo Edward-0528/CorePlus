@@ -1,15 +1,19 @@
-import React, { memo } from 'react';
-import { SafeAreaView, ScrollView } from 'react-native';
+import React, { memo, useRef, useEffect, useState } from 'react';
+import { SafeAreaView, ScrollView, View, Dimensions } from 'react-native';
 import { PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAppContext } from '../contexts/AppContext';
-import PerformanceOptimizedStep1 from './optimized/PerformanceOptimizedStep1';
-import PerformanceOptimizedStep2 from './optimized/PerformanceOptimizedStep2';
-import OnboardingStep3 from './onboarding/OnboardingStep3';
-import OnboardingStep4 from './onboarding/OnboardingStep4';
+import ParticleBackground from './common/ParticleBackground';
+import OnboardingStep1_Goals from './onboarding-steps/OnboardingStep1_Goals';
+import OnboardingStep2_Activities from './onboarding-steps/OnboardingStep2_Activities';
+import OnboardingStep3_PersonalInfo from './onboarding-steps/OnboardingStep3_PersonalInfo';
+import OnboardingStep4_Summary from './onboarding-steps/OnboardingStep4_Summary';
 import ImprovedDatePickerModal from './modals/ImprovedDatePickerModal';
 import ImprovedHeightPickerModal from './modals/ImprovedHeightPickerModal';
 import ImprovedWeightPickerModal from './modals/ImprovedWeightPickerModal';
+
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const OnboardingScreen = memo(({ 
   onboardingStep,
@@ -20,12 +24,14 @@ const OnboardingScreen = memo(({
   onCompleteOnboarding,
   formatDateForDisplay,
   formatHeightDisplay,
+  mainGoals: propsMainGoals,
+  activityOptions: propsActivityOptions,
   styles 
 }) => {
   const { 
     onboardingData,
-    mainGoals,
-    activityOptions,
+    mainGoals: contextMainGoals,
+    activityOptions: contextActivityOptions,
     nextOnboardingStep,
     prevOnboardingStep,
     selectGoal,
@@ -39,13 +45,38 @@ const OnboardingScreen = memo(({
     setOnboardingData
   } = useAppContext();
 
+  // Use props if provided, otherwise fall back to context
+  const mainGoals = propsMainGoals || contextMainGoals;
+  const activityOptions = propsActivityOptions || contextActivityOptions;
+
   return (
     <PaperProvider>
-      <SafeAreaView style={styles.modernAuthContainer}>
-        <ScrollView contentContainerStyle={styles.modernAuthScrollContent} showsVerticalScrollIndicator={false}>
+      <SafeAreaView style={styles.landingContainer}>
+        {/* Motion Particle Background */}
+        <ParticleBackground />
+        
+        {/* Content Overlay */}
+        <View style={[styles.videoOverlay, { opacity: 1 }]}>
+          {/* Enhanced Gradient Overlay for better text readability */}
+          <LinearGradient
+            colors={[
+              'rgba(0,0,0,0.2)',
+              'rgba(0,0,0,0.4)',
+              'rgba(0,0,0,0.6)',
+              'rgba(0,0,0,0.8)'
+            ]}
+            style={styles.gradientOverlay}
+            locations={[0, 0.3, 0.7, 1]}
+          />
+          
+          <View style={styles.overlay}>
+            <ScrollView 
+              contentContainerStyle={styles.onboardingScrollContent} 
+              showsVerticalScrollIndicator={false}
+            >
           
           {onboardingStep === 1 && (
-            <PerformanceOptimizedStep1
+            <OnboardingStep1_Goals
               onboardingData={onboardingData}
               mainGoals={mainGoals}
               onGoalSelect={selectGoal}
@@ -54,7 +85,7 @@ const OnboardingScreen = memo(({
           )}
 
           {onboardingStep === 2 && (
-            <PerformanceOptimizedStep2
+            <OnboardingStep2_Activities
               onboardingData={onboardingData}
               activityOptions={activityOptions}
               onActivityToggle={toggleActivity}
@@ -64,7 +95,7 @@ const OnboardingScreen = memo(({
           )}
 
           {onboardingStep === 3 && (
-            <OnboardingStep3
+            <OnboardingStep3_PersonalInfo
               onboardingData={onboardingData}
               formatDateForDisplay={formatDateForDisplay}
               formatHeightDisplay={formatHeightDisplay}
@@ -78,7 +109,7 @@ const OnboardingScreen = memo(({
           )}
 
           {onboardingStep === 4 && (
-            <OnboardingStep4
+            <OnboardingStep4_Summary
               onboardingData={onboardingData}
               mainGoals={mainGoals}
               loading={loading}
@@ -89,7 +120,9 @@ const OnboardingScreen = memo(({
             />
           )}
 
-        </ScrollView>
+            </ScrollView>
+          </View>
+        </View>
         
         <ImprovedDatePickerModal
           visible={showDatePicker}
@@ -112,7 +145,7 @@ const OnboardingScreen = memo(({
           styles={styles}
         />
         
-        <StatusBar style="dark" />
+        <StatusBar style="light" />
       </SafeAreaView>
     </PaperProvider>
   );

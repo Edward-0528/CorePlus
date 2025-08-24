@@ -15,7 +15,7 @@ import { DailyCaloriesProvider } from './contexts/DailyCaloriesContext';
 import LandingScreen from './components/LandingScreen';
 import SignUpScreen from './components/SignUpScreen';
 import LoginScreen from './components/LoginScreen';
-import ScreenFittedOnboardingScreen from './components/ScreenFittedOnboardingScreen';
+import OnboardingScreen from './components/OnboardingScreen';
 import DashboardScreen from './components/DashboardScreen';
 import NewWorkoutsScreen from './components/NewWorkoutsScreen';
 import NutritionScreen from './components/NutritionScreen';
@@ -46,6 +46,8 @@ function AppContent() {
     activeTab,
     formData,
     onboardingData,
+    mainGoals,
+    activityOptions,
     // Actions from context
     handleGetStarted,
     handleSwitchToLogin,
@@ -82,7 +84,10 @@ function AppContent() {
     
     // Listen for auth state changes
     const { data: { subscription } } = authService.onAuthStateChange(async (event, session) => {
+      console.log('🔐 Auth state change:', event, session?.user?.id);
+      
       if (session?.user) {
+        // User signed in
         setUser(session.user);
         setIsAuthenticated(true);
         setShowLanding(false);
@@ -97,6 +102,17 @@ function AppContent() {
         setLoading(false);
         setAuthLoading(false);
       } else {
+        // User signed out - clear all user data
+        console.log('🧹 User signed out - clearing user data');
+        
+        // Clear caches to prevent data bleeding between users
+        try {
+          const { cacheManager } = await import('./services/cacheManager');
+          await cacheManager.clearSessionData();
+        } catch (error) {
+          console.error('Error clearing session data:', error);
+        }
+        
         setUser(null);
         setIsAuthenticated(false);
         setShowLanding(true);
@@ -289,6 +305,28 @@ function AppContent() {
       
       console.log('Fitness profile saved successfully:', data);
 
+      // Record affiliate code usage if provided
+      if (onboardingData.affiliateCode && onboardingData.affiliateCode.trim() !== '') {
+        try {
+          console.log('🎯 Recording affiliate code usage:', onboardingData.affiliateCode);
+          const { affiliateService } = await import('./services/affiliateService');
+          const affiliateResult = await affiliateService.recordAffiliateUsage(
+            user.id, 
+            onboardingData.affiliateCode
+          );
+          
+          if (affiliateResult.success) {
+            console.log('✅ Affiliate code recorded successfully');
+          } else {
+            console.warn('⚠️ Failed to record affiliate code:', affiliateResult.error);
+            // Don't stop onboarding for affiliate code issues
+          }
+        } catch (affiliateError) {
+          console.error('Error recording affiliate code:', affiliateError);
+          // Don't stop onboarding for affiliate code issues
+        }
+      }
+
       // Generate an initial adaptive workout plan for the user
       try {
         const { planService } = await import('./services/planService');
@@ -311,9 +349,20 @@ function AppContent() {
         console.error('Error generating plan:', planError);
       }
 
-      // Smooth transition to dashboard
+      // Smooth transition to dashboard - use context setters
       setShowOnboarding(false);
+      setShowLanding(false); // Ensure landing screen is hidden
       setLoading(false);
+      
+      // Force a re-check of onboarding status to ensure proper navigation
+      setTimeout(async () => {
+        const stillNeedsOnboarding = await checkIfUserNeedsOnboarding(user.id);
+        if (stillNeedsOnboarding) {
+          console.warn('User still needs onboarding after completion - there may be a database issue');
+        } else {
+          console.log('✅ Onboarding completed successfully - user should see dashboard');
+        }
+      }, 1000);
       
     } catch (error) {
       console.error('Error completing onboarding:', error);
@@ -592,7 +641,7 @@ function AppContent() {
         );
       case 'Onboarding':
         return (
-          <ScreenFittedOnboardingScreen
+          <OnboardingScreen
             onboardingStep={onboardingStep}
             showDatePicker={showDatePicker}
             showHeightPicker={showHeightPicker}
@@ -601,6 +650,8 @@ function AppContent() {
             onCompleteOnboarding={handleCompleteOnboarding}
             formatDateForDisplay={formatDateForDisplay}
             formatHeightDisplay={formatHeightDisplay}
+            mainGoals={mainGoals}
+            activityOptions={activityOptions}
             styles={styles}
           />
         );

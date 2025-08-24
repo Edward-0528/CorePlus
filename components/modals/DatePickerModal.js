@@ -12,7 +12,7 @@ const DatePickerModal = ({ visible, onClose, onDateSelect, styles }) => {
       <View style={styles.modalOverlay}>
         <View style={styles.pickerModalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Date of Birth</Text>
+            <Text style={styles.modalTitle}>Select Birthday</Text>
             <TouchableOpacity 
               onPress={onClose}
               style={styles.modalCloseButton}
