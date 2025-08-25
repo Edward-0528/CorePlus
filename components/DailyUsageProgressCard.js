@@ -201,23 +201,27 @@ const DailyUsageProgressCard = () => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginHorizontal: responsivePadding.container,
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.lg,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: spacing.md,
+    padding: 0,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+    marginBottom: spacing.md,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -225,9 +229,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: fonts.medium,
+    fontSize: fonts.large,
     fontWeight: '600',
-    color: '#1D1D1F',
+    color: 'rgba(0, 0, 0, 0.9)',
     marginLeft: spacing.sm,
   },
   tierBadge: {
@@ -248,10 +252,11 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: fonts.small,
-    color: '#8E8E93',
+    color: 'rgba(0, 0, 0, 0.5)',
+    fontWeight: '300',
   },
   expandedContent: {
-    padding: spacing.md,
+    padding: 0,
     paddingTop: 0,
   },
   featureContainer: {
@@ -276,13 +281,14 @@ const styles = StyleSheet.create({
   },
   featureName: {
     fontSize: fonts.small,
-    fontWeight: '500',
-    color: '#1D1D1F',
+    fontWeight: '300',
+    color: 'rgba(0, 0, 0, 0.85)',
   },
   featureDescription: {
     fontSize: fonts.tiny,
-    color: '#8E8E93',
+    color: 'rgba(0, 0, 0, 0.6)',
     marginTop: 2,
+    fontWeight: '300',
   },
   usageCountContainer: {
     flexDirection: 'row',
@@ -290,23 +296,23 @@ const styles = StyleSheet.create({
   },
   usageCount: {
     fontSize: fonts.small,
-    fontWeight: '600',
-    color: '#8E8E93',
+    fontWeight: '300',
+    color: 'rgba(0, 0, 0, 0.7)',
     marginRight: spacing.xs,
   },
   limitReachedText: {
     color: '#FF3B30',
   },
   progressBarContainer: {
-    height: 6,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 3,
+    height: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    borderRadius: 2,
     overflow: 'hidden',
     marginBottom: spacing.xs,
   },
   progressBar: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 2,
   },
   limitMessage: {
     fontSize: fonts.tiny,

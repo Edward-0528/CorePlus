@@ -16,11 +16,12 @@ import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import AuthScreen from './components/AuthScreen';
 import OnboardingScreen from './components/OnboardingScreen';
 import DashboardScreen from './components/DashboardScreen';
-import NewWorkoutsScreen from './components/NewWorkoutsScreen';
+import WorkoutsScreen from './components/WorkoutsScreen';
 import NutritionScreen from './components/NutritionScreen';
 import AccountScreen from './components/AccountScreen';
 import BottomNavigation from './components/BottomNavigation';
 import LoadingScreen from './components/LoadingScreen';
+import GoogleFitTest from './components/GoogleFitTest';
 
 // Constants moved outside component to prevent recreation
 const GENDER_OPTIONS = [
@@ -601,11 +602,13 @@ function AppContent() {
       case 'home':
         return <DashboardScreen {...commonProps} />;
       case 'workouts':
-        return <NewWorkoutsScreen {...commonProps} />;
+        return <WorkoutsScreen {...commonProps} />;
       case 'nutrition':
         return <NutritionScreen {...commonProps} />;
       case 'account':
         return <AccountScreen {...commonProps} />;
+      case 'test':
+        return <GoogleFitTest {...commonProps} />;
       default:
         return <DashboardScreen {...commonProps} />;
     }

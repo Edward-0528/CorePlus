@@ -17,6 +17,8 @@ import { spacing, fonts, scaleWidth } from '../utils/responsive';
 import { workoutService } from '../services/workoutService';
 import { workoutCacheService } from '../services/workoutCacheService';
 import { workoutPlanService } from '../services/workoutPlanService';
+import { healthService } from '../services/healthService';
+import HealthDashboard from './HealthDashboard';
 
 const CircularProgress = ({ size = 80, strokeWidth = 8, progress = 0, color = '#4A90E2' }) => {
   const radius = (size - strokeWidth) / 2;
@@ -201,6 +203,7 @@ const WorkoutsScreen = ({ user, onLogout, loading, styles }) => {
   const [workoutPlanLoading, setWorkoutPlanLoading] = useState(false);
   const [userWorkoutPlan, setUserWorkoutPlan] = useState(null);
   const [cacheStatus, setCacheStatus] = useState({ stats: false, today: false, history: false });
+  const [activeTab, setActiveTab] = useState('workouts'); // New tab state
 
   const loadWorkoutData = useCallback(async (priorityLoad = false) => {
     if (!mounted) return;
@@ -302,6 +305,23 @@ const WorkoutsScreen = ({ user, onLogout, loading, styles }) => {
       if (!mounted) return; // Check again after async operation
       
       if (result.success) {
+        // Sync with health service
+        try {
+          const healthWorkoutData = {
+            type: workoutData.name,
+            duration: workoutData.duration,
+            calories: workoutData.caloriesBurned,
+            startDate: new Date().toISOString(),
+            endDate: new Date(Date.now() + (workoutData.duration * 60000)).toISOString()
+          };
+          
+          await healthService.syncWorkout(healthWorkoutData);
+          console.log('Workout synced to health platform');
+        } catch (healthError) {
+          console.error('Failed to sync workout to health platform:', healthError);
+          // Don't fail the entire operation for health sync issues
+        }
+        
         // Refresh data
         await loadWorkoutData();
         Alert.alert('Success', 'Workout logged successfully!');
@@ -456,17 +476,64 @@ const WorkoutsScreen = ({ user, onLogout, loading, styles }) => {
 
   return (
     <>
-      <ScrollView 
-        style={localStyles.container}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={['#4A90E2']}
-            tintColor="#4A90E2"
+      {/* Tab Navigation */}
+      <View style={localStyles.tabContainer}>
+        <TouchableOpacity 
+          style={[
+            localStyles.tabButton, 
+            activeTab === 'workouts' && localStyles.tabButtonActive
+          ]}
+          onPress={() => setActiveTab('workouts')}
+          activeOpacity={0.7}
+        >
+          <Ionicons 
+            name="fitness-outline" 
+            size={20} 
+            color={activeTab === 'workouts' ? '#4A90E2' : '#8E8E93'} 
           />
-        }
-      >
+          <Text style={[
+            localStyles.tabButtonText,
+            activeTab === 'workouts' && localStyles.tabButtonTextActive
+          ]}>
+            Workouts
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[
+            localStyles.tabButton, 
+            activeTab === 'health' && localStyles.tabButtonActive
+          ]}
+          onPress={() => setActiveTab('health')}
+          activeOpacity={0.7}
+        >
+          <Ionicons 
+            name="heart-outline" 
+            size={20} 
+            color={activeTab === 'health' ? '#4A90E2' : '#8E8E93'} 
+          />
+          <Text style={[
+            localStyles.tabButtonText,
+            activeTab === 'health' && localStyles.tabButtonTextActive
+          ]}>
+            Health Data
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {activeTab === 'health' ? (
+        <HealthDashboard />
+      ) : (
+        <ScrollView 
+          style={localStyles.container}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={['#4A90E2']}
+              tintColor="#4A90E2"
+            />
+          }
+        >
         <View style={localStyles.content}>
           {/* Today's Progress Card */}
           <View style={localStyles.card}>
@@ -592,6 +659,7 @@ const WorkoutsScreen = ({ user, onLogout, loading, styles }) => {
           </View>
         </View>
       </ScrollView>
+      )}
 
       {mounted && (
         <QuickWorkoutModal
@@ -815,6 +883,36 @@ const localStyles = StyleSheet.create({
     fontSize: fonts.small,
     color: '#8E8E93',
     marginLeft: spacing.xs,
+  },
+  // Tab navigation styles
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5EA',
+    paddingHorizontal: spacing.md,
+  },
+  tabButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabButtonActive: {
+    borderBottomColor: '#4A90E2',
+  },
+  tabButtonText: {
+    fontSize: fonts.medium,
+    color: '#8E8E93',
+    marginLeft: spacing.xs,
+    fontWeight: '500',
+  },
+  tabButtonTextActive: {
+    color: '#4A90E2',
+    fontWeight: '600',
   },
 });
 

@@ -15,7 +15,7 @@ const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250,
   // Check if over goal for color changes
   const isOverGoal = value > goal;
   const strokeColor = isOverGoal ? "#FF6B6B" : "#87CEEB";
-  const valueColor = isOverGoal ? "#FF6B6B" : "#1D1D1F";
+  const valueColor = isOverGoal ? "#FF6B6B" : "rgba(0, 0, 0, 0.85)";
 
   return (
     <View style={{ width: size, height: size }}>
@@ -36,9 +36,9 @@ const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250,
       </Svg>
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ fontSize: fonts.large, fontWeight: '800', color: valueColor }}>
-          {value}{isOverGoal && ' ⚠️'}
+          {value}{isOverGoal && <Text> ⚠️</Text>}
         </Text>
-        <Text style={{ fontSize: fonts.small, color: '#8E8E93', textAlign: 'center' }}>
+        <Text style={{ fontSize: fonts.small, color: 'rgba(0, 0, 0, 0.6)', textAlign: 'center' }}>
           of {goal}
         </Text>
       </View>
@@ -48,15 +48,18 @@ const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250,
 
 const DailyIntakeCard = ({ 
   dailyCalories = 0,
-  dailyMacros = { carbs: 0, protein: 0, fat: 0 },
+  dailyMacros = { carbs: 0, protein: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0 },
   calorieGoal = 2000,
   carbsGoal = 258,
   proteinGoal = 125,
   fatGoal = 56,
+  fiberGoal = 25,
+  sugarGoal = 50,
+  sodiumGoal = 2300,
   isLoading = false,
   onPress = null,
   compact = false,
-  showExpandButton = false,
+  showExpandButton = true,
   onToggleExpanded = null,
   isExpanded = false
 }) => {
@@ -65,128 +68,259 @@ const DailyIntakeCard = ({
   const totalCarbs = dailyMacros.carbs;
   const totalProtein = dailyMacros.protein;
   const totalFat = dailyMacros.fat;
+  const totalFiber = dailyMacros.fiber || 0;
+  const totalSugar = dailyMacros.sugar || 0;
+  const totalSodium = dailyMacros.sodium || 0;
 
   const cardStyle = {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    margin: spacing.md,
-    padding: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    margin: 0,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.lg,
+    padding: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
     opacity: isLoading ? 0.6 : 1,
   };
 
   const renderCardContent = () => (
     <>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-        <Ionicons name="flash-outline" size={18} color="#111" />
-        <Text style={{
-          fontSize: fonts.medium,
-          fontWeight: '600',
-          color: '#1D1D1F',
-          marginLeft: spacing.xs,
-        }}>
-          Daily Intake
-        </Text>
-        {isLoading && (
-          <Text style={{ fontSize: fonts.small, color: '#8E8E93', marginLeft: spacing.xs }}>
-            • Loading...
-          </Text>
-        )}
-      </View>
-
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <View style={{ flex: 1 }}>
+      {/* Minimal Header - Always Visible */}
+      <TouchableOpacity 
+        onPress={onToggleExpanded}
+        style={{ 
+          flexDirection: 'row', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          marginBottom: isExpanded ? spacing.lg : spacing.md, 
+          paddingBottom: spacing.md, 
+          borderBottomWidth: 1, 
+          borderBottomColor: 'rgba(0, 0, 0, 0.08)' 
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          <Ionicons name="flash-outline" size={22} color="rgba(0, 0, 0, 0.7)" />
           <Text style={{
-            fontSize: fonts.xlarge,
-            fontWeight: '800',
-            color: '#1D1D1F',
+            fontSize: fonts.large,
+            fontWeight: '600',
+            color: 'rgba(0, 0, 0, 0.9)',
+            marginLeft: spacing.sm,
           }}>
-            {(Math.round(progress * 10) / 10).toFixed(1)}%
+            Daily Intake
           </Text>
+          {isLoading && (
+            <Text style={{ 
+              fontSize: fonts.small, 
+              color: 'rgba(0, 0, 0, 0.5)', 
+              marginLeft: spacing.xs,
+              fontWeight: '300'
+            }}>
+              • Loading...
+            </Text>
+          )}
         </View>
-        <CircularGauge 
-          size={compact ? 100 : scaleWidth(120)} 
-          stroke={compact ? 8 : scaleWidth(12)} 
-          progress={progress} 
-          value={totalCalories} 
-          goal={calorieGoal} 
-        />
-      </View>
+        
+        {/* Compact Stats - Always Visible */}
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={{
+            fontSize: fonts.medium,
+            fontWeight: '600',
+            color: 'rgba(0, 0, 0, 0.9)',
+            marginRight: spacing.sm,
+          }}>
+            {Math.round(totalCalories)} / {calorieGoal} cal
+          </Text>
+          <Ionicons 
+            name={isExpanded ? "chevron-up" : "chevron-down"} 
+            size={20} 
+            color="rgba(0, 0, 0, 0.5)" 
+          />
+        </View>
+      </TouchableOpacity>
 
-      {!compact && (
+      {/* Expanded Content */}
+      {isExpanded && (
         <>
-          <View style={{ height: spacing.md }} />
+          {/* Calorie Progress Circle */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontSize: fonts.xlarge,
+                fontWeight: '600',
+                color: 'rgba(0, 0, 0, 0.9)',
+                marginBottom: spacing.xs,
+              }}>
+                {(Math.round(progress * 10) / 10).toFixed(1)}% of Goal
+              </Text>
+              <Text style={{
+                fontSize: fonts.small,
+                color: 'rgba(0, 0, 0, 0.6)',
+              }}>
+                {Math.round(totalCalories)} of {calorieGoal} calories
+              </Text>
+            </View>
+            <CircularGauge 
+              size={100} 
+              stroke={8} 
+              progress={progress} 
+              value={totalCalories} 
+              goal={calorieGoal} 
+            />
+          </View>
           
-          {/* Carbs Bar */}
-          <View style={{ marginBottom: spacing.sm }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
-              <Text style={{ fontSize: fonts.small, fontWeight: '500', color: '#1D1D1F' }}>Carbs</Text>
-              <Text style={{ fontSize: fonts.small, color: totalCarbs > carbsGoal ? '#FF6B6B' : '#8E8E93' }}>
-                {Math.round(totalCarbs)}g / {carbsGoal}g
-              </Text>
-            </View>
-            <View style={{
-              height: 6,
-              backgroundColor: '#F2F2F7',
-              borderRadius: 3,
-              overflow: 'hidden',
+          {/* Detailed Macros */}
+          <View style={{ marginBottom: spacing.md }}>
+            <Text style={{
+              fontSize: fonts.medium,
+              fontWeight: '600',
+              color: 'rgba(0, 0, 0, 0.9)',
+              marginBottom: spacing.md,
             }}>
+              Macronutrients
+            </Text>
+            
+            {/* Carbs */}
+            <View style={{ marginBottom: spacing.sm }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                <Text style={{ fontSize: fonts.small, fontWeight: '500', color: 'rgba(0, 0, 0, 0.7)' }}>Carbs</Text>
+                <Text style={{ fontSize: fonts.small, color: totalCarbs > carbsGoal ? '#FF6B6B' : 'rgba(0, 0, 0, 0.6)', fontWeight: '300' }}>
+                  {Math.round(totalCarbs)}g / {carbsGoal}g
+                </Text>
+              </View>
               <View style={{
-                height: '100%',
-                width: `${Math.min((totalCarbs / carbsGoal) * 100, 100)}%`,
-                backgroundColor: totalCarbs > carbsGoal ? "#FF6B6B" : "#87CEEB",
-                borderRadius: 3,
-              }} />
+                height: 4,
+                backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                borderRadius: 2,
+                overflow: 'hidden',
+              }}>
+                <View style={{
+                  height: '100%',
+                  width: `${Math.min((totalCarbs / carbsGoal) * 100, 100)}%`,
+                  backgroundColor: totalCarbs > carbsGoal ? "#FF6B6B" : "#87CEEB",
+                  borderRadius: 2,
+                }} />
+              </View>
             </View>
-          </View>
 
-          {/* Proteins Bar */}
-          <View style={{ marginBottom: spacing.sm }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
-              <Text style={{ fontSize: fonts.small, fontWeight: '500', color: '#1D1D1F' }}>Proteins</Text>
-              <Text style={{ fontSize: fonts.small, color: totalProtein > proteinGoal ? '#FF6B6B' : '#8E8E93' }}>
-                {Math.round(totalProtein)}g / {proteinGoal}g
-              </Text>
-            </View>
-            <View style={{
-              height: 6,
-              backgroundColor: '#F2F2F7',
-              borderRadius: 3,
-              overflow: 'hidden',
-            }}>
+            {/* Protein */}
+            <View style={{ marginBottom: spacing.sm }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                <Text style={{ fontSize: fonts.small, fontWeight: '500', color: 'rgba(0, 0, 0, 0.7)' }}>Protein</Text>
+                <Text style={{ fontSize: fonts.small, color: totalProtein > proteinGoal ? '#FF6B6B' : 'rgba(0, 0, 0, 0.6)', fontWeight: '300' }}>
+                  {Math.round(totalProtein)}g / {proteinGoal}g
+                </Text>
+              </View>
               <View style={{
-                height: '100%',
-                width: `${Math.min((totalProtein / proteinGoal) * 100, 100)}%`,
-                backgroundColor: totalProtein > proteinGoal ? "#FF6B6B" : "#B0E0E6",
-                borderRadius: 3,
-              }} />
+                height: 4,
+                backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                borderRadius: 2,
+                overflow: 'hidden',
+              }}>
+                <View style={{
+                  height: '100%',
+                  width: `${Math.min((totalProtein / proteinGoal) * 100, 100)}%`,
+                  backgroundColor: totalProtein > proteinGoal ? "#FF6B6B" : "#B0E0E6",
+                  borderRadius: 2,
+                }} />
+              </View>
             </View>
-          </View>
 
-          {/* Fats Bar */}
-          <View style={{ marginBottom: spacing.sm }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
-              <Text style={{ fontSize: fonts.small, fontWeight: '500', color: '#1D1D1F' }}>Fats</Text>
-              <Text style={{ fontSize: fonts.small, color: totalFat > fatGoal ? '#FF6B6B' : '#8E8E93' }}>
-                {Math.round(totalFat)}g / {fatGoal}g
-              </Text>
-            </View>
-            <View style={{
-              height: 6,
-              backgroundColor: '#F2F2F7',
-              borderRadius: 3,
-              overflow: 'hidden',
-            }}>
+            {/* Fat */}
+            <View style={{ marginBottom: spacing.sm }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                <Text style={{ fontSize: fonts.small, fontWeight: '500', color: 'rgba(0, 0, 0, 0.7)' }}>Fat</Text>
+                <Text style={{ fontSize: fonts.small, color: totalFat > fatGoal ? '#FF6B6B' : 'rgba(0, 0, 0, 0.6)', fontWeight: '300' }}>
+                  {Math.round(totalFat)}g / {fatGoal}g
+                </Text>
+              </View>
               <View style={{
-                height: '100%',
-                width: `${Math.min((totalFat / fatGoal) * 100, 100)}%`,
-                backgroundColor: totalFat > fatGoal ? "#FF6B6B" : "#ADD8E6",
-                borderRadius: 3,
-              }} />
+                height: 4,
+                backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                borderRadius: 2,
+                overflow: 'hidden',
+              }}>
+                <View style={{
+                  height: '100%',
+                  width: `${Math.min((totalFat / fatGoal) * 100, 100)}%`,
+                  backgroundColor: totalFat > fatGoal ? "#FF6B6B" : "#ADD8E6",
+                  borderRadius: 2,
+                }} />
+              </View>
+            </View>
+
+            {/* Fiber */}
+            <View style={{ marginBottom: spacing.sm }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                <Text style={{ fontSize: fonts.small, fontWeight: '500', color: 'rgba(0, 0, 0, 0.7)' }}>Fiber</Text>
+                <Text style={{ fontSize: fonts.small, color: totalFiber > fiberGoal ? '#FF6B6B' : 'rgba(0, 0, 0, 0.6)', fontWeight: '300' }}>
+                  {Math.round(totalFiber)}g / {fiberGoal}g
+                </Text>
+              </View>
+              <View style={{
+                height: 4,
+                backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                borderRadius: 2,
+                overflow: 'hidden',
+              }}>
+                <View style={{
+                  height: '100%',
+                  width: `${Math.min((totalFiber / fiberGoal) * 100, 100)}%`,
+                  backgroundColor: totalFiber > fiberGoal ? "#FF6B6B" : "#98FB98",
+                  borderRadius: 2,
+                }} />
+              </View>
+            </View>
+
+            {/* Sugar */}
+            <View style={{ marginBottom: spacing.sm }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                <Text style={{ fontSize: fonts.small, fontWeight: '500', color: 'rgba(0, 0, 0, 0.7)' }}>Sugar</Text>
+                <Text style={{ fontSize: fonts.small, color: totalSugar > sugarGoal ? '#FF6B6B' : 'rgba(0, 0, 0, 0.6)', fontWeight: '300' }}>
+                  {Math.round(totalSugar)}g / {sugarGoal}g
+                </Text>
+              </View>
+              <View style={{
+                height: 4,
+                backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                borderRadius: 2,
+                overflow: 'hidden',
+              }}>
+                <View style={{
+                  height: '100%',
+                  width: `${Math.min((totalSugar / sugarGoal) * 100, 100)}%`,
+                  backgroundColor: totalSugar > sugarGoal ? "#FF6B6B" : "#FFB6C1",
+                  borderRadius: 2,
+                }} />
+              </View>
+            </View>
+
+            {/* Sodium */}
+            <View style={{ marginBottom: spacing.sm }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                <Text style={{ fontSize: fonts.small, fontWeight: '500', color: 'rgba(0, 0, 0, 0.7)' }}>Sodium</Text>
+                <Text style={{ fontSize: fonts.small, color: totalSodium > sodiumGoal ? '#FF6B6B' : 'rgba(0, 0, 0, 0.6)', fontWeight: '300' }}>
+                  {Math.round(totalSodium)}mg / {sodiumGoal}mg
+                </Text>
+              </View>
+              <View style={{
+                height: 4,
+                backgroundColor: 'rgba(0, 0, 0, 0.06)',
+                borderRadius: 2,
+                overflow: 'hidden',
+              }}>
+                <View style={{
+                  height: '100%',
+                  width: `${Math.min((totalSodium / sodiumGoal) * 100, 100)}%`,
+                  backgroundColor: totalSodium > sodiumGoal ? "#FF6B6B" : "#DDA0DD",
+                  borderRadius: 2,
+                }} />
+              </View>
             </View>
           </View>
         </>
@@ -242,7 +376,7 @@ const DailyIntakeCard = ({
         </TouchableOpacity>
       )}
     </>
-  );
+);
 
   if (onPress) {
     return (

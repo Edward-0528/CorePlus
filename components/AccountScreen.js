@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, SafeAreaView } from 'react-native';
 import { spacing, fonts } from '../utils/responsive';
+import DailyUsageProgressCard from './DailyUsageProgressCard';
+import WhiteMotionBackground from './common/WhiteMotionBackground';
 
 const AccountScreen = ({ user, onLogout, loading, styles }) => {
   const handleLogout = () => {
@@ -22,9 +24,14 @@ const AccountScreen = ({ user, onLogout, loading, styles }) => {
   };
 
   return (
-    <ScrollView style={localStyles.container}>
-      <View style={localStyles.content}>
-        <View style={localStyles.card}>
+    <SafeAreaView style={{ flex: 1 }}>
+      <WhiteMotionBackground>
+        <ScrollView style={localStyles.container}>
+          <View style={localStyles.content}>
+            {/* Daily Usage Section */}
+            <DailyUsageProgressCard />
+            
+            <View style={localStyles.section}>
           <Text style={localStyles.cardTitle}>Profile Information</Text>
           <View style={localStyles.profileRow}>
             <Text style={localStyles.profileLabel}>Email:</Text>
@@ -35,7 +42,7 @@ const AccountScreen = ({ user, onLogout, loading, styles }) => {
           </TouchableOpacity>
         </View>
         
-        <View style={localStyles.card}>
+        <View style={localStyles.section}>
           <Text style={localStyles.cardTitle}>Preferences</Text>
           <TouchableOpacity style={localStyles.menuItem}>
             <Text style={localStyles.menuText}>Notifications</Text>
@@ -73,36 +80,41 @@ const AccountScreen = ({ user, onLogout, loading, styles }) => {
         >
           <Text style={[localStyles.buttonText, localStyles.logoutText]}>Logout</Text>
         </TouchableOpacity>
-      </View>
-    </ScrollView>
+          </View>
+        </ScrollView>
+      </WhiteMotionBackground>
+    </SafeAreaView>
   );
 };
 
 const localStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F7',
+    backgroundColor: 'transparent',
   },
   content: {
     padding: spacing.md,
     paddingTop: spacing.lg,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+  section: {
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    padding: 0,
+    marginBottom: spacing.xl,
+    paddingBottom: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   cardTitle: {
     fontSize: fonts.large,
-    fontWeight: 'bold',
-    color: '#1D1D1F',
-    marginBottom: spacing.md,
+    fontWeight: '600',
+    color: 'rgba(0, 0, 0, 0.9)',
+    marginBottom: spacing.lg,
   },
   profileRow: {
     flexDirection: 'row',
@@ -112,11 +124,11 @@ const localStyles = StyleSheet.create({
   },
   profileLabel: {
     fontSize: fonts.regular,
-    color: '#8E8E93',
+    color: 'rgba(0, 0, 0, 0.6)',
   },
   profileValue: {
     fontSize: fonts.regular,
-    color: '#1D1D1F',
+    color: 'rgba(0, 0, 0, 0.9)',
     fontWeight: '500',
   },
   menuItem: {
@@ -125,15 +137,15 @@ const localStyles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
+    borderBottomColor: 'rgba(0, 0, 0, 0.05)',
   },
   menuText: {
     fontSize: fonts.regular,
-    color: '#1D1D1F',
+    color: 'rgba(0, 0, 0, 0.85)',
   },
   menuArrow: {
     fontSize: fonts.large,
-    color: '#C7C7CC',
+    color: 'rgba(0, 0, 0, 0.3)',
   },
   button: {
     backgroundColor: '#87CEEB',

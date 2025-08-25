@@ -13,10 +13,10 @@ import { styles as appStyles } from '../styles/AppStyles';
 import { responsivePadding, fonts, spacing, scaleWidth, scaleHeight } from '../utils/responsive';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { Ionicons } from '@expo/vector-icons';
-import DailyUsageProgressCard from './DailyUsageProgressCard';
+import DailyIntakeCard from './DailyIntakeCard';
 
 const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
-  const { count, setCount } = useAppContext();
+  const { count, setCount, setActiveTab: setGlobalActiveTab } = useAppContext();
   const { dailyCalories, dailyMacros, dailyMicros, mealsLoading } = useDailyCalories();
   const mealManager = useMealManager();
   const [userProfile, setUserProfile] = useState(null);
@@ -357,183 +357,6 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
 
   // Remove DailyIntakeCard import since it's no longer used
   // Health tracking and activity components removed - simplified dashboard
-
-  // Daily Intake Card Component - Expandable
-  const DailyIntakeCard = () => {
-    const progressPercentage = Math.min((dailyCalories / calorieGoal) * 100, 100);
-    
-    return (
-      <TouchableOpacity 
-        onPress={() => setDailyIntakeExpanded(!dailyIntakeExpanded)}
-        style={{
-          backgroundColor: 'white',
-          borderRadius: scaleWidth(16),
-          padding: spacing.md,
-          marginHorizontal: responsivePadding.container,
-          marginBottom: spacing.md,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.04,
-          shadowRadius: 8,
-          elevation: 2,
-        }}
-      >
-        {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
-          <Text style={{
-            fontSize: fonts.medium,
-            fontWeight: '600',
-            color: '#1D1D1F',
-          }}>
-            Daily Intake {mealsLoading && <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>• Loading...</Text>}
-          </Text>
-          <Ionicons 
-            name={dailyIntakeExpanded ? 'chevron-up' : 'chevron-down'} 
-            size={20} 
-            color="#8E8E93" 
-          />
-        </View>
-
-        {/* Progress Bar */}
-        <View style={{
-          height: 8,
-          backgroundColor: '#F2F2F7',
-          borderRadius: 4,
-          marginBottom: spacing.md,
-          overflow: 'hidden'
-        }}>
-          <View style={{
-            height: '100%',
-            width: `${progressPercentage}%`,
-            backgroundColor: '#FF9500',
-            borderRadius: 4,
-            opacity: mealsLoading ? 0.6 : 1,
-          }} />
-        </View>
-
-        {/* Calories Summary */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View>
-            <Text style={{
-              fontSize: fonts.large,
-              fontWeight: 'bold',
-              color: '#1D1D1F',
-            }}>
-              {mealsLoading ? '...' : dailyCalories}
-            </Text>
-            <Text style={{
-              fontSize: fonts.small,
-              color: '#8E8E93',
-            }}>
-              of {calorieGoal} calories
-            </Text>
-          </View>
-          
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{
-              fontSize: fonts.medium,
-              fontWeight: '600',
-              color: progressPercentage >= 100 ? '#34C759' : '#FF9500',
-            }}>
-              {Math.round(progressPercentage)}%
-            </Text>
-            <Text style={{
-              fontSize: fonts.small,
-              color: '#8E8E93',
-            }}>
-              {progressPercentage >= 100 ? 'Goal Reached!' : 'of goal'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Expanded Nutrition Details */}
-        {dailyIntakeExpanded && (
-          <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: '#F2F2F7' }}>
-            <Text style={{
-              fontSize: fonts.medium,
-              fontWeight: '600',
-              color: '#1D1D1F',
-              marginBottom: spacing.md,
-            }}>
-              Nutrition Breakdown
-            </Text>
-
-            {/* Macronutrients */}
-            <View style={{ marginBottom: spacing.md }}>
-              <Text style={{
-                fontSize: fonts.small,
-                fontWeight: '600',
-                color: '#8E8E93',
-                marginBottom: spacing.xs,
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}>
-                Macronutrients
-              </Text>
-              
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
-                <View style={{ flex: 1, alignItems: 'center' }}>
-                  <Text style={{ fontSize: fonts.medium, fontWeight: 'bold', color: '#FF6B6B' }}>
-                    {Math.round(dailyMacros?.carbs || 0)}g
-                  </Text>
-                  <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>Carbs</Text>
-                </View>
-                <View style={{ flex: 1, alignItems: 'center' }}>
-                  <Text style={{ fontSize: fonts.medium, fontWeight: 'bold', color: '#4A90E2' }}>
-                    {Math.round(dailyMacros?.protein || 0)}g
-                  </Text>
-                  <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>Protein</Text>
-                </View>
-                <View style={{ flex: 1, alignItems: 'center' }}>
-                  <Text style={{ fontSize: fonts.medium, fontWeight: 'bold', color: '#FF9500' }}>
-                    {Math.round(dailyMacros?.fat || 0)}g
-                  </Text>
-                  <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>Fat</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Micronutrients */}
-            <View>
-              <Text style={{
-                fontSize: fonts.small,
-                fontWeight: '600',
-                color: '#8E8E93',
-                marginBottom: spacing.xs,
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-              }}>
-                Other Nutrients
-              </Text>
-              
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <View style={{ flex: 1, alignItems: 'center' }}>
-                  <Text style={{ fontSize: fonts.medium, fontWeight: 'bold', color: '#34C759' }}>
-                    {Math.round(dailyMicros?.fiber || 0)}g
-                  </Text>
-                  <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>Fiber</Text>
-                </View>
-                <View style={{ flex: 1, alignItems: 'center' }}>
-                  <Text style={{ fontSize: fonts.medium, fontWeight: 'bold', color: '#AF52DE' }}>
-                    {Math.round(dailyMicros?.sugar || 0)}g
-                  </Text>
-                  <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>Sugar</Text>
-                </View>
-                <View style={{ flex: 1, alignItems: 'center' }}>
-                  <Text style={{ fontSize: fonts.medium, fontWeight: 'bold', color: '#FF3B30' }}>
-                    {Math.round(dailyMicros?.sodium || 0)}mg
-                  </Text>
-                  <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>Sodium</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-
 
   // Initialize profile form when user data changes
   useEffect(() => {
@@ -1213,91 +1036,133 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
   // Water intake functionality removed - simplified dashboard
 
   return (
-    <SafeAreaView style={styles.dashboardContainer}>
-      <AnimatedBackground />
-      <ScrollView 
-        style={{ flex: 1, backgroundColor: 'transparent' }}
-        contentContainerStyle={{ paddingBottom: spacing.lg }}
-        showsVerticalScrollIndicator={false}
-        bounces={true}
-      >
-        {/* Personalized Greeting Header */}
-        <View style={{
-          backgroundColor: '#FFFFFF',
-          marginHorizontal: responsivePadding.container,
-          marginTop: spacing.md,
-          marginBottom: spacing.md,
-          borderRadius: scaleWidth(16),
-          padding: spacing.lg,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.04,
-          shadowRadius: 8,
-          elevation: 2,
-        }}>
-          <View style={{ 
-            flexDirection: 'row', 
-            justifyContent: 'space-between', 
-            alignItems: 'center' 
-          }}>
-            {/* Greeting Text */}
-            <View style={{ flex: 1 }}>
-              <Text style={{
-                fontSize: fonts.medium,
-                color: '#8E8E93',
-                marginBottom: spacing.xs
+    <SafeAreaView style={styles.landingContainer}>
+      <View style={{ flex: 1, backgroundColor: '#ffffff' }}>        
+        <View style={styles.overlay}>
+          <ScrollView 
+            style={{ flex: 1, backgroundColor: 'transparent' }}
+            contentContainerStyle={{ paddingBottom: spacing.lg }}
+            showsVerticalScrollIndicator={false}
+            bounces={true}
+          >
+            {/* Personalized Greeting Header */}
+            <View style={{
+              backgroundColor: 'transparent',
+              marginHorizontal: responsivePadding.container,
+              marginTop: spacing.md,
+              marginBottom: spacing.xl,
+              borderRadius: 0,
+              padding: 0,
+              paddingBottom: spacing.lg,
+              borderWidth: 0,
+              borderColor: 'transparent',
+              borderBottomWidth: 1,
+              borderBottomColor: 'rgba(0, 0, 0, 0.08)',
+              shadowColor: 'transparent',
+              shadowOffset: { width: 0, height: 0 },
+              shadowOpacity: 0,
+              shadowRadius: 0,
+              elevation: 0,
               }}>
-                {getTimeBasedGreeting()}
-              </Text>
-              <Text style={{
-                fontSize: fonts.title,
-                fontWeight: 'bold',
-                color: '#1D1D1F'
+              <View style={{ 
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center' 
               }}>
-                {userProfile?.first_name || user?.user_metadata?.first_name || 'User'}
-              </Text>
-            </View>
+                {/* Greeting Text */}
+                <View style={{ flex: 1 }}>
+                  <Text style={{
+                    fontSize: fonts.medium,
+                    color: 'rgba(0, 0, 0, 0.6)',
+                    marginBottom: spacing.xs,
+                    fontWeight: '400',
+                  }}>
+                    {getTimeBasedGreeting()}
+                  </Text>
+                  <Text style={{
+                    fontSize: fonts.xlarge,
+                    fontWeight: '700',
+                    color: 'rgba(0, 0, 0, 0.9)',
+                  }}>
+                    {userProfile?.first_name || user?.user_metadata?.first_name || 'User'}
+                  </Text>
+                </View>
+                
+                {/* Test and Profile Buttons */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  {/* Google Fit Test Button */}
+                  <TouchableOpacity 
+                    onPress={() => setGlobalActiveTab('test')}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: 'rgba(0, 100, 0, 0.1)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(0, 100, 0, 0.2)',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{
+                      color: 'rgba(0, 100, 0, 0.8)',
+                      fontSize: 12,
+                      fontWeight: '600',
+                    }}>
+                      FIT
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  {/* Profile Picture */}
+                  <TouchableOpacity 
+                    onPress={() => setShowProfileModal(true)}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(0, 0, 0, 0.08)',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{
+                      color: 'rgba(0, 0, 0, 0.7)',
+                      fontSize: fonts.medium,
+                      fontWeight: '500',
+                    }}>
+                      {(userProfile?.first_name || user?.user_metadata?.first_name || 'U').charAt(0).toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>            {/* Daily Intake Card */}
+            <DailyIntakeCard 
+              dailyCalories={dailyCalories}
+              calorieGoal={calorieGoal}
+              dailyMacros={dailyMacros}
+              carbsGoal={250}
+              proteinGoal={125}
+              fatGoal={56}
+              fiberGoal={25}
+              sugarGoal={50}
+              sodiumGoal={2300}
+              isLoading={mealsLoading}
+              compact={false}
+              showExpandButton={true}
+              onToggleExpanded={() => setDailyIntakeExpanded(!dailyIntakeExpanded)}
+              isExpanded={dailyIntakeExpanded}
+            />
             
-            {/* Profile Picture */}
-            <TouchableOpacity 
-              onPress={() => setShowProfileModal(true)}
-              style={{
-                width: scaleWidth(50),
-                height: scaleWidth(50),
-                borderRadius: scaleWidth(25),
-                backgroundColor: '#4A90E2',
-                justifyContent: 'center',
-                alignItems: 'center',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 4,
-                elevation: 3,
-              }}
-            >
-              <Text style={{
-                color: '#FFFFFF',
-                fontSize: fonts.large,
-                fontWeight: 'bold'
-              }}>
-                {(userProfile?.first_name || user?.user_metadata?.first_name || 'U').charAt(0).toUpperCase()}
-              </Text>
-            </TouchableOpacity>
+          {/* Content */}
+          <View style={{ flex: 1 }}>
+            {renderContent()}
           </View>
+          
+          </ScrollView>
         </View>
-        
-        {/* Daily Intake Card */}
-        <DailyIntakeCard />
-        
-        {/* Daily Usage Progress Card */}
-        <DailyUsageProgressCard />
-        
-      {/* Content */}
-      <View style={{ flex: 1 }}>
-        {renderContent()}
       </View>
-      
-      </ScrollView>
       
       {/* Profile Modal */}
       {renderProfileModal()}
@@ -1320,7 +1185,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
         </Modal>
       )}
       
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
     </SafeAreaView>
   );
 };

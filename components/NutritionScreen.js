@@ -16,7 +16,6 @@ import BarcodeScannerModal from './BarcodeScannerModal';
 import MealPlanningCard from './MealPlanningCard';
 import RecipeBrowserScreen from './RecipeBrowserScreen';
 import DailyIntakeCard from './DailyIntakeCard';
-import DailyUsageProgressCard from './DailyUsageProgressCard';
 import { generateElegantMealTitle, generateCompactFoodsList } from '../utils/mealTitleGenerator';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { DailyUsageButton, PremiumFeatureButton, UsageLimitDisplay, PremiumGate } from './FeatureGate';
@@ -1029,9 +1028,6 @@ const NutritionScreen = () => {
         isExpanded={isNutritionExpanded}
         onToggleExpanded={() => setIsNutritionExpanded(!isNutritionExpanded)}
       />
-
-      {/* Daily Usage Progress Card */}
-      <DailyUsageProgressCard />
 
       {/* Expandable Nutrition Details - Only show when expanded */}
       {isNutritionExpanded && (
