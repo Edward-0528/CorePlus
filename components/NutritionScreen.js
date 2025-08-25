@@ -13,68 +13,13 @@ import FoodSearchModal from './FoodSearchModal';
 import TodaysMealsSection from './TodaysMealsSection';
 import MealHistoryCard from './MealHistoryCard';
 import BarcodeScannerModal from './BarcodeScannerModal';
+import MealPlanningCard from './MealPlanningCard';
+import RecipeBrowserScreen from './RecipeBrowserScreen';
+import DailyIntakeCard from './DailyIntakeCard';
+import DailyUsageProgressCard from './DailyUsageProgressCard';
 import { generateElegantMealTitle, generateCompactFoodsList } from '../utils/mealTitleGenerator';
-
-const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250, goal = 2000 }) => {
-  const radius = (size - stroke) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const clamped = Math.max(0, Math.min(100, progress)) || 0;
-  const dashoffset = circumference - (clamped / 100) * circumference;
-  const center = size / 2;
-  
-  // Check if over goal for color changes
-  const isOverGoal = value > goal;
-  const strokeColor = isOverGoal ? "#FF6B6B" : "#87CEEB";
-  const valueColor = isOverGoal ? "#FF6B6B" : "#1D1D1F";
-
-  return (
-    <View style={{ width: size, height: size }}>
-      <Svg width={size} height={size}>
-        <Circle cx={center} cy={center} r={radius} stroke="#F2F2F7" strokeWidth={stroke} fill="none" />
-        <Circle
-          cx={center}
-          cy={center}
-          r={radius}
-          stroke={strokeColor}
-          strokeWidth={stroke}
-          strokeDasharray={circumference}
-          strokeDashoffset={dashoffset}
-          strokeLinecap="round"
-          fill="none"
-          transform={`rotate(-90 ${center} ${center})`}
-        />
-      </Svg>
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: fonts.large, fontWeight: '800', color: valueColor }}>
-          {value}{isOverGoal && ' ⚠️'}
-        </Text>
-        <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>{goal}</Text>
-      </View>
-    </View>
-  );
-};
-
-const MacroBar = ({ label, value, goal, color = '#ADD8E6', unit = 'g' }) => {
-  const pct = Math.max(0, Math.min(100, (value / goal) * 100)) || 0;
-  const isOverLimit = value > goal;
-  const barColor = isOverLimit ? '#FF6B6B' : color; // Red if over limit, otherwise use default color
-  const textColor = isOverLimit ? '#FF6B6B' : '#8E8E93'; // Red text if over limit
-  
-  return (
-    <View style={{ marginBottom: spacing.sm }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
-        <Text style={{ color: '#1D1D1F', fontWeight: '600' }}>{label}</Text>
-        <Text style={{ color: textColor, fontWeight: isOverLimit ? '600' : 'normal' }}>
-          {Math.round(value)} / {goal} {unit}
-          {isOverLimit && ' ⚠️'}
-        </Text>
-      </View>
-      <View style={{ height: scaleWidth(6), backgroundColor: '#F2F2F7', borderRadius: 8, overflow: 'hidden' }}>
-        <View style={{ width: `${pct}%`, height: '100%', backgroundColor: barColor, borderRadius: 8 }} />
-      </View>
-    </View>
-  );
-};
+import { useSubscription } from '../contexts/SubscriptionContext';
+import { DailyUsageButton, PremiumFeatureButton, UsageLimitDisplay, PremiumGate } from './FeatureGate';
 
 const MealAddButton = ({ onPress }) => (
   <TouchableOpacity style={stylesx.addMealButton} onPress={onPress} activeOpacity={0.8}>
@@ -83,24 +28,39 @@ const MealAddButton = ({ onPress }) => (
   </TouchableOpacity>
 );
 
-const MealAddOptions = ({ onManualAdd, onCameraAdd, onBarcodeAdd }) => (
-  <View style={stylesx.mealAddOptionsContainer}>
-    <TouchableOpacity style={stylesx.addOptionButton} onPress={onManualAdd} activeOpacity={0.8}>
-      <Ionicons name="create-outline" size={20} color="#007AFF" />
-      <Text style={stylesx.addOptionText}>Manual Entry</Text>
-    </TouchableOpacity>
-    
-    <TouchableOpacity style={stylesx.addOptionButton} onPress={onCameraAdd} activeOpacity={0.8}>
-      <Ionicons name="camera-outline" size={20} color="#007AFF" />
-      <Text style={stylesx.addOptionText}>Take Photo</Text>
-    </TouchableOpacity>
-    
-    <TouchableOpacity style={stylesx.addOptionButton} onPress={onBarcodeAdd} activeOpacity={0.8}>
-      <Ionicons name="barcode-outline" size={20} color="#007AFF" />
-      <Text style={stylesx.addOptionText}>Scan Barcode</Text>
-    </TouchableOpacity>
-  </View>
-);
+const MealAddOptions = ({ onManualAdd, onCameraAdd, onBarcodeAdd }) => {
+  const { canAccessFeature } = useSubscription();
+  
+  return (
+    <View style={stylesx.mealAddOptionsContainer}>
+      <TouchableOpacity style={stylesx.addOptionButton} onPress={onManualAdd} activeOpacity={0.8}>
+        <Ionicons name="create-outline" size={20} color="#007AFF" />
+        <Text style={stylesx.addOptionText}>Manual Entry</Text>
+      </TouchableOpacity>
+      
+      <DailyUsageButton 
+        featureName="aiScansPerDay"
+        style={[
+          stylesx.addOptionButton,
+          !canAccessFeature('aiScansPerDay') && stylesx.addOptionButtonPremium
+        ]}
+        onPress={onCameraAdd}
+        showUsage={true}
+      >
+        <Ionicons name="camera-outline" size={20} color="#007AFF" />
+        <Text style={stylesx.addOptionText}>Take Photo</Text>
+        {!canAccessFeature('aiScansPerDay') && (
+          <Ionicons name="star" size={12} color="#FFD700" style={{ marginLeft: 4 }} />
+        )}
+      </DailyUsageButton>
+      
+      <TouchableOpacity style={stylesx.addOptionButton} onPress={onBarcodeAdd} activeOpacity={0.8}>
+        <Ionicons name="barcode-outline" size={20} color="#007AFF" />
+        <Text style={stylesx.addOptionText}>Scan Barcode</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const ExpandableNutritionDetails = ({ dailyMicros, isExpanded, onToggle }) => {
   // Nutrition goals for micronutrients (FDA recommendations)
@@ -137,27 +97,74 @@ const ExpandableNutritionDetails = ({ dailyMicros, isExpanded, onToggle }) => {
       
       {isExpanded && (
         <View style={stylesx.expandableContent}>
-          <MacroBar 
-            label="Fiber" 
-            value={dailyMicros.fiber} 
-            goal={nutritionGoals.fiber} 
-            color="#90EE90" 
-            unit="g"
-          />
-          <MacroBar 
-            label="Sugar" 
-            value={dailyMicros.sugar} 
-            goal={nutritionGoals.sugar} 
-            color="#FFB6C1" 
-            unit="g"
-          />
-          <MacroBar 
-            label="Sodium" 
-            value={dailyMicros.sodium} 
-            goal={nutritionGoals.sodium} 
-            color="#DDA0DD" 
-            unit="mg"
-          />
+          {/* Fiber Bar */}
+          <View style={{ marginBottom: spacing.sm }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+              <Text style={{ fontSize: fonts.small, fontWeight: '500', color: '#1D1D1F' }}>Fiber</Text>
+              <Text style={{ fontSize: fonts.small, color: dailyMicros.fiber > nutritionGoals.fiber ? '#FF6B6B' : '#8E8E93' }}>
+                {Math.round(dailyMicros.fiber)}g / {nutritionGoals.fiber}g
+              </Text>
+            </View>
+            <View style={{
+              height: 6,
+              backgroundColor: '#F2F2F7',
+              borderRadius: 3,
+              overflow: 'hidden',
+            }}>
+              <View style={{
+                height: '100%',
+                width: `${Math.min((dailyMicros.fiber / nutritionGoals.fiber) * 100, 100)}%`,
+                backgroundColor: dailyMicros.fiber > nutritionGoals.fiber ? "#FF6B6B" : "#90EE90",
+                borderRadius: 3,
+              }} />
+            </View>
+          </View>
+
+          {/* Sugar Bar */}
+          <View style={{ marginBottom: spacing.sm }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+              <Text style={{ fontSize: fonts.small, fontWeight: '500', color: '#1D1D1F' }}>Sugar</Text>
+              <Text style={{ fontSize: fonts.small, color: dailyMicros.sugar > nutritionGoals.sugar ? '#FF6B6B' : '#8E8E93' }}>
+                {Math.round(dailyMicros.sugar)}g / {nutritionGoals.sugar}g
+              </Text>
+            </View>
+            <View style={{
+              height: 6,
+              backgroundColor: '#F2F2F7',
+              borderRadius: 3,
+              overflow: 'hidden',
+            }}>
+              <View style={{
+                height: '100%',
+                width: `${Math.min((dailyMicros.sugar / nutritionGoals.sugar) * 100, 100)}%`,
+                backgroundColor: dailyMicros.sugar > nutritionGoals.sugar ? "#FF6B6B" : "#FFB6C1",
+                borderRadius: 3,
+              }} />
+            </View>
+          </View>
+
+          {/* Sodium Bar */}
+          <View style={{ marginBottom: spacing.sm }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+              <Text style={{ fontSize: fonts.small, fontWeight: '500', color: '#1D1D1F' }}>Sodium</Text>
+              <Text style={{ fontSize: fonts.small, color: dailyMicros.sodium > nutritionGoals.sodium ? '#FF6B6B' : '#8E8E93' }}>
+                {Math.round(dailyMicros.sodium)}mg / {nutritionGoals.sodium}mg
+              </Text>
+            </View>
+            <View style={{
+              height: 6,
+              backgroundColor: '#F2F2F7',
+              borderRadius: 3,
+              overflow: 'hidden',
+            }}>
+              <View style={{
+                height: '100%',
+                width: `${Math.min((dailyMicros.sodium / nutritionGoals.sodium) * 100, 100)}%`,
+                backgroundColor: dailyMicros.sodium > nutritionGoals.sodium ? "#FF6B6B" : "#DDA0DD",
+                borderRadius: 3,
+              }} />
+            </View>
+          </View>
         </View>
       )}
     </View>
@@ -470,6 +477,9 @@ const NutritionScreen = () => {
     deleteMeal
   } = useDailyCalories();
 
+  // Get subscription info
+  const { getCurrentTier, isPremium, SUBSCRIPTION_TIERS } = useSubscription();
+
   // Get meal history data
   const { mealHistory, historyLoading, loadMealHistory, clearMealHistory } = useMealManager();
   
@@ -609,6 +619,11 @@ const NutritionScreen = () => {
   const [showMultiSelectionCard, setShowMultiSelectionCard] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  
+  // Meal Planning States
+  const [showRecipeBrowser, setShowRecipeBrowser] = useState(false);
+  const [recipeBrowserConfig, setRecipeBrowserConfig] = useState({ mealType: null, targetCalories: null });
+  const [hasMealPlan, setHasMealPlan] = useState(false); // Would come from user data
   const [foodPredictions, setFoodPredictions] = useState([]);
   const [capturedImage, setCapturedImage] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -937,6 +952,55 @@ const NutritionScreen = () => {
     }
   }, [loadMealHistory, clearMealHistory]);
 
+  // Meal Planning Handlers
+  const handleViewRecipes = useCallback((mealType = null, targetCalories = null) => {
+    setRecipeBrowserConfig({ mealType, targetCalories });
+    setShowRecipeBrowser(true);
+  }, []);
+
+  const handleCreateMealPlan = useCallback((suggestion = null) => {
+    // This would navigate to meal planning creation screen
+    Alert.alert(
+      'Meal Planning',
+      'This would open the meal planning wizard to create a weekly plan based on your goals and preferences.',
+      [{ text: 'OK' }]
+    );
+  }, []);
+
+  const handleViewMealPlan = useCallback(() => {
+    // This would navigate to existing meal plan view
+    Alert.alert(
+      'View Meal Plan',
+      'This would show your current weekly meal plan with options to modify or follow recipes.',
+      [{ text: 'OK' }]
+    );
+  }, []);
+
+  const handleSelectRecipe = useCallback((recipe) => {
+    setShowRecipeBrowser(false);
+    
+    // Add the recipe as a meal
+    const recipeAsMeal = {
+      name: recipe.name,
+      calories: recipe.calories,
+      carbs: recipe.carbs,
+      protein: recipe.protein,
+      fat: recipe.fat,
+      fiber: 0,
+      sugar: 0,
+      sodium: 0,
+      method: 'recipe'
+    };
+    
+    handleAddMeal(recipeAsMeal);
+    
+    Alert.alert(
+      'Recipe Added!',
+      `${recipe.name} has been added to your daily log.`,
+      [{ text: 'OK' }]
+    );
+  }, [handleAddMeal]);
+
   return (
     <>
     <ScrollView 
@@ -951,31 +1015,47 @@ const NutritionScreen = () => {
         />
       }
     >
-      {/* Hero Intake Card */}
-      <View style={stylesx.heroCard}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
-          <Ionicons name="flash-outline" size={18} color="#111" />
-          <Text style={stylesx.heroLabel}> Daily intake</Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={{ flex: 1 }}>
-            <Text style={stylesx.heroPercent}>{(Math.round(progress * 10) / 10).toFixed(1)}%</Text>
-          </View>
-          <CircularGauge size={scaleWidth(120)} stroke={scaleWidth(12)} progress={progress} value={totalCalories} goal={calorieGoal} />
-        </View>
+      {/* Daily Intake Card */}
+      <DailyIntakeCard
+        dailyCalories={totalCalories}
+        dailyMacros={dailyMacros}
+        calorieGoal={calorieGoal}
+        carbsGoal={carbsGoal}
+        proteinGoal={proteinGoal}
+        fatGoal={fatGoal}
+        isLoading={mealsLoading}
+        compact={false}
+        showExpandButton={true}
+        isExpanded={isNutritionExpanded}
+        onToggleExpanded={() => setIsNutritionExpanded(!isNutritionExpanded)}
+      />
 
-        <View style={{ height: spacing.md }} />
-        <MacroBar label="Carbs" value={totalCarbs} goal={carbsGoal} color="#87CEEB" />
-        <MacroBar label="Proteins" value={totalProtein} goal={proteinGoal} color="#B0E0E6" />
-        <MacroBar label="Fats" value={totalFat} goal={fatGoal} color="#ADD8E6" />
-        
-        {/* Expandable Nutrition Details */}
-        <ExpandableNutritionDetails 
-          dailyMicros={dailyMicros}
-          isExpanded={isNutritionExpanded}
-          onToggle={() => setIsNutritionExpanded(!isNutritionExpanded)}
+      {/* Daily Usage Progress Card */}
+      <DailyUsageProgressCard />
+
+      {/* Expandable Nutrition Details - Only show when expanded */}
+      {isNutritionExpanded && (
+        <View style={stylesx.card}>
+          <ExpandableNutritionDetails 
+            dailyMicros={dailyMicros}
+            isExpanded={true}
+            onToggle={() => setIsNutritionExpanded(false)}
+          />
+        </View>
+      )}
+
+      {/* Meal Planning Card - Premium Feature */}
+      <PremiumGate featureName="canAccessMealPlanning">
+        <MealPlanningCard
+          dailyCalories={totalCalories}
+          calorieGoal={calorieGoal}
+          onViewRecipes={handleViewRecipes}
+          onCreateMealPlan={handleCreateMealPlan}
+          onViewMealPlan={handleViewMealPlan}
+          hasMealPlan={hasMealPlan}
+          isPremium={isPremium()}
         />
-      </View>
+      </PremiumGate>
 
       {/* Meal Logging Section */}
       <View style={stylesx.card}>
@@ -1083,6 +1163,16 @@ const NutritionScreen = () => {
       onClose={closeBarcodeScanner}
       onBarcodeScanned={handleBarcodeScanned}
       onError={handleBarcodeScanError}
+    />
+    
+    {/* Recipe Browser Modal */}
+    <RecipeBrowserScreen
+      visible={showRecipeBrowser}
+      onClose={() => setShowRecipeBrowser(false)}
+      onSelectRecipe={handleSelectRecipe}
+      mealType={recipeBrowserConfig.mealType}
+      targetCalories={recipeBrowserConfig.targetCalories}
+      isPremium={isPremium}
     />
     </>
   );
@@ -1462,6 +1552,12 @@ const stylesx = StyleSheet.create({
   expandableContent: {
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.xs,
+  },
+  // Premium feature styling
+  addOptionButtonPremium: {
+    opacity: 0.7,
+    borderWidth: 1,
+    borderColor: '#FFD700',
   },
 });
 

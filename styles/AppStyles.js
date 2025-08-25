@@ -398,6 +398,56 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     color: '#ffffff',
   },
+
+  // Phone Verification Styles
+  verificationSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  phoneNumberDisplay: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  codeInputContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 30,
+    paddingHorizontal: 10,
+  },
+  codeInput: {
+    width: 45,
+    height: 55,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 12,
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  codeInputFilled: {
+    borderColor: '#22c55e',
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+  },
+  resendContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  resendTimer: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  resendButton: {
+    fontSize: 14,
+    color: '#22c55e',
+    fontWeight: '600',
+  },
   modernDropdown: {
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',

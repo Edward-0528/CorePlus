@@ -1,7 +1,93 @@
 import { supabase } from './supabaseConfig';
 
 export const authService = {
-  // Sign up with email and password
+  // Sign up with phone number and password
+  signUpWithPhone: async (phone, password, firstName, gender) => {
+    try {
+      console.log('AuthService: Starting signUpWithPhone with:', { phone, firstName, gender });
+      
+      const { data, error } = await supabase.auth.signUp({
+        phone,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            gender: gender,
+          }
+        }
+      });
+
+      console.log('AuthService: Supabase signUpWithPhone response:', { data, error });
+
+      if (error) {
+        console.error('AuthService: Supabase signUpWithPhone error:', error);
+        throw error;
+      }
+
+      console.log('AuthService: SignUpWithPhone successful:', data);
+      return { success: true, data };
+    } catch (error) {
+      console.error('AuthService: SignUpWithPhone catch block:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Verify phone number with OTP
+  verifyPhone: async (phone, token) => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone,
+        token,
+        type: 'sms'
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Resend OTP
+  resendOtp: async (phone) => {
+    try {
+      const { data, error } = await supabase.auth.resend({
+        type: 'sms',
+        phone
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Sign in with phone and password
+  signInWithPhone: async (phone, password) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        phone,
+        password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Sign up with email and password (keeping for backward compatibility)
   signUp: async (email, password, firstName, gender) => {
     try {
       console.log('AuthService: Starting signUp with:', { email, firstName, gender });

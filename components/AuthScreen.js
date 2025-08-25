@@ -181,7 +181,7 @@ const AuthScreen = memo(({
                     ]}
                     value={formData.email}
                     onChangeText={handleEmailChange}
-                    placeholder="E-Mail"
+                    placeholder="Email Address"
                     placeholderTextColor="rgba(255, 255, 255, 0.4)"
                     keyboardType="email-address"
                     autoCapitalize="none"

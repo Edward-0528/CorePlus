@@ -1,5 +1,5 @@
 import React, { memo, useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, useWindowDimensions, SafeAreaView, Modal, TextInput, Animated, PanResponder, Switch, Easing } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, useWindowDimensions, SafeAreaView, Modal, TextInput, Switch, Animated } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAppContext } from '../contexts/AppContext';
 import { useDailyCalories } from '../contexts/DailyCaloriesContext';
@@ -11,13 +11,13 @@ import { biometricService } from '../biometricService';
 import { workoutPlanService } from '../services/workoutPlanService';
 import { styles as appStyles } from '../styles/AppStyles';
 import { responsivePadding, fonts, spacing, scaleWidth, scaleHeight } from '../utils/responsive';
-import Svg, { Path, Defs, LinearGradient, Stop, Circle, G } from 'react-native-svg';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { Ionicons } from '@expo/vector-icons';
+import DailyUsageProgressCard from './DailyUsageProgressCard';
 
 const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
   const { count, setCount } = useAppContext();
-  const { dailyCalories, dailyMacros, mealsLoading } = useDailyCalories();
+  const { dailyCalories, dailyMacros, dailyMicros, mealsLoading } = useDailyCalories();
   const mealManager = useMealManager();
   const [userProfile, setUserProfile] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
@@ -31,12 +31,8 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
     confirmPassword: ''
   });
   const [profileLoading, setProfileLoading] = useState(false);
-  const [slideValue] = useState(new Animated.Value(0));
-  const [currentStreak, setCurrentStreak] = useState(0);
-  const [streakLoading, setStreakLoading] = useState(false);
-  const [weeklyWorkouts, setWeeklyWorkouts] = useState([]);
-  const [workoutDates, setWorkoutDates] = useState(new Set());
   const [calorieGoal, setCalorieGoal] = useState(2000);
+  const [dailyIntakeExpanded, setDailyIntakeExpanded] = useState(false);
   const [userRank, setUserRank] = useState(null);
   const [totalUsers, setTotalUsers] = useState(0);
   const [leaderboardData, setLeaderboardData] = useState([]);
@@ -62,232 +58,14 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
   const isSmallScreen = screenHeight < 700;
   const responsiveSpacing = isSmallScreen ? spacing.sm : spacing.md;
 
-  // Water intake state: track ounces and last reset date
-  const [waterOunces, setWaterOunces] = useState(0);
-  const [lastResetDate, setLastResetDate] = useState(new Date().toDateString());
-  const WATER_GOAL_OZ = 124;
-  const WATER_INCREMENT_OZ = 8;
-
-  // Get current week dates for workout tracker
-  const getCurrentWeekDates = () => {
-    const today = new Date();
-    const currentDay = today.getDay(); // 0 is Sunday, 1 is Monday, etc.
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - currentDay + 1); // Get Monday of current week
-    
-    const weekDates = [];
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + i);
-      weekDates.push(date);
-    }
-    return weekDates;
-  };
-
-  const weekDates = getCurrentWeekDates();
-  
-  // Check if a date has a completed workout
-  const hasWorkoutOnDate = (date) => {
-    const dateStr = date.toISOString().split('T')[0];
-    return workoutDates.has(dateStr);
-  };
-
-  // Calculate weekly workout progress (out of 5 workouts)
-  const getWeeklyWorkoutProgress = () => {
-    const completedWorkouts = weekDates.filter(date => hasWorkoutOnDate(date)).length;
-    return Math.min(completedWorkouts, 5); // Max 5 workouts per week
-  };
-
-  // Ring Chart Component
-  const RingChart = ({ size, strokeWidth, progress, color, backgroundColor = '#F2F2F7' }) => {
-    const safeProgress = Math.max(0, Math.min(100, progress)) || 0;
-    const center = size / 2;
-    const radius = center - strokeWidth / 2;
-    const circumference = 2 * Math.PI * radius;
-    const strokeDasharray = circumference;
-    const strokeDashoffset = circumference - (safeProgress / 100) * circumference;
-
-    return (
-      <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
-        {/* Background ring */}
-        <Circle
-          cx={center}
-          cy={center}
-          r={radius}
-          stroke={backgroundColor}
-          strokeWidth={strokeWidth}
-          fill="transparent"
-        />
-        {/* Progress ring */}
-        <Circle
-          cx={center}
-          cy={center}
-          r={radius}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeDasharray={strokeDasharray}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          fill="transparent"
-        />
-      </Svg>
-    );
-  };
-
-  // Three Ring Activity Chart Component
-  const ActivityRingsChart = () => {
-    const waterProgress = Math.max(0, Math.min(100, (waterOunces / WATER_GOAL_OZ) * 100)) || 0;
-    const calorieProgress = Math.max(0, Math.min(100, (dailyCalories / calorieGoal) * 100)) || 0;
-    const workoutProgress = Math.max(0, Math.min(100, (getWeeklyWorkoutProgress() / 5) * 100)) || 0;
-
-    return (
-      <View style={{
-        backgroundColor: 'white',
-        borderRadius: scaleWidth(16),
-        padding: spacing.md,
-        marginBottom: spacing.md,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-        elevation: 2,
-        alignItems: 'center',
-      }}>
-        <Text style={{
-          fontSize: fonts.medium,
-          fontWeight: '600',
-          color: '#1D1D1F',
-          marginBottom: spacing.md,
-          alignSelf: 'flex-start',
-        }}>
-          Activity Rings {mealsLoading && <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>• Loading...</Text>}
-        </Text>
-
-        {/* Ring Chart Container - Smaller size to match other cards */}
-        <View style={{ position: 'relative', marginBottom: spacing.md, opacity: mealsLoading ? 0.6 : 1 }}>
-          {/* Outer ring - Workout Progress */}
-          <View style={{ position: 'absolute', top: 0, left: 0 }}>
-            <RingChart
-              size={140}
-              strokeWidth={8}
-              progress={workoutProgress}
-              color="#FF6B6B"
-            />
-          </View>
-          
-          {/* Middle ring - Water Intake */}
-          <View style={{ position: 'absolute', top: 10, left: 10 }}>
-            <RingChart
-              size={120}
-              strokeWidth={8}
-              progress={waterProgress}
-              color="#4A90E2"
-            />
-          </View>
-          
-          {/* Inner ring - Calories */}
-          <View style={{ position: 'absolute', top: 20, left: 20 }}>
-            <RingChart
-              size={100}
-              strokeWidth={8}
-              progress={calorieProgress}
-              color="#FF9500"
-            />
-          </View>
-
-          {/* Center content */}
-          <View style={{
-            width: 140,
-            height: 140,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}>
-            <Text style={{
-              fontSize: fonts.large,
-              fontWeight: 'bold',
-              color: '#1D1D1F',
-            }}>
-              {Math.round((waterProgress + calorieProgress + workoutProgress) / 3) || 0}%
-            </Text>
-            <Text style={{
-              fontSize: fonts.small,
-              color: '#8E8E93',
-              marginTop: 2,
-            }}>
-              {mealsLoading ? 'Loading...' : 'Overall'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Compact Legend */}
-        <View style={{ width: '100%', marginBottom: spacing.sm }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <View style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: '#FF6B6B',
-                marginBottom: spacing.xs,
-              }} />
-              <Text style={{ fontSize: fonts.small, color: '#1D1D1F', fontWeight: '600', textAlign: 'center' }}>Workouts</Text>
-              <Text style={{ fontSize: fonts.small, color: '#8E8E93', textAlign: 'center' }}>
-                {getWeeklyWorkoutProgress()}/5
-              </Text>
-            </View>
-            
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <View style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: '#4A90E2',
-                marginBottom: spacing.xs,
-              }} />
-              <Text style={{ fontSize: fonts.small, color: '#1D1D1F', fontWeight: '600', textAlign: 'center' }}>Water</Text>
-              <Text style={{ fontSize: fonts.small, color: '#8E8E93', textAlign: 'center' }}>
-                {waterOunces} oz
-              </Text>
-            </View>
-            
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <View style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: '#FF9500',
-                marginBottom: spacing.xs,
-              }} />
-              <Text style={{ fontSize: fonts.small, color: '#1D1D1F', fontWeight: '600', textAlign: 'center' }}>Daily Intake</Text>
-              <Text style={{ fontSize: fonts.small, color: '#8E8E93', textAlign: 'center' }}>
-                {dailyCalories} cal
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        
-      </View>
-    );
-  };
-
-  // Reset water intake if the day has changed
-  useEffect(() => {
-    const today = new Date().toDateString();
-    if (lastResetDate !== today) {
-      setWaterOunces(0);
-      setLastResetDate(today);
-    }
-  }, [lastResetDate]);
+  // Health tracking removed - simplified dashboard
 
   // Fetch user fitness profile
   useEffect(() => {
     fetchUserProfile();
-    fetchUserStreak();
     fetchUserRanking();
     fetchLeaderboard();
     checkBiometricStatus();
-    fetchWorkoutHistory();
     loadUserWorkoutPlan(); // Load user's workout plan
     
     // Start wave animations for water effect
@@ -351,17 +129,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
     }
   };
 
-  const calculateBMI = () => {
-    if (!userProfile) return 0;
-    return userProfile.bmi || 0;
-  };
-
-  const getBMICategory = (bmi) => {
-    if (bmi < 18.5) return { category: 'Underweight', color: '#3182ce' };
-    if (bmi < 25) return { category: 'Normal', color: '#38a169' };
-    if (bmi < 30) return { category: 'Overweight', color: '#d69e2e' };
-    return { category: 'Obese', color: '#e53e3e' };
-  };
+  // BMI calculation functions removed - no longer needed for simplified dashboard
 
   const getGoalText = (goalId) => {
     const goals = {
@@ -587,301 +355,185 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
     return days;
   };
 
-  const createSlideGesture = () => {
-    return PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderMove: (evt, gestureState) => {
-        // Calculate the available slide distance more accurately
-        // Account for: streak section (45) + its right margin (spacing.sm) + slider margins (spacing.xs * 2)
-        const usedWidth = scaleWidth(45) + spacing.sm + (spacing.xs * 2);
-        const availableContainerWidth = screenWidth - (spacing.md * 2) - usedWidth; // Total screen minus module margins minus used sections
-        const sliderWidth = scaleWidth(30); // Width of the sliding button
-        const maxSlide = availableContainerWidth - sliderWidth;
-        
-        if (gestureState.dx >= 0 && gestureState.dx <= maxSlide) {
-          slideValue.setValue(gestureState.dx);
-        }
-      },
-      onPanResponderRelease: (evt, gestureState) => {
-        // Calculate the available slide distance more accurately
-        const usedWidth = scaleWidth(45) + spacing.sm + (spacing.xs * 2);
-        const availableContainerWidth = screenWidth - (spacing.md * 2) - usedWidth;
-        const sliderWidth = scaleWidth(30);
-        const maxSlide = availableContainerWidth - sliderWidth;
-        const threshold = maxSlide * 0.75; // 75% threshold for better UX
-        
-        if (gestureState.dx > threshold) {
-          // Successfully swiped - immediate satisfaction with quick completion
-          Animated.spring(slideValue, {
-            toValue: maxSlide,
-            useNativeDriver: false,
-            tension: 120,
-            friction: 7
-          }).start(() => {
-            // Immediate haptic feedback
-            import('expo-haptics').then(({ Haptics }) => {
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            }).catch(() => {
-              // Haptics not available, continue silently
-            });
-            
-            // Quick reset after a brief moment
-            setTimeout(() => {
-              Animated.timing(slideValue, {
-                toValue: 0,
-                duration: 400,
-                useNativeDriver: false,
-              }).start();
-            }, 600);
-          });
-          
-          // Increment streak in background - don't wait for it
-          incrementUserStreak();
-        } else {
-          // Reset to original position with encouraging bounce
-          Animated.spring(slideValue, {
-            toValue: 0,
-            useNativeDriver: false,
-            tension: 200,
-            friction: 8
-          }).start();
-        }
-      },
-    });
-  };
+  // Remove DailyIntakeCard import since it's no longer used
+  // Health tracking and activity components removed - simplified dashboard
 
-  const panResponder = createSlideGesture();
-
-  // Streak Management Functions
-  const fetchUserStreak = async () => {
-    try {
-      const { supabase } = await import('../supabaseConfig');
-      const { data, error } = await supabase
-        .from('user_streaks')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-        console.error('Error fetching user streak:', error);
-        return;
-      }
-      
-      if (data) {
-        // Check if streak should be reset based on last workout date
-        const lastWorkoutDate = new Date(data.last_workout_date);
-        const today = new Date();
-        const yesterday = new Date(today);
-        yesterday.setDate(today.getDate() - 1);
-        
-        // Reset time to start of day for accurate comparison
-        const resetTime = (date) => {
-          const newDate = new Date(date);
-          newDate.setHours(0, 0, 0, 0);
-          return newDate;
-        };
-        
-        const lastWorkoutReset = resetTime(lastWorkoutDate);
-        const todayReset = resetTime(today);
-        const yesterdayReset = resetTime(yesterday);
-        
-        // If last workout was today, keep current streak
-        if (lastWorkoutReset.getTime() === todayReset.getTime()) {
-          setCurrentStreak(data.current_streak);
-        }
-        // If last workout was yesterday, keep streak but allow for today's workout
-        else if (lastWorkoutReset.getTime() === yesterdayReset.getTime()) {
-          setCurrentStreak(data.current_streak);
-        }
-        // If last workout was before yesterday, reset streak
-        else if (lastWorkoutReset.getTime() < yesterdayReset.getTime()) {
-          await resetUserStreak();
-        }
-      } else {
-        // No streak record exists, create one
-        await createUserStreak();
-      }
-    } catch (error) {
-      console.error('Error in fetchUserStreak:', error);
-    }
-  };
-
-  // Fetch workout history for the current week
-  const fetchWorkoutHistory = async () => {
-    try {
-      const { supabase } = await import('../supabaseConfig');
-      
-      const { data, error } = await supabase
-        .from('user_streaks')
-        .select('last_workout_date, workout_dates')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (data && data.workout_dates) {
-        // Assuming workout_dates is stored as an array of ISO date strings
-        const workoutDatesSet = new Set(data.workout_dates || []);
-        setWorkoutDates(workoutDatesSet);
-      }
-    } catch (error) {
-      console.error('Error fetching workout history:', error);
-    }
-  };
-
-  // Mark today's workout as completed
-  const markWorkoutCompleted = async () => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const newWorkoutDates = new Set([...workoutDates, today]);
-      setWorkoutDates(newWorkoutDates);
-      
-      // Update streak and save to database
-      const newStreak = currentStreak + 1;
-      setCurrentStreak(newStreak);
-      
-      // You would typically save this to your database here
-      const { supabase } = await import('../supabaseConfig');
-      await supabase
-        .from('user_streaks')
-        .upsert({
-          user_id: user.id,
-          current_streak: newStreak,
-          last_workout_date: today,
-          workout_dates: Array.from(newWorkoutDates),
-        });
-    } catch (error) {
-      console.error('Error marking workout completed:', error);
-    }
-  };
-
-  const createUserStreak = async () => {
-    try {
-      const { supabase } = await import('../supabaseConfig');
-      const { data, error } = await supabase
-        .from('user_streaks')
-        .insert([
-          {
-            user_id: user.id,
-            current_streak: 0,
-            longest_streak: 0,
-            last_workout_date: null,
-            total_workouts: 0
-          }
-        ])
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('Error creating user streak:', error);
-        return;
-      }
-      
-      setCurrentStreak(0);
-    } catch (error) {
-      console.error('Error in createUserStreak:', error);
-    }
-  };
-
-  const resetUserStreak = async () => {
-    try {
-      const { supabase } = await import('../supabaseConfig');
-      const { error } = await supabase
-        .from('user_streaks')
-        .update({
-          current_streak: 0,
-          last_workout_date: null
-        })
-        .eq('user_id', user.id);
-      
-      if (error) {
-        console.error('Error resetting user streak:', error);
-        return;
-      }
-      
-      setCurrentStreak(0);
-    } catch (error) {
-      console.error('Error in resetUserStreak:', error);
-    }
-  };
-
-  const incrementUserStreak = async () => {
-    if (streakLoading) return;
+  // Daily Intake Card Component - Expandable
+  const DailyIntakeCard = () => {
+    const progressPercentage = Math.min((dailyCalories / calorieGoal) * 100, 100);
     
-    setStreakLoading(true);
-    try {
-      const { supabase } = await import('../supabaseConfig');
-      
-      // Get current streak data
-      const { data: currentData, error: fetchError } = await supabase
-        .from('user_streaks')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (fetchError) {
-        console.error('Error fetching current streak data:', fetchError);
-        return;
-      }
-      
-      const today = new Date();
-      const lastWorkoutDate = currentData.last_workout_date ? new Date(currentData.last_workout_date) : null;
-      
-      // Check if user already worked out today
-      if (lastWorkoutDate) {
-        const todayReset = new Date(today);
-        todayReset.setHours(0, 0, 0, 0);
-        const lastWorkoutReset = new Date(lastWorkoutDate);
-        lastWorkoutReset.setHours(0, 0, 0, 0);
-        
-        if (lastWorkoutReset.getTime() === todayReset.getTime()) {
-          Alert.alert('Already Logged!', 'You\'ve already completed a workout today. Keep up the great work!');
-          return;
-        }
-      }
-      
-      const newStreak = currentData.current_streak + 1;
-      const newLongestStreak = Math.max(currentData.longest_streak, newStreak);
-      const newTotalWorkouts = currentData.total_workouts + 1;
-      
-      const { error: updateError } = await supabase
-        .from('user_streaks')
-        .update({
-          current_streak: newStreak,
-          longest_streak: newLongestStreak,
-          last_workout_date: today.toISOString().split('T')[0], // Store as YYYY-MM-DD
-          total_workouts: newTotalWorkouts
-        })
-        .eq('user_id', user.id);
-      
-      if (updateError) {
-        console.error('Error updating user streak:', updateError);
-        return;
-      }
-      
-      setCurrentStreak(newStreak);
-      
-      // Update ranking after streak change
-      await fetchUserRanking();
-      
-      // Update leaderboard data
-      await fetchLeaderboard();
-      
-      // Show celebration message
-      if (newStreak === 1) {
-        Alert.alert('Workout Complete!', 'Great job! You\'ve started your fitness streak!');
-      } else if (newStreak % 7 === 0) {
-        Alert.alert('Weekly Streak!', `Amazing! You\'ve hit a ${newStreak}-day streak!`);
-      } else {
-        Alert.alert('Workout Complete!', `Fantastic! Your streak is now ${newStreak} days!`);
-      }
-      
-    } catch (error) {
-      console.error('Error in incrementUserStreak:', error);
-      Alert.alert('Error', 'Failed to update streak. Please try again.');
-    } finally {
-      setStreakLoading(false);
-    }
+    return (
+      <TouchableOpacity 
+        onPress={() => setDailyIntakeExpanded(!dailyIntakeExpanded)}
+        style={{
+          backgroundColor: 'white',
+          borderRadius: scaleWidth(16),
+          padding: spacing.md,
+          marginHorizontal: responsivePadding.container,
+          marginBottom: spacing.md,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.04,
+          shadowRadius: 8,
+          elevation: 2,
+        }}
+      >
+        {/* Header */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
+          <Text style={{
+            fontSize: fonts.medium,
+            fontWeight: '600',
+            color: '#1D1D1F',
+          }}>
+            Daily Intake {mealsLoading && <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>• Loading...</Text>}
+          </Text>
+          <Ionicons 
+            name={dailyIntakeExpanded ? 'chevron-up' : 'chevron-down'} 
+            size={20} 
+            color="#8E8E93" 
+          />
+        </View>
+
+        {/* Progress Bar */}
+        <View style={{
+          height: 8,
+          backgroundColor: '#F2F2F7',
+          borderRadius: 4,
+          marginBottom: spacing.md,
+          overflow: 'hidden'
+        }}>
+          <View style={{
+            height: '100%',
+            width: `${progressPercentage}%`,
+            backgroundColor: '#FF9500',
+            borderRadius: 4,
+            opacity: mealsLoading ? 0.6 : 1,
+          }} />
+        </View>
+
+        {/* Calories Summary */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View>
+            <Text style={{
+              fontSize: fonts.large,
+              fontWeight: 'bold',
+              color: '#1D1D1F',
+            }}>
+              {mealsLoading ? '...' : dailyCalories}
+            </Text>
+            <Text style={{
+              fontSize: fonts.small,
+              color: '#8E8E93',
+            }}>
+              of {calorieGoal} calories
+            </Text>
+          </View>
+          
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={{
+              fontSize: fonts.medium,
+              fontWeight: '600',
+              color: progressPercentage >= 100 ? '#34C759' : '#FF9500',
+            }}>
+              {Math.round(progressPercentage)}%
+            </Text>
+            <Text style={{
+              fontSize: fonts.small,
+              color: '#8E8E93',
+            }}>
+              {progressPercentage >= 100 ? 'Goal Reached!' : 'of goal'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Expanded Nutrition Details */}
+        {dailyIntakeExpanded && (
+          <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: '#F2F2F7' }}>
+            <Text style={{
+              fontSize: fonts.medium,
+              fontWeight: '600',
+              color: '#1D1D1F',
+              marginBottom: spacing.md,
+            }}>
+              Nutrition Breakdown
+            </Text>
+
+            {/* Macronutrients */}
+            <View style={{ marginBottom: spacing.md }}>
+              <Text style={{
+                fontSize: fonts.small,
+                fontWeight: '600',
+                color: '#8E8E93',
+                marginBottom: spacing.xs,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}>
+                Macronutrients
+              </Text>
+              
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                  <Text style={{ fontSize: fonts.medium, fontWeight: 'bold', color: '#FF6B6B' }}>
+                    {Math.round(dailyMacros?.carbs || 0)}g
+                  </Text>
+                  <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>Carbs</Text>
+                </View>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                  <Text style={{ fontSize: fonts.medium, fontWeight: 'bold', color: '#4A90E2' }}>
+                    {Math.round(dailyMacros?.protein || 0)}g
+                  </Text>
+                  <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>Protein</Text>
+                </View>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                  <Text style={{ fontSize: fonts.medium, fontWeight: 'bold', color: '#FF9500' }}>
+                    {Math.round(dailyMacros?.fat || 0)}g
+                  </Text>
+                  <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>Fat</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Micronutrients */}
+            <View>
+              <Text style={{
+                fontSize: fonts.small,
+                fontWeight: '600',
+                color: '#8E8E93',
+                marginBottom: spacing.xs,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+              }}>
+                Other Nutrients
+              </Text>
+              
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                  <Text style={{ fontSize: fonts.medium, fontWeight: 'bold', color: '#34C759' }}>
+                    {Math.round(dailyMicros?.fiber || 0)}g
+                  </Text>
+                  <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>Fiber</Text>
+                </View>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                  <Text style={{ fontSize: fonts.medium, fontWeight: 'bold', color: '#AF52DE' }}>
+                    {Math.round(dailyMicros?.sugar || 0)}g
+                  </Text>
+                  <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>Sugar</Text>
+                </View>
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                  <Text style={{ fontSize: fonts.medium, fontWeight: 'bold', color: '#FF3B30' }}>
+                    {Math.round(dailyMicros?.sodium || 0)}mg
+                  </Text>
+                  <Text style={{ fontSize: fonts.small, color: '#8E8E93' }}>Sodium</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
   };
+
+
 
   // Initialize profile form when user data changes
   useEffect(() => {
@@ -1348,39 +1000,9 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
   );
 
   const renderOverview = () => {
-    const bmi = calculateBMI();
-    const bmiInfo = getBMICategory(bmi);
-    
     return (
       <ScrollView style={{ flex: 1, paddingHorizontal: responsivePadding.container, paddingVertical: responsiveSpacing }}>
-        <View style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: scaleWidth(16),
-          padding: spacing.lg,
-          marginBottom: spacing.md,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.04,
-          shadowRadius: 8,
-          elevation: 2,
-        }}>
-          <Text style={{
-            fontSize: fonts.large,
-            fontWeight: 'bold',
-            color: '#1D1D1F',
-            marginBottom: spacing.md,
-          }}>
-            Health Overview
-          </Text>
-          
-          <Text style={{
-            fontSize: fonts.medium,
-            color: '#8E8E93',
-            textAlign: 'center',
-          }}>
-            Detailed health metrics and insights will be available here soon.
-          </Text>
-        </View>
+        {/* Health Overview section removed - simplified dashboard */}
       </ScrollView>
     );
   };
@@ -1558,12 +1180,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
             {userProfile?.goal_weight_pounds || 0} lbs
           </Text>
         </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Text style={{ color: '#6C757D' }}>BMI</Text>
-          <Text style={{ fontWeight: '600', color: getBMICategory(calculateBMI()).color }}>
-            {calculateBMI()} ({getBMICategory(calculateBMI()).category})
-          </Text>
-        </View>
+        {/* BMI calculation removed - simplified profile */}
       </View>
 
       <TouchableOpacity
@@ -1593,18 +1210,7 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
     }
   };
 
-  // Add water intake handler for incrementing by 8oz, max 124oz
-  const handleWaterIntake = () => {
-    setWaterOunces(prev => {
-      const next = Math.min(prev + WATER_INCREMENT_OZ, WATER_GOAL_OZ);
-      if (prev < WATER_GOAL_OZ && next === WATER_GOAL_OZ) {
-        setShowConfetti(true);
-        setTimeout(() => setShowConfetti(false), 3500);
-        Alert.alert('Congratulations!', 'You reached your daily water goal! 🥳💧');
-      }
-      return next;
-    });
-  };
+  // Water intake functionality removed - simplified dashboard
 
   return (
     <SafeAreaView style={styles.dashboardContainer}>
@@ -1615,259 +1221,76 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
         showsVerticalScrollIndicator={false}
         bounces={true}
       >
-        {/* Compact Workout Header (profile + streak hidden to slim UI) */}
+        {/* Personalized Greeting Header */}
         <View style={{
           backgroundColor: '#FFFFFF',
           marginHorizontal: responsivePadding.container,
           marginTop: spacing.md,
           marginBottom: spacing.md,
           borderRadius: scaleWidth(16),
-          padding: spacing.md,
+          padding: spacing.lg,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.04,
           shadowRadius: 8,
           elevation: 2,
         }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-            {/* Compact week strip (centered and responsive) */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', flexShrink: 1 }}>
-              {weekDates.map((date, idx) => {
-                const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-                const isToday = date.toDateString() === new Date().toDateString();
-                const hasWorkout = hasWorkoutOnDate(date);
-                const itemSize = Math.max(28, Math.min(scaleWidth(44),  Math.floor((scaleWidth(320) - (spacing.xs * 6)) / 7)) );
-                return (
-                  <View key={idx} style={{ alignItems: 'center', marginLeft: idx === 0 ? 0 : spacing.xs }}>
-                    <View style={{
-                      width: itemSize,
-                      height: itemSize,
-                      borderRadius: itemSize / 2,
-                      backgroundColor: hasWorkout ? '#4A90E2' : '#F2F2F7',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      position: 'relative'
-                    }}>
-                      <Text style={{ fontSize: fonts.small, color: hasWorkout ? '#FFF' : (isToday ? '#4A90E2' : '#8E8E93'), fontWeight: isToday ? '700' : '600' }}>
-                        {date.getDate()}
-                      </Text>
-                      {hasWorkout && (
-                        <View style={{ position: 'absolute', top: 4, right: 4 }}>
-                          <Ionicons name="checkmark" size={Math.max(10, Math.floor(itemSize * 0.35))} color="#FFFFFF" />
-                        </View>
-                      )}
-                    </View>
-                    <Text style={{ fontSize: fonts.xsmall, color: '#8E8E93', marginTop: spacing.xs / 2 }}>{dayNames[idx]}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        </View>
-        
-        {/* Workout Module - Updated to match card design */}
-        <View style={{
-          backgroundColor: '#FFFFFF',
-          marginHorizontal: responsivePadding.container,
-          marginBottom: spacing.md,
-          borderRadius: scaleWidth(16),
-          padding: spacing.md,
-          flexDirection: 'row',
-          alignItems: 'center',
-          height: scaleHeight(60),
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.04,
-          shadowRadius: 8,
-          elevation: 2,
-        }}>
-          {/* Streak Section */}
-          <View style={{
-            alignItems: 'center',
-            marginRight: spacing.sm,
-            minWidth: scaleWidth(35)
+          <View style={{ 
+            flexDirection: 'row', 
+            justifyContent: 'space-between', 
+            alignItems: 'center' 
           }}>
-            <Text style={{
-              color: '#1A1A1A',
-              fontSize: fonts.large,
-              fontWeight: 'bold'
-            }}>
-              {streakLoading ? '...' : currentStreak}
-            </Text>
-          </View>
-
-          {/* Slide to Start Workout - Light Mode Design */}
-          <TouchableOpacity 
-            style={{
-              flex: 1,
-              marginLeft: spacing.xs
-            }}
-            onPress={markWorkoutCompleted}
-            activeOpacity={0.8}
-          >
-            <View style={{
-              backgroundColor: '#D1D1D6',
-              borderRadius: scaleWidth(20),
-              height: scaleWidth(36),
-              justifyContent: 'center',
-              position: 'relative',
-              overflow: 'hidden',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.08,
-              shadowRadius: 4,
-              elevation: 3
-            }}>
-              {/* Dynamic progress background that fills as user slides */}
-        <Animated.View style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                bottom: 0,
-                backgroundColor: slideValue.interpolate({
-                  inputRange: [0, 100],
-                  outputRange: ['rgba(58, 58, 60, 0.15)', 'rgba(52, 199, 89, 0.9)'],
-                  extrapolate: 'clamp'
-                }),
-                width: slideValue.interpolate({
-                  inputRange: [0, 100],
-                  outputRange: ['0%', '100%'],
-                  extrapolate: 'clamp'
-                }),
-                borderRadius: scaleWidth(20)
-              }} />
-              
-              {/* Motivational text that changes as user slides */}
-        <Animated.Text style={{
-                color: slideValue.interpolate({
-                  inputRange: [0, 80, 100],
-          outputRange: ['#111111', '#111111', '#FFFFFF'],
-                  extrapolate: 'clamp'
-                }),
-                textAlign: 'center',
-                fontSize: fonts.small,
-                fontWeight: '600',
-                opacity: slideValue.interpolate({
-                  inputRange: [0, 50, 100],
-                  outputRange: [0.95, 0.98, 1],
-                  extrapolate: 'clamp'
-                }),
-                textShadowColor: 'rgba(0, 0, 0, 0.12)',
-                textShadowOffset: { width: 0, height: 1 },
-                textShadowRadius: 1,
-                transform: [{
-                  scale: slideValue.interpolate({
-                    inputRange: [0, 100],
-                    outputRange: [1, 1.03],
-                    extrapolate: 'clamp'
-                  })
-                }],
-                letterSpacing: 0.5
+            {/* Greeting Text */}
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                fontSize: fonts.medium,
+                color: '#8E8E93',
+                marginBottom: spacing.xs
               }}>
-                Start workout!
-              </Animated.Text>
-              
-              {/* The sliding button with dynamic colors and effects */}
-              <Animated.View
-                style={{
-                  position: 'absolute',
-                  left: slideValue,
-                  top: scaleHeight(3),
-                  width: scaleWidth(30),
-                  height: scaleWidth(30),
-                  backgroundColor: slideValue.interpolate({
-                    inputRange: [0, 75, 100],
-                    outputRange: ['#FFFFFF', '#FFCC00', '#34C759'],
-                    extrapolate: 'clamp'
-                  }),
-                  borderRadius: scaleWidth(15),
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  shadowColor: slideValue.interpolate({
-                    inputRange: [0, 100],
-                    outputRange: ['#000000', '#34C759'],
-                    extrapolate: 'clamp'
-                  }),
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.4,
-                  shadowRadius: 6,
-                  elevation: 8,
-                  transform: [{
-                    scale: slideValue.interpolate({
-                      inputRange: [0, 100],
-                      outputRange: [1, 1.1],
-                      extrapolate: 'clamp'
-                    })
-                  }],
-                  overflow: 'hidden'
-                }}
-                {...panResponder.panHandlers}
-              >
-                {/* Animated dumbbells background */}
-                <Animated.View style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  opacity: slideValue.interpolate({
-                    inputRange: [0, 50, 100],
-                    outputRange: [0.3, 0.6, 0.9],
-                    extrapolate: 'clamp'
-                  }),
-                  transform: [{
-                    scale: slideValue.interpolate({
-                      inputRange: [0, 100],
-                      outputRange: [0.8, 1.2],
-                      extrapolate: 'clamp'
-                    })
-                  }, {
-                    rotate: slideValue.interpolate({
-                      inputRange: [0, 100],
-                      outputRange: ['0deg', '360deg'],
-                      extrapolate: 'clamp'
-                    })
-                  }]
-                }}>
-                  <Text style={{
-                    fontSize: scaleWidth(12),
-                    color: 'rgba(255, 255, 255, 0.4)'
-                  }}>
-                    🏋️
-                  </Text>
-                </Animated.View>
-                
-                {/* Dynamic icon that changes based on progress */}
-                <Animated.View style={{
-                  transform: [{
-                    rotate: slideValue.interpolate({
-                      inputRange: [0, 100],
-                      outputRange: ['0deg', '360deg'],
-                      extrapolate: 'clamp'
-                    })
-                  }],
-                  zIndex: 2
-                }}>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={scaleWidth(18)}
-                    color={"#111"}
-                  />
-                </Animated.View>
-              </Animated.View>
+                {getTimeBasedGreeting()}
+              </Text>
+              <Text style={{
+                fontSize: fonts.title,
+                fontWeight: 'bold',
+                color: '#1D1D1F'
+              }}>
+                {userProfile?.first_name || user?.user_metadata?.first_name || 'User'}
+              </Text>
             </View>
-          </TouchableOpacity>
+            
+            {/* Profile Picture */}
+            <TouchableOpacity 
+              onPress={() => setShowProfileModal(true)}
+              style={{
+                width: scaleWidth(50),
+                height: scaleWidth(50),
+                borderRadius: scaleWidth(25),
+                backgroundColor: '#4A90E2',
+                justifyContent: 'center',
+                alignItems: 'center',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+                elevation: 3,
+              }}
+            >
+              <Text style={{
+                color: '#FFFFFF',
+                fontSize: fonts.large,
+                fontWeight: 'bold'
+              }}>
+                {(userProfile?.first_name || user?.user_metadata?.first_name || 'U').charAt(0).toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
         
-        {/* Activity Rings Card */}
-        <View style={{ 
-          marginHorizontal: responsivePadding.container,
-          marginBottom: spacing.md
-        }}>
-          <ActivityRingsChart />
-        </View>
+        {/* Daily Intake Card */}
+        <DailyIntakeCard />
+        
+        {/* Daily Usage Progress Card */}
+        <DailyUsageProgressCard />
         
       {/* Content */}
       <View style={{ flex: 1 }}>

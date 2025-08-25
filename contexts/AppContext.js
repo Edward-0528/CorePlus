@@ -48,6 +48,7 @@ export const AppProvider = ({ children }) => {
   const [activeTab, setActiveTab] = useState('home');
   
   const [formData, setFormData] = useState({
+    phone: '',
     email: '',
     password: '',
     firstName: '',

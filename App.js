@@ -10,6 +10,7 @@ import { biometricService } from './biometricService';
 import { styles } from './styles/AppStyles';
 import { AppProvider, useAppContext } from './contexts/AppContext';
 import { DailyCaloriesProvider } from './contexts/DailyCaloriesContext';
+import { SubscriptionProvider } from './contexts/SubscriptionContext';
 
 // Import components
 import AuthScreen from './components/AuthScreen';
@@ -370,8 +371,13 @@ function AppContent() {
   };
 
   const handleSignUp = async () => {
-    if (!formData.email || !formData.password || !formData.firstName) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    const missingFields = [];
+    if (!formData.email) missingFields.push('Email');
+    if (!formData.password) missingFields.push('Password');
+    if (!formData.firstName) missingFields.push('Name');
+    
+    if (missingFields.length > 0) {
+      Alert.alert('Error', `Please fill in the following fields: ${missingFields.join(', ')}`);
       return;
     }
 
@@ -398,6 +404,7 @@ function AppContent() {
     if (result.success) {
       // Clear form data
       setFormData({
+        phone: '',
         email: '',
         password: '',
         firstName: '',
@@ -422,10 +429,10 @@ function AppContent() {
         );
       }
     } else {
-      console.error('Sign-up error:', result.error);
-      setLoading(false);
-      Alert.alert('Error', result.error);
+      Alert.alert('Sign Up Failed', result.error || 'Please try again');
     }
+
+    setLoading(false);
   };
 
   const handleLogin = async () => {
@@ -443,6 +450,7 @@ function AppContent() {
       
       // Clear form data
       setFormData({
+        phone: '',
         email: '',
         password: '',
         firstName: '',
@@ -690,12 +698,14 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AppProvider>
-          <DailyCaloriesProvider>
-            <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
-              <AppContent />
-              <StatusBar style="auto" />
-            </SafeAreaView>
-          </DailyCaloriesProvider>
+          <SubscriptionProvider>
+            <DailyCaloriesProvider>
+              <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
+                <AppContent />
+                <StatusBar style="auto" />
+              </SafeAreaView>
+            </DailyCaloriesProvider>
+          </SubscriptionProvider>
         </AppProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
