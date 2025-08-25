@@ -221,6 +221,20 @@ export const styles = StyleSheet.create({
     maxWidth: scaleWidth(400),
     marginBottom: spacing.md,
   },
+  secondaryButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    paddingVertical: scaleHeight(16),
+    paddingHorizontal: scaleWidth(32),
+    borderRadius: scaleWidth(30),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '90%',
+    maxWidth: scaleWidth(400),
+    marginBottom: spacing.sm,
+  },
   buttonDisabled: {
     backgroundColor: 'transparent',
     borderColor: 'rgba(255, 255, 255, 0.3)',
@@ -232,6 +246,21 @@ export const styles = StyleSheet.create({
     letterSpacing: 0.5,
     flex: 1,
     textAlign: 'center',
+  },
+  secondaryButtonText: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 16,
+    fontWeight: '300',
+    letterSpacing: 0.3,
+    flex: 1,
+    textAlign: 'center',
+  },
+  orText: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    textAlign: 'center',
+    marginVertical: spacing.sm,
+    fontWeight: '300',
   },
   buttonArrows: {
     color: '#ffffff',
@@ -1454,6 +1483,22 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
   switchAuthLink: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  
+  // Auth Links Container (for unified auth screen)
+  authLinksContainer: {
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  authLinkText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: fonts.small,
+    textAlign: 'center',
+    marginVertical: spacing.xs,
+  },
+  authLinkHighlight: {
     color: '#ffffff',
     fontWeight: 'bold',
   },

@@ -12,9 +12,7 @@ import { AppProvider, useAppContext } from './contexts/AppContext';
 import { DailyCaloriesProvider } from './contexts/DailyCaloriesContext';
 
 // Import components
-import LandingScreen from './components/LandingScreen';
-import SignUpScreen from './components/SignUpScreen';
-import LoginScreen from './components/LoginScreen';
+import AuthScreen from './components/AuthScreen';
 import OnboardingScreen from './components/OnboardingScreen';
 import DashboardScreen from './components/DashboardScreen';
 import NewWorkoutsScreen from './components/NewWorkoutsScreen';
@@ -608,35 +606,23 @@ function AppContent() {
   const renderRoute = () => {
     switch (route) {
       case 'Landing':
-        return (
-          <LandingScreen
-            onGetStarted={handleGetStarted}
-            styles={styles}
-          />
-        );
       case 'SignUp':
-        return (
-          <SignUpScreen
-            loading={loading}
-            genderOptions={GENDER_OPTIONS}
-            onSignUp={handleSignUp}
-            onBackToLanding={handleBackToLanding}
-            onSwitchToLogin={handleSwitchToLogin}
-            onSocialLogin={handleSocialLogin}
-            onGenderSelect={handleGenderSelect}
-            styles={styles}
-          />
-        );
       case 'Login':
         return (
-          <LoginScreen
+          <AuthScreen
             loading={loading}
-            onLogin={handleLogin}
-            onBackToLanding={handleBackToLanding}
-            onSwitchToSignUp={handleSwitchToSignUp}
-            onSocialLogin={handleSocialLogin}
-            onBiometricLogin={handleBiometricLogin}
             styles={styles}
+            // Landing props
+            onGetStarted={handleGetStarted}
+            // Login props
+            onLogin={handleLogin}
+            onBiometricLogin={handleBiometricLogin}
+            // SignUp props
+            onSignUp={handleSignUp}
+            genderOptions={GENDER_OPTIONS}
+            onGenderSelect={handleGenderSelect}
+            // Social auth
+            onSocialLogin={handleSocialLogin}
           />
         );
       case 'Onboarding':

@@ -55,7 +55,7 @@ export const mealService = {
   },
 
   // Get today's meals for the current user
-  async getTodaysMeals() {
+  async getTodaysMeals(targetDate = null) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -63,7 +63,10 @@ export const mealService = {
         throw new Error('User not authenticated');
       }
 
-      const today = new Date().toISOString().split('T')[0];
+      // Use provided date or default to today
+      const today = targetDate || new Date().toISOString().split('T')[0];
+
+      console.log('🔍 Fetching meals for date:', today);
 
       const { data, error } = await supabase
         .from('meals')

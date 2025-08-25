@@ -12,6 +12,7 @@ import MultiFoodSelectionCard from './MultiFoodSelectionCard';
 import FoodSearchModal from './FoodSearchModal';
 import TodaysMealsSection from './TodaysMealsSection';
 import MealHistoryCard from './MealHistoryCard';
+import BarcodeScannerModal from './BarcodeScannerModal';
 import { generateElegantMealTitle, generateCompactFoodsList } from '../utils/mealTitleGenerator';
 
 const CircularGauge = ({ size = 140, stroke = 12, progress = 62.5, value = 1250, goal = 2000 }) => {
@@ -80,6 +81,25 @@ const MealAddButton = ({ onPress }) => (
     <Ionicons name="add-outline" size={20} color="#6B7280" />
     <Text style={stylesx.addMealTitle}>Add Meal</Text>
   </TouchableOpacity>
+);
+
+const MealAddOptions = ({ onManualAdd, onCameraAdd, onBarcodeAdd }) => (
+  <View style={stylesx.mealAddOptionsContainer}>
+    <TouchableOpacity style={stylesx.addOptionButton} onPress={onManualAdd} activeOpacity={0.8}>
+      <Ionicons name="create-outline" size={20} color="#007AFF" />
+      <Text style={stylesx.addOptionText}>Manual Entry</Text>
+    </TouchableOpacity>
+    
+    <TouchableOpacity style={stylesx.addOptionButton} onPress={onCameraAdd} activeOpacity={0.8}>
+      <Ionicons name="camera-outline" size={20} color="#007AFF" />
+      <Text style={stylesx.addOptionText}>Take Photo</Text>
+    </TouchableOpacity>
+    
+    <TouchableOpacity style={stylesx.addOptionButton} onPress={onBarcodeAdd} activeOpacity={0.8}>
+      <Ionicons name="barcode-outline" size={20} color="#007AFF" />
+      <Text style={stylesx.addOptionText}>Scan Barcode</Text>
+    </TouchableOpacity>
+  </View>
 );
 
 const ExpandableNutritionDetails = ({ dailyMicros, isExpanded, onToggle }) => {
@@ -588,6 +608,7 @@ const NutritionScreen = () => {
   const [showPredictionCard, setShowPredictionCard] = useState(false);
   const [showMultiSelectionCard, setShowMultiSelectionCard] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   const [foodPredictions, setFoodPredictions] = useState([]);
   const [capturedImage, setCapturedImage] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -848,6 +869,48 @@ const NutritionScreen = () => {
   const closeMealModal = useCallback(() => setShowMealModal(false), []);
   const closeCameraModal = useCallback(() => setShowCameraModal(false), []);
   const closePredictionCard = useCallback(() => setShowPredictionCard(false), []);
+  const closeBarcodeScanner = useCallback(() => setShowBarcodeScanner(false), []);
+
+  // Handle barcode scan result
+  const handleBarcodeScanned = useCallback(async (nutrition) => {
+    try {
+      console.log('📦 Barcode scanned nutrition data:', nutrition);
+      
+      // Add the scanned meal to today's meals
+      const result = await addMeal(nutrition);
+      
+      if (result.success) {
+        Alert.alert(
+          'Product Added!',
+          `Successfully added ${nutrition.name} to your meals.`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        throw new Error(result.error || 'Failed to add meal');
+      }
+    } catch (error) {
+      console.error('Error adding barcode meal:', error);
+      Alert.alert(
+        'Error',
+        'Failed to add scanned product to your meals. Please try manual entry.',
+        [{ text: 'OK' }]
+      );
+    }
+  }, [addMeal]);
+
+  // Handle barcode scan error
+  const handleBarcodeScanError = useCallback((error) => {
+    console.log('Barcode scan error:', error);
+    // Could offer manual entry or search as fallback
+    Alert.alert(
+      'Product Not Found',
+      'Would you like to try manual entry instead?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Manual Entry', onPress: () => setShowMealModal(true) }
+      ]
+    );
+  }, []);
 
   // Refresh handler with cache clearing
   const onRefresh = useCallback(async () => {
@@ -930,7 +993,11 @@ const NutritionScreen = () => {
           </View>
         )}
         
-        <MealAddButton onPress={() => setShowMealModal(true)} />
+        <MealAddOptions 
+          onManualAdd={() => setShowMealModal(true)}
+          onCameraAdd={() => setShowCameraModal(true)}
+          onBarcodeAdd={() => setShowBarcodeScanner(true)}
+        />
         
         {/* Re-enabling TodaysMealsSection for testing */}
         {TodaysMealsSection && (
@@ -1008,6 +1075,14 @@ const NutritionScreen = () => {
       visible={showSearchModal}
       onClose={() => setShowSearchModal(false)}
       onAddMeal={handleAddMeal}
+    />
+
+    {/* Barcode Scanner Modal */}
+    <BarcodeScannerModal
+      visible={showBarcodeScanner}
+      onClose={closeBarcodeScanner}
+      onBarcodeScanned={handleBarcodeScanned}
+      onError={handleBarcodeScanError}
     />
     </>
   );
@@ -1093,6 +1168,56 @@ const stylesx = StyleSheet.create({
     fontWeight: '500', 
     color: '#6B7280',
     marginLeft: spacing.xs,
+  },
+  mealAddOptionsContainer: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  addOptionButton: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  addOptionText: {
+    fontSize: fonts.small,
+    fontWeight: '500',
+    color: '#007AFF',
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  mealAddOptionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  addOptionButton: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    minHeight: 70,
+  },
+  addOptionText: {
+    fontSize: fonts.small,
+    fontWeight: '500',
+    color: '#007AFF',
+    marginTop: spacing.xs,
+    textAlign: 'center',
   },
   fixButton: {
     backgroundColor: '#FF6B6B',

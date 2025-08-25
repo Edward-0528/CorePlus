@@ -66,13 +66,11 @@ export const DailyCaloriesProvider = ({ children }) => {
     // Check immediately when component mounts or auth state changes
     checkDateChange();
     
-    // Set up interval to check every 30 seconds (more frequent for testing)
-    const interval = setInterval(checkDateChange, 30000);
-    
-    return () => clearInterval(interval);
-  }, [currentDate, isAuthenticated]);
+    // Set up interval to check every 10 seconds (more frequent for better accuracy)
+    const interval = setInterval(checkDateChange, 10000);
 
-  // Cache keys
+    return () => clearInterval(interval);
+  }, [currentDate, isAuthenticated]);  // Cache keys
   const TODAY_MEALS_KEY = getTodayMealsKey();
 
   // Load meals when date changes or authentication status changes
@@ -181,7 +179,8 @@ export const DailyCaloriesProvider = ({ children }) => {
     }
 
     try {
-      const result = await mealService.getTodaysMeals();
+      // Pass the current date to ensure we're fetching meals for the correct date
+      const result = await mealService.getTodaysMeals(currentDate);
       
       if (result.success) {
         const meals = result.meals || [];
@@ -193,7 +192,7 @@ export const DailyCaloriesProvider = ({ children }) => {
         await AsyncStorage.setItem(LAST_CACHE_KEY(), Date.now().toString());
         setLastCacheUpdate(Date.now().toString());
         
-        console.log('✅ Refreshed meals from server:', meals.length, 'meals');
+        console.log('✅ Refreshed meals from server for date:', currentDate, '- found', meals.length, 'meals');
       }
     } catch (error) {
       // Only log authentication errors as warnings, not errors
@@ -262,16 +261,26 @@ export const DailyCaloriesProvider = ({ children }) => {
       };
     });
     
-    setTodaysMeals(formattedMeals);
+    // Filter out any meals that don't match the current date
+    const filteredMeals = formattedMeals.filter(meal => {
+      const mealDate = meal.date;
+      if (mealDate !== currentDate) {
+        console.log('🚫 Filtering out meal from wrong date:', meal.name, 'date:', mealDate, 'expected:', currentDate);
+        return false;
+      }
+      return true;
+    });
     
-    // Calculate totals
-    const totalCalories = formattedMeals.reduce((sum, meal) => sum + (meal.calories || 0), 0);
-    const totalCarbs = formattedMeals.reduce((sum, meal) => sum + (meal.carbs || 0), 0);
-    const totalProtein = formattedMeals.reduce((sum, meal) => sum + (meal.protein || 0), 0);
-    const totalFat = formattedMeals.reduce((sum, meal) => sum + (meal.fat || 0), 0);
-    const totalFiber = formattedMeals.reduce((sum, meal) => sum + (meal.fiber || 0), 0);
-    const totalSugar = formattedMeals.reduce((sum, meal) => sum + (meal.sugar || 0), 0);
-    const totalSodium = formattedMeals.reduce((sum, meal) => sum + (meal.sodium || 0), 0);
+    setTodaysMeals(filteredMeals);
+    
+    // Calculate totals using filtered meals
+    const totalCalories = filteredMeals.reduce((sum, meal) => sum + (meal.calories || 0), 0);
+    const totalCarbs = filteredMeals.reduce((sum, meal) => sum + (meal.carbs || 0), 0);
+    const totalProtein = filteredMeals.reduce((sum, meal) => sum + (meal.protein || 0), 0);
+    const totalFat = filteredMeals.reduce((sum, meal) => sum + (meal.fat || 0), 0);
+    const totalFiber = filteredMeals.reduce((sum, meal) => sum + (meal.fiber || 0), 0);
+    const totalSugar = filteredMeals.reduce((sum, meal) => sum + (meal.sugar || 0), 0);
+    const totalSodium = filteredMeals.reduce((sum, meal) => sum + (meal.sodium || 0), 0);
     
     setDailyCalories(totalCalories);
     setDailyMacros({ carbs: totalCarbs, protein: totalProtein, fat: totalFat });
@@ -321,8 +330,16 @@ export const DailyCaloriesProvider = ({ children }) => {
     }
 
     try {
+      // Ensure the meal is added with the current context date
+      const mealWithDate = {
+        ...newMeal,
+        date: newMeal.date || currentDate // Use provided date or current context date
+      };
+      
+      console.log('📝 Adding meal for date:', mealWithDate.date);
+      
       // Add to server
-      const result = await mealService.addMeal(newMeal);
+      const result = await mealService.addMeal(mealWithDate);
       
       if (result.success) {
         // Get fresh data from server to ensure consistency
