@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, RefreshControl, StyleSheet, Animated, Modal, View, Text as RNText } from 'react-native';
+import { ScrollView, RefreshControl, StyleSheet, Animated, Modal, View, Text as RNText, Alert } from 'react-native';
 import { 
   View as RNUIView, 
   Text, 
@@ -16,6 +16,9 @@ import FoodPredictionCard from './FoodPredictionCard';
 import MultiFoodSelectionCard from './MultiFoodSelectionCard';
 import SwipeToDeleteWrapper from './SimpleSwipeToDelete';
 import FoodSearchModal from './FoodSearchModal';
+
+// Test function
+import { testMicronutrients } from '../testMicronutrients';
 
 // Define colors directly
 const AppColors = {
@@ -62,12 +65,38 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
     historyLoading,
     refreshMealsFromServer,
     addMeal,
-    deleteMeal
+    deleteMeal,
+    clearCache
   } = useDailyCalories();
+
+  // Debug function to test micronutrients
+  const handleDebugTest = async () => {
+    console.log('🔧 Running micronutrient debug test...');
+    try {
+      // Clear cache first
+      await clearCache();
+      console.log('🧹 Cache cleared');
+      
+      // Refresh meals from server
+      await refreshMealsFromServer();
+      console.log('🔄 Meals refreshed');
+      
+      // Run the database test
+      await testMicronutrients();
+      Alert.alert('Debug Test Complete', 'Check console for detailed results. Cache cleared and meals refreshed.');
+    } catch (error) {
+      console.error('Debug test failed:', error);
+      Alert.alert('Debug Test Failed', error.message);
+    }
+  };
 
   // Debug: Log micronutrient values
   console.log('📊 Current dailyMicros:', dailyMicros);
   console.log('📊 Current dailyMacros:', dailyMacros);
+  console.log('📊 Current todaysMeals:', todaysMeals.length, 'meals');
+  if (todaysMeals.length > 0) {
+    console.log('📊 Latest meal sample:', JSON.stringify(todaysMeals[0], null, 2));
+  }
   console.log('📊 Calorie card expanded:', isCalorieCardExpanded);
 
   // For testing: If no micronutrient data, add some sample values to show progress bars
@@ -154,6 +183,7 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
     { icon: 'restaurant-outline', title: 'Log Meal', color: AppColors.primary },
     { icon: 'water-outline', title: 'Water', color: AppColors.primary },
     { icon: 'nutrition-outline', title: 'Recipes', color: AppColors.account },
+    { icon: 'bug-outline', title: 'Debug Test', color: AppColors.warning },
   ];
 
   // Get recent meals from context (convert todaysMeals to the format expected)
@@ -513,6 +543,10 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       case 'Recipes':
         // TODO: Implement recipe browser
         console.log('📖 Recipe browser not implemented yet');
+        break;
+      case 'Debug Test':
+        console.log('🔧 Running debug test...');
+        handleDebugTest();
         break;
       default:
         console.log('❓ Unknown action:', action.title);
