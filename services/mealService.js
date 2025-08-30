@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseConfig';
+import { debugMicronutrients } from '../debugMicronutrients';
 
 export const mealService = {
   // Add a new meal for the current user
@@ -36,6 +37,10 @@ export const mealService = {
       };
 
       console.log('🕐 Adding meal with timestamp:', mealTime, 'for meal:', mealData.name);
+      
+      // Debug: Log meal data being sent to database
+      debugMicronutrients.logMealService(mealData);
+      console.log('💾 Raw meal object for database:', JSON.stringify(meal, null, 2));
 
       const { data, error } = await supabase
         .from('meals')
@@ -49,6 +54,9 @@ export const mealService = {
       }
 
       console.log('✅ Meal added to database:', data);
+      
+      // Debug: Log what was actually stored in database
+      debugMicronutrients.logDatabaseResult({ meal: data });
       return { success: true, meal: data };
 
     } catch (error) {

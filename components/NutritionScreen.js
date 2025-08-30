@@ -19,6 +19,7 @@ import DailyIntakeCard from './DailyIntakeCard';
 import { generateElegantMealTitle, generateCompactFoodsList } from '../utils/mealTitleGenerator';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { DailyUsageButton, PremiumFeatureButton, UsageLimitDisplay, PremiumGate } from './FeatureGate';
+import { debugMicronutrients } from '../debugMicronutrients';
 
 const MealAddButton = ({ onPress }) => (
   <TouchableOpacity style={stylesx.addMealButton} onPress={onPress} activeOpacity={0.8}>
@@ -647,6 +648,9 @@ const NutritionScreen = () => {
 
   const handleAddMeal = useCallback(async (meal) => {
     try {
+      // Debug: Log meal object being processed
+      debugMicronutrients.log('NUTRITION SCREEN - handleAddMeal', meal, 'Meal object received by handleAddMeal');
+      
       // Add meal using context method (handles caching automatically)
       const result = await addMeal({
         name: meal.name,

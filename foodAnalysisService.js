@@ -1,4 +1,6 @@
 // Food Analysis Service using Google Gemini AI for enhanced food identification and nutritional estimation
+import { debugMicronutrients } from './debugMicronutrients';
+
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
 // Validate API key
@@ -419,6 +421,10 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
       }
 
       console.log('✅ Extracted foods from Gemini:', detectedFoods);
+      
+      // Debug: Log micronutrient extraction
+      debugMicronutrients.log('AI EXTRACTION', detectedFoods, 'Raw extraction from Gemini API');
+      
       return detectedFoods;
       
     } catch (error) {
