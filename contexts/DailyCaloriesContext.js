@@ -9,7 +9,14 @@ export const DailyCaloriesProvider = ({ children }) => {
   const { isAuthenticated, user } = useAppContext();
   const [dailyCalories, setDailyCalories] = useState(0);
   const [dailyMacros, setDailyMacros] = useState({ carbs: 0, protein: 0, fat: 0 });
-  const [dailyMicros, setDailyMicros] = useState({ fiber: 0, sugar: 0, sodium: 0 });
+  const [dailyMicros, setDailyMicros] = useState({ 
+    fiber: 0, 
+    sugar: 0, 
+    sodium: 0, 
+    calcium: 0, 
+    iron: 0, 
+    vitaminC: 0 
+  });
   const [todaysMeals, setTodaysMeals] = useState([]);
   const [historicalMeals, setHistoricalMeals] = useState({});
   const [mealsLoading, setMealsLoading] = useState(false);
@@ -45,7 +52,7 @@ export const DailyCaloriesProvider = ({ children }) => {
         setTodaysMeals([]);
         setDailyCalories(0);
         setDailyMacros({ carbs: 0, protein: 0, fat: 0 });
-        setDailyMicros({ fiber: 0, sugar: 0, sodium: 0 });
+        setDailyMicros({ fiber: 0, sugar: 0, sodium: 0, calcium: 0, iron: 0, vitaminC: 0 });
         
         // Clear yesterday's cache to prevent confusion (user-specific)
         if (user?.id) {
@@ -85,7 +92,7 @@ export const DailyCaloriesProvider = ({ children }) => {
       setHistoricalMeals({});
       setDailyCalories(0);
       setDailyMacros({ carbs: 0, protein: 0, fat: 0 });
-      setDailyMicros({ fiber: 0, sugar: 0, sodium: 0 });
+      setDailyMicros({ fiber: 0, sugar: 0, sodium: 0, calcium: 0, iron: 0, vitaminC: 0 });
     }
   }, [isAuthenticated, currentDate]);
 
@@ -110,7 +117,7 @@ export const DailyCaloriesProvider = ({ children }) => {
       setHistoricalMeals({});
       setDailyCalories(0);
       setDailyMacros({ carbs: 0, protein: 0, fat: 0 });
-      setDailyMicros({ fiber: 0, sugar: 0, sodium: 0 });
+      setDailyMicros({ fiber: 0, sugar: 0, sodium: 0, calcium: 0, iron: 0, vitaminC: 0 });
       setLastCacheUpdate(null);
       
       // Clear cache for the previous user if we have their ID
@@ -218,8 +225,30 @@ export const DailyCaloriesProvider = ({ children }) => {
       const result = await mealService.getHistoricalMeals(30); // Last 30 days
       
       if (result.success) {
-        setHistoricalMeals(result.groupedMeals);
-        console.log('✅ Loaded historical meals:', Object.keys(result.groupedMeals).length, 'dates');
+        // Map historical meals to ensure proper field names
+        const mappedHistoricalMeals = {};
+        Object.keys(result.groupedMeals).forEach(date => {
+          mappedHistoricalMeals[date] = result.groupedMeals[date].map(meal => ({
+            id: meal.id,
+            name: meal.meal_name || meal.name, // Map meal_name to name
+            calories: meal.calories || 0,
+            carbs: meal.carbs || 0,
+            protein: meal.protein || 0,
+            fat: meal.fat || 0,
+            fiber: meal.fiber || 0,
+            sugar: meal.sugar || 0,
+            sodium: meal.sodium || 0,
+            meal_type: meal.meal_type,
+            method: meal.meal_method || meal.method,
+            time: meal.meal_time ? formatMealTime(meal.meal_time) : 'Unknown',
+            date: meal.meal_date || meal.date,
+            imageUri: meal.image_uri || meal.imageUri,
+            confidence: meal.confidence_score || meal.confidence
+          }));
+        });
+        
+        setHistoricalMeals(mappedHistoricalMeals);
+        console.log('✅ Loaded historical meals:', Object.keys(mappedHistoricalMeals).length, 'dates');
       }
     } catch (error) {
       console.error('Error loading historical meals:', error);
@@ -242,7 +271,7 @@ export const DailyCaloriesProvider = ({ children }) => {
         formattedTime = meal.meal_time ? formatMealTime(meal.meal_time) : 'Unknown';
       }
       
-      return {
+        return {
         id: meal.id,
         name: meal.meal_name || meal.name, // Handle both database and formatted meals
         calories: meal.calories || 0,
@@ -252,6 +281,9 @@ export const DailyCaloriesProvider = ({ children }) => {
         fiber: meal.fiber || 0,
         sugar: meal.sugar || 0,
         sodium: meal.sodium || 0,
+        calcium: meal.calcium || 0,
+        iron: meal.iron || 0,
+        vitaminC: meal.vitamin_c || meal.vitaminC || 0, // Handle both database (vitamin_c) and app (vitaminC) formats
         method: meal.meal_method || meal.method,
         // Use preserved or formatted time
         time: formattedTime,
@@ -281,10 +313,20 @@ export const DailyCaloriesProvider = ({ children }) => {
     const totalFiber = filteredMeals.reduce((sum, meal) => sum + (meal.fiber || 0), 0);
     const totalSugar = filteredMeals.reduce((sum, meal) => sum + (meal.sugar || 0), 0);
     const totalSodium = filteredMeals.reduce((sum, meal) => sum + (meal.sodium || 0), 0);
+    const totalCalcium = filteredMeals.reduce((sum, meal) => sum + (meal.calcium || 0), 0);
+    const totalIron = filteredMeals.reduce((sum, meal) => sum + (meal.iron || 0), 0);
+    const totalVitaminC = filteredMeals.reduce((sum, meal) => sum + (meal.vitaminC || 0), 0);
     
     setDailyCalories(totalCalories);
     setDailyMacros({ carbs: totalCarbs, protein: totalProtein, fat: totalFat });
-    setDailyMicros({ fiber: totalFiber, sugar: totalSugar, sodium: totalSodium });
+    setDailyMicros({ 
+      fiber: totalFiber, 
+      sugar: totalSugar, 
+      sodium: totalSodium, 
+      calcium: totalCalcium, 
+      iron: totalIron, 
+      vitaminC: totalVitaminC 
+    });
   };
 
   // Helper function to format meal time
@@ -402,7 +444,7 @@ export const DailyCaloriesProvider = ({ children }) => {
       setTodaysMeals([]);
       setDailyCalories(0);
       setDailyMacros({ carbs: 0, protein: 0, fat: 0 });
-      setDailyMicros({ fiber: 0, sugar: 0, sodium: 0 });
+      setDailyMicros({ fiber: 0, sugar: 0, sodium: 0, calcium: 0, iron: 0, vitaminC: 0 });
       setLastCacheUpdate(null);
     } catch (error) {
       console.error('Error clearing meal cache:', error);

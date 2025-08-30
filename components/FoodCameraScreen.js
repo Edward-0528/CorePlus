@@ -6,7 +6,22 @@ import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, fonts } from '../utils/responsive';
-import { LinearGradient } from 'expo-linear-gradient';
+
+// Define colors directly to match the minimal design
+const AppColors = {
+  primary: '#4A90E2',
+  white: '#FFFFFF',
+  border: '#E9ECEF',
+  textPrimary: '#212529',
+  textSecondary: '#6C757D',
+  backgroundPrimary: '#FFFFFF',
+  backgroundSecondary: '#F8F9FA',
+  nutrition: '#28A745',
+  workout: '#FF6B6B',
+  account: '#FFC107',
+  success: '#28A745',
+  warning: '#FFC107',
+};
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -229,6 +244,11 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
           onAnalysisComplete([], photo.uri, true); // Empty predictions, loading = true
         }
         
+        // Close camera immediately to show loading screen
+        if (onClose) {
+          onClose();
+        }
+        
         // Reset analyzing state immediately since we're transitioning away
         setIsAnalyzing(false);
 
@@ -281,95 +301,71 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
   }
 
   if (!permission.granted) {
-    // Camera permissions are not granted yet
     return (
-      <View style={styles.container}>
-        <Text style={styles.message}>We need your permission to show the camera</Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.permissionButtonText}>Grant Permission</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Text style={styles.closeButtonText}>Close</Text>
-        </TouchableOpacity>
+      <View style={styles.permissionContainer}>
+        <View style={styles.permissionContent}>
+          <Ionicons name="camera-outline" size={48} color={AppColors.textSecondary} />
+          <Text style={styles.permissionTitle}>Camera Permission Required</Text>
+          <Text style={styles.permissionText}>
+            We need access to your camera to scan food items and provide nutritional information.
+          </Text>
+          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+            <Text style={styles.permissionButtonText}>Grant Permission</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.closeButtonText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
-        {/* Top Gradient Overlay */}
-        <LinearGradient
-          colors={['rgba(0,0,0,0.7)', 'transparent']}
-          style={styles.topGradient}
-        />
-        
-        {/* Bottom Gradient Overlay */}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.8)']}
-          style={styles.bottomGradient}
-        />
-
-        <View style={styles.overlay}>
-          {/* Modern Header */}
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.modernButton} onPress={onClose}>
-              <Ionicons name="close" size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={styles.titleContainer}>
-              <Text style={styles.title}>Food Scanner</Text>
-              <Text style={styles.subtitle}>Position your meal in the frame</Text>
-            </View>
-            <TouchableOpacity style={styles.modernButton} onPress={flipCamera}>
-              <Ionicons name="camera-reverse" size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Food Focus Frame */}
-          <View style={styles.centerContent}>
-            <Animated.View style={[styles.focusFrame, { opacity: focusFrameOpacity }]}>
-              <View style={styles.focusCorner} />
-              <View style={[styles.focusCorner, styles.focusCornerTopRight]} />
-              <View style={[styles.focusCorner, styles.focusCornerBottomLeft]} />
-              <View style={[styles.focusCorner, styles.focusCornerBottomRight]} />
-              <View style={styles.focusCenter}>
-                <Ionicons name="restaurant-outline" size={24} color="rgba(255,255,255,0.8)" />
-              </View>
-            </Animated.View>
-          </View>
-
-          {/* Modern Camera Controls */}
-          <View style={styles.controls}>
-            <View style={styles.captureArea}>
-              <Animated.View style={[styles.modernCaptureButton, { transform: [{ scale: captureButtonScale }] }]}>
-                <TouchableOpacity 
-                  style={styles.captureButtonTouchable} 
-                  onPress={takePicture}
-                  disabled={isAnalyzing}
-                >
-                  <View style={styles.captureButtonOuter}>
-                    <View style={styles.captureButtonInner}>
-                      {isAnalyzing ? (
-                        <ActivityIndicator size={28} color="#4682B4" />
-                      ) : (
-                        <Ionicons name="camera" size={28} color="#4682B4" />
-                      )}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              </Animated.View>
-              <Text style={styles.captureHint}>
-                {isAnalyzing ? 'Processing...' : 'Tap to capture'}
-              </Text>
-            </View>
-          </View>
+      <CameraView style={styles.camera} facing={facing} ref={cameraRef} />
+      
+      {/* Header Overlay */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.headerButton} onPress={onClose}>
+          <Ionicons name="close-outline" size={24} color={AppColors.white} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Scan Food</Text>
         </View>
-        
-        {/* Modern Flash Effect */}
-        {flashEffect && (
-          <View style={styles.modernFlashOverlay} />
+        <TouchableOpacity style={styles.headerButton} onPress={flipCamera}>
+          <Ionicons name="camera-reverse-outline" size={24} color={AppColors.white} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Focus Frame Overlay */}
+      <View style={styles.focusContainer}>
+        <View style={styles.focusFrame}>
+          <Ionicons name="scan-outline" size={32} color={AppColors.white} />
+        </View>
+      </View>
+
+      {/* Instructions Overlay */}
+      <View style={styles.instructionsContainer}>
+        <Text style={styles.instructions}>
+          Position your food in the frame and tap to scan
+        </Text>
+      </View>
+
+      {/* Controls Overlay */}
+      <View style={styles.controls}>
+        {isAnalyzing ? (
+          <View style={styles.analyzingContainer}>
+            <ActivityIndicator size="large" color={AppColors.white} />
+            <Text style={styles.analyzingText}>Analyzing food...</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.captureButton} onPress={takePicture}>
+            <View style={styles.captureButtonInner}>
+              <Ionicons name="camera-outline" size={28} color={AppColors.white} />
+            </View>
+          </TouchableOpacity>
         )}
-      </CameraView>
+      </View>
     </View>
   );
 };
@@ -377,220 +373,168 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: AppColors.textPrimary,
   },
   camera: {
     flex: 1,
   },
-  topGradient: {
+  permissionContainer: {
+    flex: 1,
+    backgroundColor: AppColors.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  permissionContent: {
+    alignItems: 'center',
+    backgroundColor: AppColors.white,
+    padding: 32,
+    borderRadius: 12,
+    maxWidth: 300,
+    shadowColor: AppColors.textPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  permissionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: AppColors.textPrimary,
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  permissionText: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  permissionButton: {
+    backgroundColor: AppColors.nutrition,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  permissionButtonText: {
+    color: AppColors.white,
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  closeButton: {
+    paddingVertical: 8,
+  },
+  closeButtonText: {
+    color: AppColors.textSecondary,
+    fontSize: 14,
+  },
+  header: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 120,
-    zIndex: 1,
-  },
-  bottomGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 200,
-    zIndex: 1,
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    flexDirection: 'column',
-    justifyContent: 'space-between',
-    zIndex: 2,
-  },
-  header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingTop: 60,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  titleContainer: {
     alignItems: 'center',
-    flex: 1,
+    justifyContent: 'space-between',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    zIndex: 1,
   },
-  title: {
-    fontSize: fonts.large,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-  },
-  subtitle: {
-    fontSize: fonts.small,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 2,
-    fontWeight: '400',
-  },
-  modernButton: {
+  headerButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
-    backdropFilter: 'blur(10px)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
   },
-  centerContent: {
+  headerCenter: {
     flex: 1,
     alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: AppColors.white,
+  },
+  focusContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
   },
   focusFrame: {
-    width: screenWidth * 0.7,
-    height: screenWidth * 0.7,
-    position: 'relative',
+    width: 200,
+    height: 200,
+    borderWidth: 2,
+    borderColor: AppColors.white,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  focusCorner: {
+  instructionsContainer: {
     position: 'absolute',
-    width: 30,
-    height: 30,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-    borderColor: '#FFFFFF',
-    top: 0,
+    bottom: 140,
     left: 0,
-    borderTopLeftRadius: 8,
-  },
-  focusCornerTopRight: {
-    top: 0,
     right: 0,
-    left: 'auto',
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderLeftWidth: 0,
-    borderTopRightRadius: 8,
-    borderTopLeftRadius: 0,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    alignItems: 'center',
+    zIndex: 1,
   },
-  focusCornerBottomLeft: {
-    bottom: 0,
-    left: 0,
-    top: 'auto',
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 8,
-    borderTopLeftRadius: 0,
-  },
-  focusCornerBottomRight: {
-    bottom: 0,
-    right: 0,
-    top: 'auto',
-    left: 'auto',
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    borderTopWidth: 0,
-    borderLeftWidth: 0,
-    borderBottomRightRadius: 8,
-    borderTopLeftRadius: 0,
-  },
-  focusCenter: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -12 }, { translateY: -12 }],
+  instructions: {
+    fontSize: 14,
+    color: AppColors.white,
+    textAlign: 'center',
+    opacity: 0.9,
   },
   controls: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    paddingBottom: 60,
+    zIndex: 1,
   },
-  captureArea: {
-    alignItems: 'center',
-  },
-  modernCaptureButton: {
-    marginBottom: spacing.sm,
-  },
-  captureButtonTouchable: {
-    borderRadius: 50,
-  },
-  captureButtonOuter: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+  captureButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: AppColors.nutrition,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: AppColors.textPrimary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-    borderWidth: 4,
-    borderColor: 'rgba(70, 130, 180, 0.3)',
   },
   captureButtonInner: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#FFFFFF',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: AppColors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#4682B4',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
   },
-  captureHint: {
-    fontSize: fonts.small,
-    color: 'rgba(255,255,255,0.8)',
-    fontWeight: '500',
-    letterSpacing: 0.5,
+  analyzingContainer: {
+    alignItems: 'center',
   },
-  modernFlashOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#FFFFFF',
+  analyzingText: {
+    fontSize: 14,
+    color: AppColors.white,
+    marginTop: 12,
     opacity: 0.9,
-    zIndex: 1000,
-  },
-  message: {
-    fontSize: fonts.large,
-    color: '#FFFFFF',
-    textAlign: 'center',
-    margin: spacing.xl,
-  },
-  permissionButton: {
-    backgroundColor: '#4682B4',
-    borderRadius: 16,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    marginHorizontal: spacing.xl,
-    marginBottom: spacing.md,
-    shadowColor: '#4682B4',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  permissionButtonText: {
-    fontSize: fonts.medium,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    letterSpacing: 0.5,
-  },
-  closeButton: {
-    padding: spacing.sm,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 20,
-  },
-  closeButtonText: {
-    fontSize: fonts.medium,
-    color: '#FFFFFF',
-    fontWeight: '600',
   },
 });
 

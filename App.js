@@ -12,16 +12,22 @@ import { AppProvider, useAppContext } from './contexts/AppContext';
 import { DailyCaloriesProvider } from './contexts/DailyCaloriesContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 
+// Design System
+import { configureDesignSystem } from './components/design/Theme';
+
 // Import components
 import AuthScreen from './components/AuthScreen';
 import OnboardingScreen from './components/OnboardingScreen';
-import DashboardScreen from './components/DashboardScreen';
-import WorkoutsScreen from './components/WorkoutsScreen';
-import NutritionScreen from './components/NutritionScreen';
-import AccountScreen from './components/AccountScreen';
-import BottomNavigation from './components/BottomNavigation';
+import WorkingMinimalDashboard from './components/WorkingMinimalDashboard';
+import WorkingMinimalWorkouts from './components/WorkingMinimalWorkouts';
+import WorkingMinimalNutrition from './components/WorkingMinimalNutrition';
+import WorkingMinimalAccount from './components/WorkingMinimalAccount';
+import MinimalNavigation from './components/MinimalNavigation';
 import LoadingScreen from './components/LoadingScreen';
-import GoogleFitTest from './components/GoogleFitTest';
+import HealthServiceTest from './components/HealthServiceTest';
+
+// Initialize design system
+configureDesignSystem();
 
 // Constants moved outside component to prevent recreation
 const GENDER_OPTIONS = [
@@ -600,17 +606,17 @@ function AppContent() {
 
     switch (activeTab) {
       case 'home':
-        return <DashboardScreen {...commonProps} />;
+        return <WorkingMinimalDashboard {...commonProps} />;
       case 'workouts':
-        return <WorkoutsScreen {...commonProps} />;
+        return <WorkingMinimalWorkouts {...commonProps} />;
       case 'nutrition':
-        return <NutritionScreen {...commonProps} />;
+        return <WorkingMinimalNutrition {...commonProps} />;
       case 'account':
-        return <AccountScreen {...commonProps} />;
+        return <WorkingMinimalAccount {...commonProps} />;
       case 'test':
-        return <GoogleFitTest {...commonProps} />;
+        return <HealthServiceTest {...commonProps} />;
       default:
-        return <DashboardScreen {...commonProps} />;
+        return <WorkingMinimalDashboard {...commonProps} />;
     }
   };
 
@@ -654,7 +660,7 @@ function AppContent() {
         );
       case 'Dashboard':
         return (
-          <DashboardScreen
+          <WorkingMinimalDashboard
             user={user}
             onLogout={handleLogout}
             loading={loading}
@@ -667,7 +673,7 @@ function AppContent() {
             <View style={{ flex: 1 }}>
               {renderAuthenticatedScreen()}
             </View>
-            <BottomNavigation
+            <MinimalNavigation
               activeTab={activeTab}
               onTabPress={setActiveTab}
             />

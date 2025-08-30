@@ -35,10 +35,10 @@ const SmoothVideoBackground = memo(({ children, screenType = 'landing' }) => {
     switch (screenType) {
       case 'landing':
         return [
-          'rgba(0,0,0,0.3)',
+          'rgba(0,0,0,0.1)',
+          'rgba(0,0,0,0.2)',
           'rgba(0,0,0,0.4)',
-          'rgba(0,0,0,0.7)',
-          'rgba(0,0,0,0.9)'
+          'rgba(0,0,0,0.6)'
         ];
       case 'login':
       case 'signup':

@@ -3,6 +3,22 @@ import { View, Text, TouchableOpacity, StyleSheet, Modal, Animated, Dimensions, 
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, fonts } from '../utils/responsive';
 
+// Define colors directly to match the minimal design
+const AppColors = {
+  primary: '#4A90E2',
+  white: '#FFFFFF',
+  border: '#E9ECEF',
+  textPrimary: '#212529',
+  textSecondary: '#6C757D',
+  backgroundPrimary: '#FFFFFF',
+  backgroundSecondary: '#F8F9FA',
+  nutrition: '#28A745',
+  workout: '#FF6B6B',
+  account: '#FFC107',
+  success: '#28A745',
+  warning: '#FFC107',
+};
+
 const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
 
 const MultiFoodSelectionCard = ({ visible, onClose, predictions, onSelectFoods, imageUri }) => {
@@ -142,11 +158,11 @@ const MultiFoodSelectionCard = ({ visible, onClose, predictions, onSelectFoods, 
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerContent}>
-            <Ionicons name="restaurant" size={24} color="#4682B4" />
+            <Ionicons name="restaurant" size={24} color={AppColors.nutrition} />
             <Text style={styles.title}>Select Your Foods</Text>
           </View>
           <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color="#8E8E93" />
+            <Ionicons name="close" size={24} color={AppColors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -175,17 +191,14 @@ const MultiFoodSelectionCard = ({ visible, onClose, predictions, onSelectFoods, 
         {isLoading && (
           <Animated.View style={[styles.loadingOverlay, { opacity: loadingOpacity }]}>
             <View style={styles.loadingContent}>
-              <View style={styles.loadingRing}>
-                <ActivityIndicator size="large" color="#4682B4" />
+              <View style={styles.loadingIcon}>
+                <Ionicons name="scan-outline" size={32} color={AppColors.nutrition} />
               </View>
               <Text style={styles.loadingTitle}>Analyzing your meal</Text>
               <Text style={styles.loadingSubtitle}>Our AI is identifying the foods in your photo</Text>
               
-              {/* Loading animation dots */}
-              <View style={styles.loadingDots}>
-                <View style={[styles.loadingDot, styles.loadingDot1]} />
-                <View style={[styles.loadingDot, styles.loadingDot2]} />
-                <View style={[styles.loadingDot, styles.loadingDot3]} />
+              <View style={styles.loadingSpinner}>
+                <ActivityIndicator size="large" color={AppColors.nutrition} />
               </View>
             </View>
           </Animated.View>
@@ -321,39 +334,41 @@ const MultiFoodSelectionCard = ({ visible, onClose, predictions, onSelectFoods, 
         {/* Action Buttons - Hidden during loading */}
         {!isLoading && (
           <View style={styles.actionButtonsContainer}>
-            {/* Submit Button */}
-            <TouchableOpacity 
-              style={[
-                styles.submitButton,
-                selectedFoods.length === 0 && styles.disabledButton
-              ]}
-              onPress={handleSubmit}
-              disabled={selectedFoods.length === 0}
-            >
-              <Ionicons 
-                name="checkmark-circle" 
-                size={20} 
-                color={selectedFoods.length > 0 ? "#FFFFFF" : "#C7C7CC"} 
-              />
-              <Text style={[
-                styles.submitButtonText,
-                selectedFoods.length === 0 && styles.disabledButtonText
-              ]}>
-                Add {selectedFoods.length > 0 ? `${selectedFoods.length} ` : ''}Food{selectedFoods.length > 1 ? 's' : ''}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.buttonRow}>
+              {/* Submit Button */}
+              <TouchableOpacity 
+                style={[
+                  styles.submitButton,
+                  selectedFoods.length === 0 && styles.disabledButton
+                ]}
+                onPress={handleSubmit}
+                disabled={selectedFoods.length === 0}
+              >
+                <Ionicons 
+                  name="checkmark-circle" 
+                  size={20} 
+                  color={selectedFoods.length > 0 ? "#FFFFFF" : "#C7C7CC"} 
+                />
+                <Text style={[
+                  styles.submitButtonText,
+                  selectedFoods.length === 0 && styles.disabledButtonText
+                ]}>
+                  Add {selectedFoods.length > 0 ? `${selectedFoods.length} ` : ''}Food{selectedFoods.length > 1 ? 's' : ''}
+                </Text>
+              </TouchableOpacity>
 
-            {/* Manual Entry Option */}
-            <TouchableOpacity 
-              style={styles.manualEntryButton}
-              onPress={() => {
-                onSelectFoods(null); // Signal manual entry
-                handleClose();
-              }}
-            >
-              <Ionicons name="create-outline" size={20} color="#8E8E93" />
-              <Text style={styles.manualEntryText}>Add Manually Instead</Text>
-            </TouchableOpacity>
+              {/* Manual Entry Option */}
+              <TouchableOpacity 
+                style={styles.manualEntryButton}
+                onPress={() => {
+                  onSelectFoods(null); // Signal manual entry
+                  handleClose();
+                }}
+              >
+                <Ionicons name="create-outline" size={20} color={AppColors.textSecondary} />
+                <Text style={styles.manualEntryText}>Add Manually</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </Animated.View>
@@ -371,7 +386,7 @@ const getConfidenceColor = (confidence) => {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   backdropContent: {
     flex: 1,
@@ -381,45 +396,53 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    backgroundColor: AppColors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 32,
     maxHeight: screenHeight * 0.9,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
+    shadowColor: AppColors.textPrimary,
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 20,
+    shadowRadius: 8,
+    elevation: 16,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    borderBottomWidth: 0,
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 4,
-    backgroundColor: '#C7C7CC',
+    backgroundColor: AppColors.border,
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: spacing.md,
+    marginBottom: 16,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   title: {
-    fontSize: fonts.large,
-    fontWeight: '700',
-    color: '#1D1D1F',
-    marginLeft: spacing.sm,
+    fontSize: 18,
+    fontWeight: '600',
+    color: AppColors.textPrimary,
+    marginLeft: 8,
   },
   closeButton: {
-    padding: spacing.sm,
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: AppColors.backgroundSecondary,
   },
   photoContainer: {
     alignItems: 'center',
@@ -470,64 +493,48 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: 20,
   },
   loadingContent: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.xl,
-    shadowColor: '#000',
+    backgroundColor: AppColors.white,
+    borderRadius: 16,
+    paddingVertical: 32,
+    paddingHorizontal: 24,
+    shadowColor: AppColors.textPrimary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 8,
-    minWidth: screenWidth * 0.8,
+    minWidth: screenWidth * 0.75,
+    borderWidth: 1,
+    borderColor: AppColors.border,
   },
-  loadingRing: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F8F9FA',
+  loadingIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: AppColors.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: 20,
   },
   loadingTitle: {
-    fontSize: fonts.large,
-    fontWeight: '700',
-    color: '#1D1D1F',
-    marginBottom: spacing.xs,
+    fontSize: 18,
+    fontWeight: '600',
+    color: AppColors.textPrimary,
+    marginBottom: 8,
     textAlign: 'center',
   },
   loadingSubtitle: {
-    fontSize: fonts.medium,
-    color: '#8E8E93',
+    fontSize: 14,
+    color: AppColors.textSecondary,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: 24,
     lineHeight: 20,
   },
-  loadingDots: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#4682B4',
-    marginHorizontal: 4,
-  },
-  loadingDot1: {
-    opacity: 0.4,
-  },
-  loadingDot2: {
-    opacity: 0.7,
-  },
-  loadingDot3: {
-    opacity: 1,
+  loadingSpinner: {
+    marginTop: 8,
   },
   subtitle: {
     fontSize: fonts.medium,
@@ -546,11 +553,11 @@ const styles = StyleSheet.create({
   selectedCountText: {
     fontSize: fonts.medium,
     fontWeight: '600',
-    color: '#4682B4',
+    color: AppColors.nutrition,
   },
   totalCaloriesText: {
     fontSize: fonts.small,
-    color: '#4682B4',
+    color: AppColors.nutrition,
     marginTop: 2,
   },
   scrollContainer: {
@@ -561,21 +568,31 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   predictionItem: {
-    backgroundColor: '#F8F9FA',
+    backgroundColor: AppColors.white,
     borderRadius: 12,
-    padding: spacing.sm,
-    marginBottom: spacing.sm,
-    borderWidth: 1.5,
-    borderColor: '#F0F0F0',
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    shadowColor: AppColors.textPrimary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   compactPredictionItem: {
-    padding: spacing.xs,
-    marginBottom: spacing.xs,
+    padding: 12,
+    marginBottom: 8,
     borderRadius: 10,
   },
   selectedPrediction: {
-    backgroundColor: '#E6F3FF',
-    borderColor: '#4682B4',
+    backgroundColor: AppColors.white,
+    borderColor: AppColors.nutrition,
+    borderWidth: 2,
+    shadowColor: AppColors.nutrition,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   predictionContent: {
     flex: 1,
@@ -592,29 +609,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#C7C7CC',
-    marginRight: spacing.sm,
+    borderColor: AppColors.border,
+    marginRight: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: AppColors.white,
   },
   compactCheckbox: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginRight: spacing.xs,
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    marginRight: 8,
   },
   checkedBox: {
-    backgroundColor: '#4682B4',
-    borderColor: '#4682B4',
+    backgroundColor: AppColors.nutrition,
+    borderColor: AppColors.nutrition,
   },
   predictionName: {
     fontSize: fonts.medium,
     fontWeight: '600',
-    color: '#1D1D1F',
+    color: AppColors.textPrimary,
     flex: 1,
   },
   compactPredictionName: {
@@ -622,34 +640,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   selectedPredictionName: {
-    color: '#4682B4',
+    color: AppColors.nutrition,
     fontWeight: '700',
   },
   confidenceContainer: {
     alignItems: 'flex-end',
   },
   confidenceBadge: {
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
-  },
-  compactConfidenceBadge: {
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
     borderRadius: 8,
   },
+  compactConfidenceBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
   confidenceText: {
-    fontSize: fonts.small,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: AppColors.white,
   },
   compactConfidenceText: {
-    fontSize: fonts.tiny,
+    fontSize: 10,
     fontWeight: '600',
   },
   predictionDescription: {
     fontSize: fonts.small,
-    color: '#8E8E93',
+    color: AppColors.textSecondary,
     marginBottom: spacing.sm,
   },
   compactPredictionDescription: {
@@ -669,7 +687,7 @@ const styles = StyleSheet.create({
   nutritionValue: {
     fontSize: fonts.small,
     fontWeight: '600',
-    color: '#4682B4',
+    color: AppColors.nutrition,
   },
   compactNutritionValue: {
     fontSize: fonts.tiny,
@@ -677,22 +695,28 @@ const styles = StyleSheet.create({
   },
   nutritionLabel: {
     fontSize: fonts.tiny,
-    color: '#8E8E93',
+    color: AppColors.textSecondary,
   },
   compactNutritionLabel: {
     fontSize: 9,
     color: '#8E8E93',
   },
   actionButtonsContainer: {
-    gap: spacing.md,
+    paddingTop: 16,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   submitButton: {
+    flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4682B4',
-    padding: spacing.md,
+    backgroundColor: AppColors.nutrition,
+    padding: 14,
     borderRadius: 12,
+    marginRight: 8,
   },
   disabledButton: {
     backgroundColor: '#F0F0F0',
@@ -707,19 +731,20 @@ const styles = StyleSheet.create({
     color: '#C7C7CC',
   },
   manualEntryButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.md,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderStyle: 'dashed',
+    borderColor: AppColors.border,
+    backgroundColor: AppColors.backgroundSecondary,
   },
   manualEntryText: {
-    fontSize: fonts.medium,
-    color: '#8E8E93',
-    marginLeft: spacing.sm,
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginLeft: 6,
     fontWeight: '500',
   },
 });

@@ -10,11 +10,27 @@ import {
   ActivityIndicator,
   SafeAreaView,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  StyleSheet
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { spacing, fonts, scaleWidth, scaleHeight } from '../utils/responsive';
 import { foodSearchService } from '../services/foodSearchService';
+
+// Use the same colors as WorkingMinimalNutrition
+const AppColors = {
+  primary: '#4A90E2',
+  white: '#FFFFFF',
+  border: '#E9ECEF',
+  textPrimary: '#212529',
+  textSecondary: '#6C757D',
+  textLight: '#ADB5BD',
+  backgroundSecondary: '#F8F9FA',
+  nutrition: '#50E3C2',
+  workout: '#FF6B6B',
+  account: '#FFC107',
+  success: '#28A745',
+  warning: '#FFC107',
+};
 
 const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -122,14 +138,15 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
 
   const FoodResultCard = ({ food, onSelect }) => (
     <TouchableOpacity
-      style={styles.foodCard}
+      style={styles.card}
       onPress={() => onSelect(food)}
       activeOpacity={0.7}
     >
-      <View style={styles.foodHeader}>
-        <Text style={styles.foodName}>{food.name}</Text>
+      {/* Header with name and confidence */}
+      <View style={styles.cardRow}>
+        <Text style={styles.cardLabel}>{food.name}</Text>
         <View style={[styles.confidenceBadge, { 
-          backgroundColor: food.confidence > 0.8 ? '#34C759' : food.confidence > 0.6 ? '#FF9500' : '#FF6B6B' 
+          backgroundColor: food.confidence > 0.8 ? AppColors.success : food.confidence > 0.6 ? AppColors.warning : AppColors.workout 
         }]}>
           <Text style={styles.confidenceText}>
             {Math.round(food.confidence * 100)}%
@@ -137,9 +154,11 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
         </View>
       </View>
       
-      <Text style={styles.servingSize}>{food.serving_size}</Text>
+      {/* Serving size */}
+      <Text style={styles.cardSubtext}>{food.serving_size}</Text>
       
-      <View style={styles.nutritionRow}>
+      {/* Main nutrition row */}
+      <View style={styles.nutritionContainer}>
         <View style={styles.nutritionItem}>
           <Text style={styles.nutritionValue}>{food.calories}</Text>
           <Text style={styles.nutritionLabel}>cal</Text>
@@ -158,8 +177,8 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
         </View>
       </View>
 
-      {/* Extended Nutrition Row */}
-      <View style={styles.nutritionRow}>
+      {/* Secondary nutrition row */}
+      <View style={styles.nutritionContainer}>
         <View style={styles.nutritionItem}>
           <Text style={styles.nutritionValue}>{food.fiber || 0}g</Text>
           <Text style={styles.nutritionLabel}>fiber</Text>
@@ -177,12 +196,9 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
         </View>
       </View>
 
-      {food.notes && (
-        <Text style={styles.foodNotes}>{food.notes}</Text>
-      )}
-
+      {/* Add button indicator */}
       <View style={styles.addButton}>
-        <Ionicons name="add-circle" size={24} color="#34C759" />
+        <Ionicons name="add-circle" size={20} color={AppColors.nutrition} />
         <Text style={styles.addButtonText}>Add to Meals</Text>
       </View>
     </TouchableOpacity>
@@ -192,7 +208,7 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle="fullScreen"
       onRequestClose={handleClose}
     >
       <SafeAreaView style={styles.container}>
@@ -202,40 +218,51 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
         >
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#666" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Search Food</Text>
-            <View style={styles.placeholder} />
+            <View style={styles.headerContent}>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={AppColors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.title}>Add Meal Manually</Text>
+              <View style={styles.placeholder} />
+            </View>
+            <Text style={styles.subtitle}>Search for food and get AI-powered nutrition estimates</Text>
           </View>
+          <View style={styles.separator} />
 
           {/* Search Section */}
-          <View style={styles.searchSection}>
-            <View style={styles.searchInputContainer}>
-              <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Enter food name (e.g., 'chicken breast', 'apple', 'pizza slice')"
-                placeholderTextColor="#999"
-                autoFocus={true}
-                returnKeyType="search"
-                onSubmitEditing={handleSearch}
-              />
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Search Food</Text>
             </View>
+            <View style={styles.sectionLine} />
             
-            <TouchableOpacity
-              style={[styles.searchButton, isSearching && styles.searchButtonDisabled]}
-              onPress={handleSearch}
-              disabled={isSearching}
-            >
-              {isSearching ? (
-                <ActivityIndicator color="#FFF" size="small" />
-              ) : (
-                <Text style={styles.searchButtonText}>Search</Text>
-              )}
-            </TouchableOpacity>
+            <View style={styles.searchContainer}>
+              <View style={styles.searchInputContainer}>
+                <Ionicons name="search" size={20} color={AppColors.textSecondary} style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder="Enter food name (e.g., 'chicken breast', 'apple', 'pizza slice')"
+                  placeholderTextColor={AppColors.textLight}
+                  autoFocus={true}
+                  returnKeyType="search"
+                  onSubmitEditing={handleSearch}
+                />
+              </View>
+              
+              <TouchableOpacity
+                style={[styles.searchButton, isSearching && styles.searchButtonDisabled]}
+                onPress={handleSearch}
+                disabled={isSearching}
+              >
+                {isSearching ? (
+                  <ActivityIndicator color={AppColors.white} size="small" />
+                ) : (
+                  <Text style={styles.searchButtonText}>Search</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Results Section */}
@@ -245,17 +272,21 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
             showsVerticalScrollIndicator={false}
           >
             {isSearching && (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#4A90E2" />
-                <Text style={styles.loadingText}>Searching for nutritional information...</Text>
+              <View style={styles.emptyState}>
+                <ActivityIndicator size="large" color={AppColors.nutrition} />
+                <Text style={styles.emptyStateText}>Searching for nutritional information...</Text>
               </View>
             )}
 
             {hasSearched && !isSearching && searchResults.length > 0 && (
-              <>
-                <Text style={styles.resultsHeader}>
-                  Found {searchResults.length} option{searchResults.length !== 1 ? 's' : ''} for "{searchQuery}"
-                </Text>
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>
+                    {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "{searchQuery}"
+                  </Text>
+                </View>
+                <View style={styles.sectionLine} />
+                
                 {searchResults.map((food, index) => (
                   <FoodResultCard
                     key={index}
@@ -263,33 +294,22 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
                     onSelect={handleSelectFood}
                   />
                 ))}
-              </>
+              </View>
             )}
 
             {hasSearched && !isSearching && searchResults.length === 0 && (
-              <View style={styles.noResultsContainer}>
-                <Ionicons name="search" size={48} color="#CCC" />
-                <Text style={styles.noResultsTitle}>No Results Found</Text>
-                <Text style={styles.noResultsText}>
-                  Try searching with different keywords or check the spelling.
-                </Text>
+              <View style={styles.emptyState}>
+                <Ionicons name="search-outline" size={64} color={AppColors.border} />
+                <Text style={styles.emptyStateText}>No results found</Text>
+                <Text style={styles.emptyStateSubtext}>Try searching for a different food item</Text>
               </View>
             )}
 
             {!hasSearched && !isSearching && (
-              <View style={styles.instructionsContainer}>
-                <Ionicons name="restaurant" size={48} color="#4A90E2" />
-                <Text style={styles.instructionsTitle}>Search for Food</Text>
-                <Text style={styles.instructionsText}>
-                  Enter the name of any food item to get detailed nutritional information.
-                </Text>
-                <View style={styles.examplesContainer}>
-                  <Text style={styles.examplesTitle}>Examples:</Text>
-                  <Text style={styles.exampleText}>• "grilled chicken breast"</Text>
-                  <Text style={styles.exampleText}>• "medium apple"</Text>
-                  <Text style={styles.exampleText}>• "slice of pizza"</Text>
-                  <Text style={styles.exampleText}>• "cup of rice"</Text>
-                </View>
+              <View style={styles.emptyState}>
+                <Ionicons name="restaurant-outline" size={64} color={AppColors.border} />
+                <Text style={styles.emptyStateText}>Search for any food</Text>
+                <Text style={styles.emptyStateSubtext}>Get AI-powered nutrition estimates for any meal</Text>
               </View>
             )}
           </ScrollView>
@@ -299,225 +319,199 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
   );
 };
 
-const styles = {
+const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: AppColors.backgroundSecondary,
   },
   keyboardContainer: {
     flex: 1,
   },
   header: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E7',
+    marginBottom: 8,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: AppColors.textPrimary,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    marginTop: 4,
   },
   closeButton: {
-    padding: spacing.xs,
-  },
-  headerTitle: {
-    fontSize: fonts.large,
-    fontWeight: '600',
-    color: '#1D1D1F',
+    padding: 8,
   },
   placeholder: {
-    width: 32,
+    width: 40,
   },
-  searchSection: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E7',
+  separator: {
+    height: 1,
+    backgroundColor: AppColors.border,
+    width: '100%',
+  },
+  section: {
+    paddingHorizontal: 20,
+    marginTop: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: AppColors.textPrimary,
+  },
+  sectionLine: {
+    height: 1,
+    backgroundColor: AppColors.border,
+    width: '100%',
+    marginBottom: 8,
+  },
+  searchContainer: {
+    marginTop: 8,
   },
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.md,
+    backgroundColor: AppColors.white,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    borderRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
   },
   searchIcon: {
-    marginRight: spacing.sm,
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: spacing.md,
-    fontSize: fonts.medium,
-    color: '#1D1D1F',
+    fontSize: 16,
+    color: AppColors.textPrimary,
   },
   searchButton: {
-    backgroundColor: '#4A90E2',
-    borderRadius: 12,
-    paddingVertical: spacing.md,
+    backgroundColor: AppColors.nutrition,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 4,
     alignItems: 'center',
   },
   searchButtonDisabled: {
-    backgroundColor: '#A8C8EC',
+    opacity: 0.6,
   },
   searchButtonText: {
-    color: '#FFF',
-    fontSize: fonts.medium,
+    color: AppColors.white,
+    fontSize: 16,
     fontWeight: '600',
   },
   resultsContainer: {
     flex: 1,
   },
   resultsContent: {
-    padding: spacing.lg,
+    flexGrow: 1,
   },
-  resultsHeader: {
-    fontSize: fonts.medium,
-    fontWeight: '600',
-    color: '#1D1D1F',
-    marginBottom: spacing.md,
+  card: {
+    backgroundColor: AppColors.white,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    borderRadius: 4,
+    padding: 16,
+    marginTop: 8,
   },
-  foodCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  foodHeader: {
+  cardRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.xs,
+    marginBottom: 8,
   },
-  foodName: {
+  cardLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: AppColors.textPrimary,
     flex: 1,
-    fontSize: fonts.medium,
-    fontWeight: '600',
-    color: '#1D1D1F',
-    marginRight: spacing.sm,
+  },
+  cardSubtext: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginBottom: 12,
   },
   confidenceBadge: {
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    marginLeft: 8,
   },
   confidenceText: {
-    color: '#FFF',
-    fontSize: fonts.small,
+    color: AppColors.white,
+    fontSize: 12,
     fontWeight: '600',
   },
-  servingSize: {
-    fontSize: fonts.small,
-    color: '#666',
-    marginBottom: spacing.md,
-  },
-  nutritionRow: {
+  nutritionContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    marginBottom: 8,
   },
   nutritionItem: {
-    alignItems: 'center',
     flex: 1,
+    alignItems: 'center',
   },
   nutritionValue: {
-    fontSize: fonts.medium,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#1D1D1F',
+    color: AppColors.textPrimary,
   },
   nutritionLabel: {
-    fontSize: fonts.small,
-    color: '#666',
+    fontSize: 11,
+    color: AppColors.textSecondary,
     marginTop: 2,
-  },
-  foodNotes: {
-    fontSize: fonts.small,
-    color: '#666',
-    fontStyle: 'italic',
-    marginBottom: spacing.sm,
   },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: spacing.sm,
+    marginTop: 12,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
+    borderTopColor: AppColors.border,
   },
   addButtonText: {
-    color: '#34C759',
-    fontSize: fonts.medium,
-    fontWeight: '600',
-    marginLeft: spacing.xs,
+    fontSize: 14,
+    color: AppColors.nutrition,
+    fontWeight: '500',
+    marginLeft: 6,
   },
-  loadingContainer: {
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: spacing.xl,
+    paddingHorizontal: 40,
+    paddingVertical: 60,
   },
-  loadingText: {
-    fontSize: fonts.medium,
-    color: '#666',
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  noResultsContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-  },
-  noResultsTitle: {
-    fontSize: fonts.large,
+  emptyStateText: {
+    fontSize: 18,
     fontWeight: '600',
-    color: '#666',
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  noResultsText: {
-    fontSize: fonts.medium,
-    color: '#999',
+    color: AppColors.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
+    marginTop: 16,
   },
-  instructionsContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.xl,
-  },
-  instructionsTitle: {
-    fontSize: fonts.large,
-    fontWeight: '600',
-    color: '#1D1D1F',
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  instructionsText: {
-    fontSize: fonts.medium,
-    color: '#666',
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: AppColors.textLight,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: spacing.lg,
+    marginTop: 8,
   },
-  examplesContainer: {
-    alignSelf: 'stretch',
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
-    padding: spacing.lg,
-  },
-  examplesTitle: {
-    fontSize: fonts.medium,
-    fontWeight: '600',
-    color: '#1D1D1F',
-    marginBottom: spacing.sm,
-  },
-  exampleText: {
-    fontSize: fonts.medium,
-    color: '#666',
-    marginBottom: 4,
-  },
-};
+});
 
 export default FoodSearchModal;

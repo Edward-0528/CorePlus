@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 
 const SwipeToDeleteWrapper = ({ children, onDelete, enabled = true }) => {
-  const translateX = new Animated.Value(0);
-  const deleteOpacity = new Animated.Value(0);
+  const translateX = useRef(new Animated.Value(0)).current;
+  const deleteOpacity = useRef(new Animated.Value(0)).current;
 
   const onGestureEvent = Animated.event(
     [{ nativeEvent: { translationX: translateX } }],
@@ -18,8 +18,8 @@ const SwipeToDeleteWrapper = ({ children, onDelete, enabled = true }) => {
     const { state, translationX } = event.nativeEvent;
     
     if (state === State.END) {
-      const threshold = 0.5; // 50% of screen width
-      const screenWidth = 300; // Approximate width
+      const threshold = 0.4; // 40% of screen width (reduced for easier deletion)
+      const screenWidth = 350; // Approximate width
       
       if (Math.abs(translationX) > screenWidth * threshold) {
         // Trigger haptic feedback
@@ -48,8 +48,8 @@ const SwipeToDeleteWrapper = ({ children, onDelete, enabled = true }) => {
         useNativeDriver: false,
       }).start();
     } else if (state === State.ACTIVE) {
-      // Show delete indicator when swiping
-      const opacity = Math.abs(translationX) > 50 ? 1 : 0;
+      // Show delete indicator when swiping (more sensitive)
+      const opacity = Math.abs(translationX) > 30 ? 1 : 0; // Reduced from 50 to 30
       Animated.timing(deleteOpacity, {
         toValue: opacity,
         duration: 100,
@@ -57,7 +57,7 @@ const SwipeToDeleteWrapper = ({ children, onDelete, enabled = true }) => {
       }).start();
       
       // Haptic feedback when reaching delete threshold
-      if (Math.abs(translationX) > 150) {
+      if (Math.abs(translationX) > 100) { // Reduced from 150 to 100
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     }
@@ -70,15 +70,19 @@ const SwipeToDeleteWrapper = ({ children, onDelete, enabled = true }) => {
   return (
     <View style={styles.container}>
       <Animated.View style={[styles.deleteBackground, { opacity: deleteOpacity }]}>
-        <Text style={styles.deleteText}>Delete</Text>
+        <Text style={styles.deleteText}>🗑️ Delete</Text>
       </Animated.View>
       
       <PanGestureHandler
         onGestureEvent={onGestureEvent}
         onHandlerStateChange={onHandlerStateChange}
-        activeOffsetX={[-10, 10]}
+        activeOffsetX={[-5, 5]} // More sensitive
+        failOffsetY={[-20, 20]} // Allow some vertical movement
       >
-        <Animated.View style={[{ transform: [{ translateX }] }]}>
+        <Animated.View style={[
+          { transform: [{ translateX }] },
+          styles.contentContainer
+        ]}>
           {children}
         </Animated.View>
       </PanGestureHandler>
@@ -89,6 +93,7 @@ const SwipeToDeleteWrapper = ({ children, onDelete, enabled = true }) => {
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
+    overflow: 'hidden', // Ensure proper clipping
   },
   deleteBackground: {
     position: 'absolute',
@@ -99,7 +104,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF3B30',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: -1,
+    zIndex: 0, // Changed from -1 to 0
+  },
+  contentContainer: {
+    backgroundColor: 'white', // Ensure content has background
+    zIndex: 1, // Above delete background
   },
   deleteText: {
     color: 'white',

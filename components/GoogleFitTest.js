@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Button, StyleSheet, Alert, ScrollView } from 'react-native';
 import { healthService } from '../services/healthService';
 
-export default function GoogleFitTest() {
+export default function SamsungHealthTest() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [hasPermissions, setHasPermissions] = useState(false);
   const [isEmulator, setIsEmulator] = useState(false);
@@ -14,7 +14,7 @@ export default function GoogleFitTest() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    initializeGoogleFit();
+    initializeSamsungHealth();
     checkEmulatorStatus();
   }, []);
 
@@ -23,16 +23,16 @@ export default function GoogleFitTest() {
     setIsEmulator(emulatorDetected);
   };
 
-  const initializeGoogleFit = async () => {
+  const initializeSamsungHealth = async () => {
     try {
       setIsLoading(true);
-      console.log('Initializing Google Fit...');
+      console.log('Initializing Samsung Health...');
       await healthService.initialize();
       setIsInitialized(true);
-      console.log('Google Fit initialized successfully');
+      console.log('Samsung Health initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Google Fit:', error);
-      Alert.alert('Error', 'Failed to initialize Google Fit: ' + error.message);
+      console.error('Failed to initialize Samsung Health:', error);
+      Alert.alert('Error', 'Failed to initialize Samsung Health: ' + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -46,7 +46,7 @@ export default function GoogleFitTest() {
       setHasPermissions(granted);
       
       if (granted) {
-        Alert.alert('Success', 'Permissions granted! If this is an emulator, you\'ll see mock data. For real health data, test on a physical device.');
+        Alert.alert('Success', 'Permissions granted! If this is an emulator, you\'ll see mock data. For real health data, test on a physical Samsung device.');
         await fetchHealthData();
       } else {
         // Check if this might be an emulator
@@ -54,7 +54,7 @@ export default function GoogleFitTest() {
         if (isLikelyEmulator) {
           Alert.alert(
             'Emulator Detected', 
-            'Google Fit permissions are not available on emulators. This is normal! You should see mock data instead. For real testing, use a physical Android device with Google Play Services.',
+            'Samsung Health permissions are not available on emulators. This is normal! You should see mock data instead. For real testing, use a physical Samsung device with Samsung Health installed.',
             [
               { text: 'Try Mock Data', onPress: () => fetchHealthData() },
               { text: 'OK' }
@@ -63,7 +63,7 @@ export default function GoogleFitTest() {
         } else {
           Alert.alert(
             'Permissions Denied', 
-            'Health data permissions were denied. Please ensure:\n\n1. Google Play Services is installed\n2. You have a Google account signed in\n3. Your Google Cloud Console is configured\n\nFor setup help, see GOOGLE_FIT_SETUP.md'
+            'Health data permissions were denied. Please ensure:\n\n1. Samsung Health is installed and updated\n2. You have a Samsung account signed in\n3. Your Samsung Health app is configured\n\nFor setup help, see Samsung Health documentation'
           );
         }
       }
@@ -72,10 +72,10 @@ export default function GoogleFitTest() {
       const errorMessage = error.message || 'Unknown error';
       
       // Check if this is an emulator-related error
-      if (errorMessage.includes('Play Services') || errorMessage.includes('authorization')) {
+      if (errorMessage.includes('Samsung Health') || errorMessage.includes('authorization')) {
         Alert.alert(
-          'Google Play Services Error', 
-          'This error often occurs on emulators. For real testing:\n\n1. Use a physical Android device\n2. Ensure Google Play Services is updated\n3. Complete Google Cloud Console setup\n\nMock data should still work!'
+          'Samsung Health Error', 
+          'This error often occurs on emulators. For real testing:\n\n1. Use a physical Samsung device\n2. Ensure Samsung Health is installed and updated\n3. Have a Samsung account signed in\n\nMock data should still work!'
         );
       } else {
         Alert.alert('Error', 'Failed to request permissions: ' + errorMessage);
@@ -153,7 +153,7 @@ export default function GoogleFitTest() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Google Fit Integration Test</Text>
+      <Text style={styles.title}>Samsung Health Integration Test</Text>
       
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Status</Text>
@@ -171,7 +171,7 @@ export default function GoogleFitTest() {
         </Text>
         {isEmulator && (
           <Text style={[styles.statusText, { color: '#ff9500', fontStyle: 'italic' }]}>
-            ℹ️ Emulator detected - real Google Fit features unavailable
+            ℹ️ Emulator detected - real Samsung Health features unavailable
           </Text>
         )}
       </View>
@@ -179,8 +179,8 @@ export default function GoogleFitTest() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Actions</Text>
         <Button
-          title="Initialize Google Fit"
-          onPress={initializeGoogleFit}
+          title="Initialize Samsung Health"
+          onPress={initializeSamsungHealth}
           disabled={isLoading}
         />
         <View style={styles.buttonSpacing} />

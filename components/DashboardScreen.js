@@ -1090,26 +1090,26 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
                 
                 {/* Test and Profile Buttons */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  {/* Google Fit Test Button */}
+                  {/* Samsung Health Test Button */}
                   <TouchableOpacity 
                     onPress={() => setGlobalActiveTab('test')}
                     style={{
                       width: 44,
                       height: 44,
                       borderRadius: 22,
-                      backgroundColor: 'rgba(0, 100, 0, 0.1)',
+                      backgroundColor: 'rgba(80, 227, 194, 0.1)',
                       borderWidth: 1,
-                      borderColor: 'rgba(0, 100, 0, 0.2)',
+                      borderColor: 'rgba(80, 227, 194, 0.2)',
                       justifyContent: 'center',
                       alignItems: 'center',
                     }}
                   >
                     <Text style={{
-                      color: 'rgba(0, 100, 0, 0.8)',
-                      fontSize: 12,
+                      color: 'rgba(80, 227, 194, 0.8)',
+                      fontSize: 10,
                       fontWeight: '600',
                     }}>
-                      FIT
+                      HEALTH
                     </Text>
                   </TouchableOpacity>
                   

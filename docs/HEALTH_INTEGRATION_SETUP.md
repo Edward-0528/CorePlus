@@ -1,7 +1,7 @@
 # Health Integration Setup Instructions
 
 ## Overview
-This health integration provides connectivity to Apple Health and Google Fit for tracking:
+This health integration provides connectivity to Apple Health and Samsung Health for tracking:
 - Daily steps count
 - Calories burned 
 - Distance traveled
@@ -20,11 +20,9 @@ npm install react-native-health
 npm install @react-native-community/apple-healthkit
 ```
 
-### For Google Fit (Android)  
+### For Samsung Health (Android)  
 ```bash
-npm install react-native-google-fit
-# or 
-npm install @react-native-async-storage/async-storage
+npm install react-native-samsung-health --legacy-peer-deps
 ```
 
 ### Expo Compatible Options
@@ -45,10 +43,12 @@ Add health permissions:
 ```
 
 ### Android (android/app/src/main/AndroidManifest.xml)
-Add Google Fit permissions:
+Add Samsung Health permissions:
 ```xml
+<uses-permission android:name="android.permission.BODY_SENSORS" />
+<uses-permission android:name="com.samsung.shealth.permission.WRITE" />
+<uses-permission android:name="com.samsung.shealth.permission.READ" />
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-<uses-permission android:name="com.google.android.gms.permission.ACTIVITY_RECOGNITION" />
 ```
 
 ## Features

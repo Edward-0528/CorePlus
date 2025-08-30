@@ -139,6 +139,38 @@ export const foodAnalysisService = {
     }
   },
 
+  // Analyze food from text description using AI
+  async analyzeFoodText(textDescription) {
+    try {
+      console.log('🔍 Starting text-based food analysis with Gemini for:', textDescription);
+      
+      // Call Gemini API for intelligent food analysis from text
+      const geminiResponse = await this.callGeminiText(textDescription);
+      
+      // Extract food items from Gemini response
+      const detectedFoods = this.extractFoodItemsFromGemini(geminiResponse);
+      
+      // Generate enhanced predictions with portion estimation
+      const predictions = this.generateFoodPredictions(detectedFoods);
+      
+      console.log('✅ Text analysis complete, generated predictions:', predictions.length);
+      
+      return {
+        success: true,
+        predictions: predictions,
+        source: 'text-analysis'
+      };
+      
+    } catch (error) {
+      console.error('❌ Text food analysis failed:', error);
+      return {
+        success: false,
+        error: error.message,
+        predictions: []
+      };
+    }
+  },
+
   // Convert image URI to base64
   async convertImageToBase64(imageUri) {
     try {
@@ -172,6 +204,9 @@ export const foodAnalysisService = {
    - Fiber (g)
    - Sugar (g)
    - Sodium (mg)
+   - Calcium (mg)
+   - Iron (mg)
+   - Vitamin C (mg)
 4. Confidence level for each identification (0.0 to 1.0)
 
 Format your response as JSON:
@@ -188,7 +223,10 @@ Format your response as JSON:
         "fat": 8,
         "fiber": 5,
         "sugar": 3,
-        "sodium": 150
+        "sodium": 150,
+        "calcium": 120,
+        "iron": 2.5,
+        "vitaminC": 15
       }
     }
   ]
@@ -208,6 +246,86 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
                 mime_type: "image/jpeg",
                 data: base64Image
               }
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.1,
+        topK: 32,
+        topP: 1,
+        maxOutputTokens: 2048,
+      },
+    };
+
+    const response = await fetch(GEMINI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Gemini API error: ${JSON.stringify(errorData)}`);
+    }
+
+    return response.json();
+  },
+
+  // Call Gemini API for text-based food analysis
+  async callGeminiText(textDescription) {
+    const prompt = `Analyze this food description and provide detailed nutritional information: "${textDescription}"
+
+Please identify:
+1. The specific food items mentioned (be as specific as possible - e.g., "grilled chicken breast" not just "chicken")
+2. Estimated realistic portion sizes for each item based on typical serving sizes
+3. For each food item, estimate complete nutritional values per serving:
+   - Calories
+   - Carbohydrates (g)
+   - Protein (g)
+   - Fat (g)
+   - Fiber (g)
+   - Sugar (g)
+   - Sodium (mg)
+   - Calcium (mg)
+   - Iron (mg)
+   - Vitamin C (mg)
+4. Confidence level for each identification (0.0 to 1.0)
+
+Format your response as JSON:
+{
+  "foods": [
+    {
+      "name": "specific food name",
+      "portion": "description of portion size",
+      "confidence": 0.95,
+      "nutrition": {
+        "calories": 250,
+        "carbs": 30,
+        "protein": 25,
+        "fat": 8,
+        "fiber": 5,
+        "sugar": 3,
+        "sodium": 150,
+        "calcium": 120,
+        "iron": 2.5,
+        "vitaminC": 15
+      }
+    }
+  ]
+}
+
+If the description includes quantities (like "2 eggs" or "1 cup rice"), use those. Otherwise, estimate typical serving sizes.
+Be accurate and specific. If you're unsure about a food item, lower the confidence score accordingly.`;
+
+    const requestBody = {
+      contents: [
+        {
+          parts: [
+            {
+              text: prompt
             }
           ]
         }
@@ -289,7 +407,10 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
                 fat: Math.round(food.nutrition.fat || 0),
                 fiber: Math.round(food.nutrition.fiber || 0),
                 sugar: Math.round(food.nutrition.sugar || 0),
-                sodium: Math.round(food.nutrition.sodium || 0)
+                sodium: Math.round(food.nutrition.sodium || 0),
+                calcium: Math.round(food.nutrition.calcium || 0),
+                iron: Math.round(food.nutrition.iron || 0),
+                vitaminC: Math.round(food.nutrition.vitaminC || 0)
               },
               originalResponse: food
             });
@@ -618,6 +739,9 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
             fiber: food.nutrition.fiber || 0,
             sugar: food.nutrition.sugar || 0,
             sodium: food.nutrition.sodium || 0,
+            calcium: food.nutrition.calcium || 0,
+            iron: food.nutrition.iron || 0,
+            vitaminC: food.nutrition.vitaminC || 0,
             confidence: food.confidence,
             description: `AI-analyzed • ${food.portion}`,
             portionSize: food.portion || 'Standard serving',
@@ -639,6 +763,9 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
               fiber: Math.round((nutritionInfo.fiber || 2) * portionMultiplier), // Default fiber estimate
               sugar: Math.round((nutritionInfo.sugar || 3) * portionMultiplier), // Default sugar estimate  
               sodium: Math.round((nutritionInfo.sodium || 100) * portionMultiplier), // Default sodium estimate
+              calcium: Math.round((nutritionInfo.calcium || 50) * portionMultiplier), // Default calcium estimate
+              iron: Math.round((nutritionInfo.iron || 1) * portionMultiplier), // Default iron estimate
+              vitaminC: Math.round((nutritionInfo.vitaminC || 5) * portionMultiplier), // Default vitamin C estimate
               confidence: food.confidence,
               description: this.generateSmartDescription(food.name, nutritionInfo, portionMultiplier),
               portionSize: this.getPortionDescription(portionMultiplier),
@@ -656,6 +783,9 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
               fiber: estimatedNutrition.fiber || 2,
               sugar: estimatedNutrition.sugar || 3,
               sodium: estimatedNutrition.sodium || 100,
+              calcium: estimatedNutrition.calcium || 50,
+              iron: estimatedNutrition.iron || 2,
+              vitaminC: estimatedNutrition.vitaminC || 10,
               confidence: food.confidence * 0.8, // Slightly lower confidence for estimates
               description: 'AI-estimated nutrition',
               portionSize: 'Standard serving',
@@ -813,7 +943,10 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
       fat: Math.round(baseFat * confidenceAdjustment),
       fiber: Math.round(baseFiber * confidenceAdjustment),
       sugar: Math.round(baseSugar * confidenceAdjustment),
-      sodium: Math.round(baseSodium * confidenceAdjustment)
+      sodium: Math.round(baseSodium * confidenceAdjustment),
+      calcium: Math.round(50 * confidenceAdjustment), // Default calcium estimate
+      iron: Math.round(2 * confidenceAdjustment), // Default iron estimate
+      vitaminC: Math.round(10 * confidenceAdjustment) // Default vitamin C estimate
     };
   },
 

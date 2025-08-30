@@ -1,82 +1,105 @@
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Text, Colors } from 'react-native-ui-lib';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { spacing, fonts, scaleWidth } from '../utils/responsive';
 
 const BottomNavigation = ({ activeTab, onTabPress }) => {
   const tabs = [
-    { id: 'home', label: 'Home', icon: 'home' },
-    { id: 'workouts', label: 'Workouts', icon: 'fitness' },
-    { id: 'nutrition', label: 'Nutrition', icon: 'restaurant' },
-    { id: 'account', label: 'Account', icon: 'person' },
+    { id: 'home', label: 'Home', icon: 'home', color: Colors.primary },
+    { id: 'workouts', label: 'Workouts', icon: 'fitness', color: Colors.workout },
+    { id: 'nutrition', label: 'Nutrition', icon: 'restaurant', color: Colors.nutrition },
+    { id: 'account', label: 'Account', icon: 'person', color: Colors.account },
   ];
 
   return (
-    <View style={styles.container}>
-      {tabs.map((tab) => (
-        <TouchableOpacity
-          key={tab.id}
-          style={[
-            styles.tab,
-            activeTab === tab.id && styles.activeTab
-          ]}
-          onPress={() => onTabPress(tab.id)}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={tab.icon}
-            size={22}
-            color={activeTab === tab.id ? '#4682B4' : '#8E8E93'}
-            style={{ marginBottom: 2 }}
-          />
-          <Text style={[
-            styles.label,
-            activeTab === tab.id && styles.activeLabel
-          ]}>
-            {tab.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
+    <View 
+      style={{
+        flexDirection: 'row',
+        backgroundColor: Colors.white,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        paddingTop: 16,
+        paddingBottom: 8,
+        paddingHorizontal: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 12,
+      }}
+    >
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.id;
+        return (
+          <TouchableOpacity
+            key={tab.id}
+            style={{
+              flex: 1,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 12,
+              paddingHorizontal: 8,
+            }}
+            onPress={() => onTabPress(tab.id)}
+            activeOpacity={0.7}
+          >
+            {isActive ? (
+              <LinearGradient
+                colors={[tab.color, `${tab.color}80`]}
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'absolute',
+                  top: -20,
+                  shadowColor: tab.color,
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 12,
+                  elevation: 8,
+                }}
+              >
+                <Ionicons
+                  name={tab.icon}
+                  size={26}
+                  color={Colors.white}
+                />
+              </LinearGradient>
+            ) : (
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: `${tab.color}15`,
+                }}
+              >
+                <Ionicons
+                  name={tab.icon}
+                  size={22}
+                  color={tab.color}
+                />
+              </View>
+            )}
+            {!isActive && (
+              <Text caption color={Colors.textSecondary} marginT-xs style={{
+                fontSize: 11,
+                fontWeight: '500',
+                textAlign: 'center',
+              }}>
+                {tab.label}
+              </Text>
+            )}
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.xs,
-    borderRadius: 12,
-  },
-  activeTab: {
-    backgroundColor: '#E6F3FF',
-  },
-  label: {
-    fontSize: fonts.small,
-    color: '#8E8E93',
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  activeLabel: {
-    color: '#4682B4',
-    fontWeight: '600',
-  },
-});
 
 export default BottomNavigation;
