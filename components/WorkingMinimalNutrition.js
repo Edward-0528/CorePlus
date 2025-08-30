@@ -16,9 +16,7 @@ import FoodPredictionCard from './FoodPredictionCard';
 import MultiFoodSelectionCard from './MultiFoodSelectionCard';
 import SwipeToDeleteWrapper from './SimpleSwipeToDelete';
 import FoodSearchModal from './FoodSearchModal';
-
-// Test function
-import { testMicronutrients } from '../testMicronutrients';
+import EnhancedRecipeBrowserScreen from './EnhancedRecipeBrowserScreen';
 
 // Define colors directly
 const AppColors = {
@@ -69,44 +67,14 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
     clearCache
   } = useDailyCalories();
 
-  // Debug function to test micronutrients
-  const handleDebugTest = async () => {
-    console.log('🔧 Running micronutrient debug test...');
-    try {
-      // Clear cache first
-      await clearCache();
-      console.log('🧹 Cache cleared');
-      
-      // Refresh meals from server
-      await refreshMealsFromServer();
-      console.log('🔄 Meals refreshed');
-      
-      // Run the database test
-      await testMicronutrients();
-      Alert.alert('Debug Test Complete', 'Check console for detailed results. Cache cleared and meals refreshed.');
-    } catch (error) {
-      console.error('Debug test failed:', error);
-      Alert.alert('Debug Test Failed', error.message);
-    }
-  };
-
-  // Debug: Log micronutrient values
-  console.log('📊 Current dailyMicros:', dailyMicros);
-  console.log('📊 Current dailyMacros:', dailyMacros);
-  console.log('📊 Current todaysMeals:', todaysMeals.length, 'meals');
-  if (todaysMeals.length > 0) {
-    console.log('📊 Latest meal sample:', JSON.stringify(todaysMeals[0], null, 2));
-  }
-  console.log('📊 Calorie card expanded:', isCalorieCardExpanded);
-
-  // For testing: If no micronutrient data, add some sample values to show progress bars
+  // Use real data, fallback to sample values for testing progress bars
   const testMicros = {
     fiber: dailyMicros.fiber || 8, // Show some fiber progress for testing
     sugar: dailyMicros.sugar || 15, // Show some sugar progress for testing  
     sodium: dailyMicros.sodium || 800 // Show some sodium progress for testing
   };
 
-  // For testing: Add some sample macro values if they're zero
+  // Use real data, fallback to sample values for testing progress bars  
   const testMacros = {
     protein: dailyMacros.protein || 45, // Show protein progress for testing
     carbs: dailyMacros.carbs || 120, // Show carbs progress for testing
@@ -182,8 +150,6 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
     { icon: 'camera-outline', title: 'Scan Food', color: AppColors.nutrition },
     { icon: 'restaurant-outline', title: 'Log Meal', color: AppColors.primary },
     { icon: 'water-outline', title: 'Water', color: AppColors.primary },
-    { icon: 'nutrition-outline', title: 'Recipes', color: AppColors.account },
-    { icon: 'bug-outline', title: 'Debug Test', color: AppColors.warning },
   ];
 
   // Get recent meals from context (convert todaysMeals to the format expected)
@@ -523,6 +489,37 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
     }
   };
 
+  const handleRecipeSelect = async (recipe) => {
+    try {
+      console.log('🍳 Recipe selected:', recipe.title);
+      
+      // Convert recipe to meal format
+      const mealData = {
+        name: recipe.title,
+        calories: recipe.nutrition?.calories || 0,
+        carbs: recipe.nutrition?.carbs || 0,
+        protein: recipe.nutrition?.protein || 0,
+        fat: recipe.nutrition?.fat || 0,
+        fiber: recipe.nutrition?.fiber || 0,
+        sugar: recipe.nutrition?.sugar || 0,
+        sodium: recipe.nutrition?.sodium || 0,
+        method: 'recipe',
+        recipeId: recipe.id,
+        servings: recipe.servings || 1,
+        prepTime: recipe.readyInMinutes || 30
+      };
+
+      // Add to meals
+      const result = await addMeal(mealData);
+      if (result.success) {
+        console.log('✅ Recipe meal added successfully');
+        await refreshMealsFromServer();
+      }
+    } catch (error) {
+      console.error('❌ Error adding recipe meal:', error);
+    }
+  };
+
   const handleQuickAction = (action) => {
     console.log(`🎯 Quick action clicked: ${action.title}`);
     setShowQuickActions(false);
@@ -539,14 +536,6 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       case 'Water':
         // TODO: Implement water logging
         console.log('💧 Water logging not implemented yet');
-        break;
-      case 'Recipes':
-        // TODO: Implement recipe browser
-        console.log('📖 Recipe browser not implemented yet');
-        break;
-      case 'Debug Test':
-        console.log('🔧 Running debug test...');
-        handleDebugTest();
         break;
       default:
         console.log('❓ Unknown action:', action.title);
@@ -873,59 +862,6 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
                       <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>2300mg</Text>
                     </View>
                   </View>
-
-                  {/* Row 3 */}
-                  <View style={{ 
-                    flexDirection: 'row'
-                  }}>
-                    {/* Calcium */}
-                    <View style={{ 
-                      flex: 1, 
-                      marginHorizontal: 2,
-                      minHeight: 75
-                    }}>
-                      <Text style={{ fontSize: 11, color: '#666', fontWeight: '500', textAlign: 'center', height: 16, lineHeight: 16 }}>Calcium</Text>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#17A2B8', textAlign: 'center', height: 20, lineHeight: 20, marginTop: 4 }}>
-                        {Math.round(dailyMicros.calcium || 0)}mg
-                      </Text>
-                      <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ width: `${Math.min(100, ((dailyMicros.calcium || 0) / 1000) * 100)}%`, height: 3, backgroundColor: '#17A2B8', borderRadius: 1.5 }} />
-                      </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>1000mg</Text>
-                    </View>
-
-                    {/* Iron */}
-                    <View style={{ 
-                      flex: 1, 
-                      marginHorizontal: 2,
-                      minHeight: 75
-                    }}>
-                      <Text style={{ fontSize: 11, color: '#666', fontWeight: '500', textAlign: 'center', height: 16, lineHeight: 16 }}>Iron</Text>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#DC3545', textAlign: 'center', height: 20, lineHeight: 20, marginTop: 4 }}>
-                        {Math.round(dailyMicros.iron || 0)}mg
-                      </Text>
-                      <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ width: `${Math.min(100, ((dailyMicros.iron || 0) / 18) * 100)}%`, height: 3, backgroundColor: '#DC3545', borderRadius: 1.5 }} />
-                      </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>18mg</Text>
-                    </View>
-
-                    {/* Vitamin C */}
-                    <View style={{ 
-                      flex: 1, 
-                      marginHorizontal: 2,
-                      minHeight: 75
-                    }}>
-                      <Text style={{ fontSize: 11, color: '#666', fontWeight: '500', textAlign: 'center', height: 16, lineHeight: 16 }}>Vitamin C</Text>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#FD7E14', textAlign: 'center', height: 20, lineHeight: 20, marginTop: 4 }}>
-                        {Math.round(dailyMicros.vitaminC || 0)}mg
-                      </Text>
-                      <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ width: `${Math.min(100, ((dailyMicros.vitaminC || 0) / 90) * 100)}%`, height: 3, backgroundColor: '#FD7E14', borderRadius: 1.5 }} />
-                      </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>90mg</Text>
-                    </View>
-                  </View>
                 </View>
               </View>
 
@@ -995,6 +931,21 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
     </View>
   );
 
+  const renderRecipeContent = () => {
+    return (
+      <View style={{ flex: 1 }}>
+        <EnhancedRecipeBrowserScreen
+          visible={true}
+          onClose={() => {}} // No close needed since it's embedded
+          onSelectRecipe={handleRecipeSelect}
+          user={user}
+          isPremium={true}
+          embedded={true} // Flag to indicate it's embedded in the main screen
+        />
+      </View>
+    );
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'today':
@@ -1008,12 +959,7 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       case 'meals':
         return renderMealHistory();
       case 'recipes':
-        return (
-          <View style={minimalStyles.emptyState}>
-            <Ionicons name="book-outline" size={64} color={AppColors.border} />
-            <Text style={minimalStyles.emptyText}>Recipe collection coming soon</Text>
-          </View>
-        );
+        return renderRecipeContent();
       default:
         return null;
     }
@@ -1024,20 +970,25 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       {renderHeader()}
       {renderTabs()}
       
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ flexGrow: 1 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[AppColors.primary]}
-            tintColor={AppColors.primary}
-          />
-        }
-      >
-        {renderContent()}
-      </ScrollView>
+      {/* Conditional ScrollView - don't use for recipes tab to avoid VirtualizedList nesting */}
+      {activeTab === 'recipes' ? (
+        renderContent()
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ flexGrow: 1 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[AppColors.primary]}
+              tintColor={AppColors.primary}
+            />
+          }
+        >
+          {renderContent()}
+        </ScrollView>
+      )}
 
       {/* Quick Actions Popup */}
       {renderQuickActionsPopup()}

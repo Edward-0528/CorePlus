@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -8,10 +8,20 @@ import {
   TextInput,
   Image,
   SafeAreaView,
-  Modal
+  Modal,
+  Alert,
+  ActivityIndicator,
+  FlatList,
+  Dimensions,
+  RefreshControl
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, fonts } from '../utils/responsive';
+import { recipeService } from '../services/recipeService';
+import { useDailyCalories } from '../contexts/DailyCaloriesContext';
+import BarcodeScanner from './BarcodeScanner';
+
+const { width } = Dimensions.get('window');
 
 const RecipeBrowserScreen = ({ 
   visible, 
@@ -21,33 +31,344 @@ const RecipeBrowserScreen = ({
   targetCalories = null,
   isPremium = false 
 }) => {
+  // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [activeTab, setActiveTab] = useState('search'); // search, ingredients, favorites, history
+  const [selectedFilters, setSelectedFilters] = useState({});
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Data states
   const [recipes, setRecipes] = useState([]);
+  const [favoriteRecipes, setFavoriteRecipes] = useState([]);
+  const [recipeHistory, setRecipeHistory] = useState([]);
+  const [userIngredients, setUserIngredients] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  
+  // Modal states
+  const [selectedRecipe, setSelectedRecipe] = useState(null);
+  const [showRecipeDetails, setShowRecipeDetails] = useState(false);
+  const [showIngredientScanner, setShowIngredientScanner] = useState(false);
+  const [showAddIngredient, setShowAddIngredient] = useState(false);
+  const [newIngredient, setNewIngredient] = useState('');
 
-  // Sample recipe data - in real app, this would come from your API
-  const sampleRecipes = [
-    {
-      id: 1,
-      name: 'Greek Chicken Bowl',
-      calories: 450,
-      protein: 35,
-      carbs: 25,
-      fat: 22,
-      time: 25,
-      difficulty: 'Easy',
-      category: 'lunch',
-      image: 'https://example.com/greek-bowl.jpg',
-      ingredients: ['Chicken breast', 'Quinoa', 'Cucumber', 'Feta cheese', 'Olive oil'],
-      isPremium: false
-    },
-    {
-      id: 2,
-      name: 'Salmon Teriyaki',
-      calories: 380,
-      protein: 32,
-      carbs: 18,
+  // Get user context
+  const { user } = useDailyCalories();
+
+  // Diet and filter options
+  const dietOptions = [
+    { id: 'all', label: 'All Diets', icon: 'restaurant-outline' },
+    { id: 'vegetarian', label: 'Vegetarian', icon: 'leaf-outline' },
+    { id: 'vegan', label: 'Vegan', icon: 'flower-outline' },
+    { id: 'ketogenic', label: 'Keto', icon: 'fitness-outline' },
+    { id: 'paleo', label: 'Paleo', icon: 'barbell-outline' },
+    { id: 'gluten-free', label: 'Gluten Free', icon: 'medical-outline' },
+    { id: 'dairy-free', label: 'Dairy Free', icon: 'water-outline' }
+  ];
+
+  const nutritionFilters = [
+    { id: 'low-carb', label: 'Low Carb (<30g)', maxCarbs: '30' },
+    { id: 'low-sodium', label: 'Low Sodium (<600mg)', maxSodium: '600' },
+    { id: 'low-cal', label: 'Low Calorie (<400)', maxCalories: '400' },
+    { id: 'high-protein', label: 'High Protein (>25g)', minProtein: '25' },
+    { id: 'quick', label: 'Quick (<20 min)', maxReadyTime: '20' }
+  ];
+
+  const tabs = [
+    { id: 'search', label: 'Search', icon: 'search-outline' },
+    { id: 'ingredients', label: 'My Pantry', icon: 'basket-outline' },
+    { id: 'favorites', label: 'Favorites', icon: 'heart-outline' },
+    { id: 'history', label: 'History', icon: 'time-outline' }
+  ];
+
+  // Load initial data
+  useEffect(() => {
+    if (visible && user?.id) {
+      loadInitialData();
+    }
+  }, [visible, user?.id]);
+
+  const loadInitialData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        loadFavorites(),
+        loadHistory(),
+        loadUserIngredients()
+      ]);
+      
+      // Auto-search if we have a target
+      if (activeTab === 'search') {
+        await searchRecipes();
+      }
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadFavorites = async () => {
+    try {
+      const favorites = await recipeService.getFavoriteRecipes(user.id);
+      setFavoriteRecipes(favorites.map(fav => fav.recipe_data || fav));
+    } catch (error) {
+      console.error('Error loading favorites:', error);
+    }
+  };
+
+  const loadHistory = async () => {
+    try {
+      const history = await recipeService.getRecipeHistory(user.id);
+      setRecipeHistory(history.map(item => item.recipe_data || item));
+    } catch (error) {
+      console.error('Error loading history:', error);
+    }
+  };
+
+  const loadUserIngredients = async () => {
+    try {
+      const ingredients = await recipeService.getUserIngredients(user.id);
+      setUserIngredients(ingredients);
+    } catch (error) {
+      console.error('Error loading ingredients:', error);
+    }
+  };
+
+  // Search recipes with current filters
+  const searchRecipes = async (query = searchQuery) => {
+    setLoading(true);
+    try {
+      const filters = buildFilterObject();
+      const results = await recipeService.searchRecipes(query, filters);
+      setRecipes(results);
+    } catch (error) {
+      console.error('Error searching recipes:', error);
+      Alert.alert('Search Error', 'Unable to search recipes. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Find recipes by available ingredients
+  const findRecipesByIngredients = async () => {
+    if (userIngredients.length === 0) {
+      Alert.alert('No Ingredients', 'Add some ingredients to your pantry first!');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const results = await recipeService.getRecipesByIngredients(userIngredients);
+      setRecipes(results);
+    } catch (error) {
+      console.error('Error finding recipes by ingredients:', error);
+      Alert.alert('Search Error', 'Unable to find recipes. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Build filter object from selected filters
+  const buildFilterObject = () => {
+    const filters = {};
+    
+    if (selectedFilters.diet && selectedFilters.diet !== 'all') {
+      filters.diet = selectedFilters.diet;
+    }
+    
+    // Apply nutrition filters
+    Object.keys(selectedFilters).forEach(filterId => {
+      if (selectedFilters[filterId]) {
+        const nutritionFilter = nutritionFilters.find(f => f.id === filterId);
+        if (nutritionFilter) {
+          Object.assign(filters, nutritionFilter);
+        }
+      }
+    });
+
+    // Add target-based filters
+    if (targetCalories) {
+      filters.maxCalories = targetCalories + 100; // Allow some flexibility
+    }
+    
+    if (mealType) {
+      filters.mealType = mealType;
+    }
+
+    return filters;
+  };
+
+  // Handle recipe selection
+  const handleRecipeSelect = async (recipe) => {
+    try {
+      // Add to history
+      await recipeService.addToHistory(user.id, recipe);
+      
+      // Get detailed recipe information
+      setLoading(true);
+      const detailedRecipe = await recipeService.getRecipeDetails(recipe.id);
+      setSelectedRecipe(detailedRecipe || recipe);
+      setShowRecipeDetails(true);
+      
+      // Update history state
+      await loadHistory();
+    } catch (error) {
+      console.error('Error selecting recipe:', error);
+      setSelectedRecipe(recipe);
+      setShowRecipeDetails(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Toggle favorite status
+  const toggleFavorite = async (recipe) => {
+    try {
+      const isFavorite = favoriteRecipes.some(fav => fav.id === recipe.id);
+      
+      if (isFavorite) {
+        await recipeService.removeFromFavorites(user.id, recipe.id);
+        setFavoriteRecipes(prev => prev.filter(fav => fav.id !== recipe.id));
+      } else {
+        await recipeService.addToFavorites(user.id, recipe);
+        setFavoriteRecipes(prev => [recipe, ...prev]);
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      Alert.alert('Error', 'Unable to update favorites. Please try again.');
+    }
+  };
+
+  // Add ingredient manually
+  const addIngredient = async () => {
+    if (!newIngredient.trim()) return;
+    
+    const updatedIngredients = [...userIngredients, newIngredient.trim()];
+    setUserIngredients(updatedIngredients);
+    await recipeService.saveUserIngredients(user.id, updatedIngredients);
+    setNewIngredient('');
+    setShowAddIngredient(false);
+  };
+
+  // Remove ingredient
+  const removeIngredient = async (ingredient) => {
+    const updatedIngredients = userIngredients.filter(ing => ing !== ingredient);
+    setUserIngredients(updatedIngredients);
+    await recipeService.saveUserIngredients(user.id, updatedIngredients);
+  };
+
+  // Handle ingredient scan
+  const handleIngredientScan = async (barcode) => {
+    // This would integrate with a product database to identify the ingredient
+    // For now, we'll just prompt the user to enter the ingredient name
+    Alert.prompt(
+      'Ingredient Scanned',
+      `Barcode: ${barcode}\nWhat ingredient is this?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Add', 
+          onPress: (ingredientName) => {
+            if (ingredientName && ingredientName.trim()) {
+              const updatedIngredients = [...userIngredients, ingredientName.trim()];
+              setUserIngredients(updatedIngredients);
+              recipeService.saveUserIngredients(user.id, updatedIngredients);
+            }
+          }
+        }
+      ],
+      'plain-text'
+    );
+  };
+
+  // Pull to refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadInitialData();
+    setRefreshing(false);
+  }, [activeTab]);
+
+  // Render recipe card with nutrition facts
+  const renderRecipeCard = ({ item: recipe }) => {
+    const isFavorite = favoriteRecipes.some(fav => fav.id === recipe.id);
+    const nutrition = recipe.nutrition || {};
+    
+    return (
+      <TouchableOpacity 
+        style={styles.recipeCard}
+        onPress={() => handleRecipeSelect(recipe)}
+      >
+        {recipe.image ? (
+          <Image source={{ uri: recipe.image }} style={styles.recipeImage} />
+        ) : (
+          <View style={[styles.recipeImage, styles.placeholderImage]}>
+            <Ionicons name="image-outline" size={40} color="#ccc" />
+          </View>
+        )}
+        
+        <TouchableOpacity 
+          style={styles.favoriteButton}
+          onPress={() => toggleFavorite(recipe)}
+        >
+          <Ionicons 
+            name={isFavorite ? "heart" : "heart-outline"} 
+            size={20} 
+            color={isFavorite ? "#FF6B6B" : "#666"} 
+          />
+        </TouchableOpacity>
+
+        <View style={styles.recipeInfo}>
+          <Text style={styles.recipeTitle} numberOfLines={2}>
+            {recipe.title}
+          </Text>
+          
+          {/* Nutrition facts preview */}
+          <View style={styles.nutritionPreview}>
+            <View style={styles.nutritionItem}>
+              <Text style={styles.nutritionValue}>{nutrition.calories || 0}</Text>
+              <Text style={styles.nutritionLabel}>cal</Text>
+            </View>
+            <View style={styles.nutritionItem}>
+              <Text style={styles.nutritionValue}>{nutrition.protein || 0}g</Text>
+              <Text style={styles.nutritionLabel}>protein</Text>
+            </View>
+            <View style={styles.nutritionItem}>
+              <Text style={styles.nutritionValue}>{nutrition.carbs || 0}g</Text>
+              <Text style={styles.nutritionLabel}>carbs</Text>
+            </View>
+            <View style={styles.nutritionItem}>
+              <Text style={styles.nutritionValue}>{nutrition.fat || 0}g</Text>
+              <Text style={styles.nutritionLabel}>fat</Text>
+            </View>
+          </View>
+
+          <View style={styles.recipeMetadata}>
+            <View style={styles.metadataItem}>
+              <Ionicons name="time-outline" size={14} color="#666" />
+              <Text style={styles.metadataText}>{recipe.readyInMinutes || 30} min</Text>
+            </View>
+            <View style={styles.metadataItem}>
+              <Ionicons name="people-outline" size={14} color="#666" />
+              <Text style={styles.metadataText}>{recipe.servings || 1} serving{(recipe.servings || 1) > 1 ? 's' : ''}</Text>
+            </View>
+            <View style={styles.metadataItem}>
+              <Ionicons name="bar-chart-outline" size={14} color="#666" />
+              <Text style={styles.metadataText}>{recipe.difficulty || 'Medium'}</Text>
+            </View>
+          </View>
+
+          {/* Special diet indicators */}
+          <View style={styles.dietTags}>
+            {recipe.isVegetarian && <Text style={styles.dietTag}>🌱 Vegetarian</Text>}
+            {recipe.isVegan && <Text style={styles.dietTag}>🌿 Vegan</Text>}
+            {recipe.isGlutenFree && <Text style={styles.dietTag}>🚫 Gluten Free</Text>}
+            {recipe.isDairyFree && <Text style={styles.dietTag}>🥛 Dairy Free</Text>}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
       fat: 20,
       time: 20,
       difficulty: 'Medium',

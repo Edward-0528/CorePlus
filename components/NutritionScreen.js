@@ -648,11 +648,8 @@ const NutritionScreen = () => {
 
   const handleAddMeal = useCallback(async (meal) => {
     try {
-      // Debug: Log meal object being processed
-      debugMicronutrients.log('NUTRITION SCREEN - handleAddMeal', meal, 'Meal object received by handleAddMeal');
-      
       // Add meal using context method (handles caching automatically)
-      const result = await addMeal({
+      const mealToAdd = {
         name: meal.name,
         calories: meal.calories,
         carbs: meal.carbs || Math.round(meal.calories * 0.5 / 4), // Default: 50% calories from carbs
@@ -661,13 +658,12 @@ const NutritionScreen = () => {
         fiber: meal.fiber || 0, // Extended nutrition
         sugar: meal.sugar || 0, // Extended nutrition
         sodium: meal.sodium || 0, // Extended nutrition
-        calcium: meal.calcium || 0, // Micronutrient
-        iron: meal.iron || 0, // Micronutrient
-        vitaminC: meal.vitaminC || 0, // Micronutrient
         method: meal.method || 'manual',
         imageUri: meal.imageUri,
         confidence: meal.confidence
-      });
+      };
+      
+      const result = await addMeal(mealToAdd);
 
       if (result.success) {
         console.log('✅ Meal added successfully with extended nutrition');
@@ -770,9 +766,6 @@ const NutritionScreen = () => {
             fiber: selectedFoods[0].fiber || 0,
             sugar: selectedFoods[0].sugar || 0,
             sodium: selectedFoods[0].sodium || 0,
-            calcium: selectedFoods[0].calcium || 0,
-            iron: selectedFoods[0].iron || 0,
-            vitaminC: selectedFoods[0].vitaminC || 0,
             method: 'photo'
           };
           
@@ -789,9 +782,6 @@ const NutritionScreen = () => {
           const totalFiber = selectedFoods.reduce((sum, food) => sum + (food.fiber || 0), 0);
           const totalSugar = selectedFoods.reduce((sum, food) => sum + (food.sugar || 0), 0);
           const totalSodium = selectedFoods.reduce((sum, food) => sum + (food.sodium || 0), 0);
-          const totalCalcium = selectedFoods.reduce((sum, food) => sum + (food.calcium || 0), 0);
-          const totalIron = selectedFoods.reduce((sum, food) => sum + (food.iron || 0), 0);
-          const totalVitaminC = selectedFoods.reduce((sum, food) => sum + (food.vitaminC || 0), 0);
           
           const combinedMeal = {
             name: elegantTitle,
@@ -802,9 +792,6 @@ const NutritionScreen = () => {
             fiber: Math.round(totalFiber),
             sugar: Math.round(totalSugar),
             sodium: Math.round(totalSodium),
-            calcium: Math.round(totalCalcium),
-            iron: Math.round(totalIron),
-            vitaminC: Math.round(totalVitaminC),
             method: 'photo',
             description: compactDescription // Store the detailed component list
           };

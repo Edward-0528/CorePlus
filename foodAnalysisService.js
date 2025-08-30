@@ -1,6 +1,4 @@
 // Food Analysis Service using Google Gemini AI for enhanced food identification and nutritional estimation
-import { debugMicronutrients } from './debugMicronutrients';
-
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
 // Validate API key
@@ -206,9 +204,6 @@ export const foodAnalysisService = {
    - Fiber (g)
    - Sugar (g)
    - Sodium (mg)
-   - Calcium (mg)
-   - Iron (mg)
-   - Vitamin C (mg)
 4. Confidence level for each identification (0.0 to 1.0)
 
 Format your response as JSON:
@@ -225,10 +220,7 @@ Format your response as JSON:
         "fat": 8,
         "fiber": 5,
         "sugar": 3,
-        "sodium": 150,
-        "calcium": 120,
-        "iron": 2.5,
-        "vitaminC": 15
+        "sodium": 150
       }
     }
   ]
@@ -291,9 +283,6 @@ Please identify:
    - Fiber (g)
    - Sugar (g)
    - Sodium (mg)
-   - Calcium (mg)
-   - Iron (mg)
-   - Vitamin C (mg)
 4. Confidence level for each identification (0.0 to 1.0)
 
 Format your response as JSON:
@@ -310,10 +299,7 @@ Format your response as JSON:
         "fat": 8,
         "fiber": 5,
         "sugar": 3,
-        "sodium": 150,
-        "calcium": 120,
-        "iron": 2.5,
-        "vitaminC": 15
+        "sodium": 150
       }
     }
   ]
@@ -409,10 +395,7 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
                 fat: Math.round(food.nutrition.fat || 0),
                 fiber: Math.round(food.nutrition.fiber || 0),
                 sugar: Math.round(food.nutrition.sugar || 0),
-                sodium: Math.round(food.nutrition.sodium || 0),
-                calcium: Math.round(food.nutrition.calcium || 0),
-                iron: Math.round(food.nutrition.iron || 0),
-                vitaminC: Math.round(food.nutrition.vitaminC || 0)
+                sodium: Math.round(food.nutrition.sodium || 0)
               },
               originalResponse: food
             });
@@ -421,10 +404,6 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
       }
 
       console.log('✅ Extracted foods from Gemini:', detectedFoods);
-      
-      // Debug: Log micronutrient extraction
-      debugMicronutrients.log('AI EXTRACTION', detectedFoods, 'Raw extraction from Gemini API');
-      
       return detectedFoods;
       
     } catch (error) {
@@ -745,9 +724,6 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
             fiber: food.nutrition.fiber || 0,
             sugar: food.nutrition.sugar || 0,
             sodium: food.nutrition.sodium || 0,
-            calcium: food.nutrition.calcium || 0,
-            iron: food.nutrition.iron || 0,
-            vitaminC: food.nutrition.vitaminC || 0,
             confidence: food.confidence,
             description: `AI-analyzed • ${food.portion}`,
             portionSize: food.portion || 'Standard serving',
@@ -789,9 +765,6 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
               fiber: estimatedNutrition.fiber || 2,
               sugar: estimatedNutrition.sugar || 3,
               sodium: estimatedNutrition.sodium || 100,
-              calcium: estimatedNutrition.calcium || 50,
-              iron: estimatedNutrition.iron || 2,
-              vitaminC: estimatedNutrition.vitaminC || 10,
               confidence: food.confidence * 0.8, // Slightly lower confidence for estimates
               description: 'AI-estimated nutrition',
               portionSize: 'Standard serving',
@@ -949,10 +922,7 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
       fat: Math.round(baseFat * confidenceAdjustment),
       fiber: Math.round(baseFiber * confidenceAdjustment),
       sugar: Math.round(baseSugar * confidenceAdjustment),
-      sodium: Math.round(baseSodium * confidenceAdjustment),
-      calcium: Math.round(50 * confidenceAdjustment), // Default calcium estimate
-      iron: Math.round(2 * confidenceAdjustment), // Default iron estimate
-      vitaminC: Math.round(10 * confidenceAdjustment) // Default vitamin C estimate
+      sodium: Math.round(baseSodium * confidenceAdjustment)
     };
   },
 

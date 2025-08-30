@@ -1,5 +1,4 @@
 import { supabase } from '../supabaseConfig';
-import { debugMicronutrients } from '../debugMicronutrients';
 
 export const mealService = {
   // Add a new meal for the current user
@@ -24,9 +23,6 @@ export const mealService = {
         fiber: parseFloat(mealData.fiber) || 0,
         sugar: parseFloat(mealData.sugar) || 0,
         sodium: parseFloat(mealData.sodium) || 0,
-        calcium: parseFloat(mealData.calcium) || 0,
-        iron: parseFloat(mealData.iron) || 0,
-        vitamin_c: parseFloat(mealData.vitaminC) || 0,
         meal_method: mealData.method || 'manual',
         meal_type: mealData.mealType || this.determineMealType(),
         portion_description: mealData.portion || null,
@@ -37,10 +33,6 @@ export const mealService = {
       };
 
       console.log('🕐 Adding meal with timestamp:', mealTime, 'for meal:', mealData.name);
-      
-      // Debug: Log meal data being sent to database
-      debugMicronutrients.logMealService(mealData);
-      console.log('💾 Raw meal object for database:', JSON.stringify(meal, null, 2));
 
       const { data, error } = await supabase
         .from('meals')
@@ -54,9 +46,6 @@ export const mealService = {
       }
 
       console.log('✅ Meal added to database:', data);
-      
-      // Debug: Log what was actually stored in database
-      debugMicronutrients.logDatabaseResult({ meal: data });
       return { success: true, meal: data };
 
     } catch (error) {
