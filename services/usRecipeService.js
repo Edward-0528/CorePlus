@@ -58,8 +58,24 @@ class USRecipeService {
         params.append('time', `1-${filters.maxReadyTime}`);
       }
 
-      // Focus on American cuisine
-      params.append('cuisineType', 'American');
+      // Add cuisine type filter
+      if (filters.cuisine && filters.cuisine !== 'all') {
+        const cuisineMap = {
+          'american': 'American',
+          'italian': 'Italian',
+          'mexican': 'Mexican',
+          'asian': 'Asian',
+          'mediterranean': 'Mediterranean',
+          'french': 'French',
+          'indian': 'Indian'
+        };
+        if (cuisineMap[filters.cuisine]) {
+          params.append('cuisineType', cuisineMap[filters.cuisine]);
+        }
+      } else {
+        // Default to American if no specific cuisine selected
+        params.append('cuisineType', 'American');
+      }
 
       const url = `${this.edamamBaseUrl}?${params.toString()}`;
       console.log('Edamam API URL:', url.substring(0, 100) + '...');
@@ -82,13 +98,20 @@ class USRecipeService {
       // Format recipes for consistent use
       const formattedRecipes = data.hits.map(hit => this.formatEdamamRecipe(hit.recipe));
       
-      // Filter for clearly American/familiar recipes
-      const americanRecipes = formattedRecipes.filter(recipe => 
-        this.isAmericanStyleRecipe(recipe)
-      );
+      // Filter recipes based on cuisine preference
+      let filteredRecipes;
+      if (filters.cuisine === 'american' || !filters.cuisine || filters.cuisine === 'all') {
+        // Filter for clearly American/familiar recipes
+        filteredRecipes = formattedRecipes.filter(recipe => 
+          this.isAmericanStyleRecipe(recipe)
+        );
+      } else {
+        // For other cuisines, use all returned recipes (Edamam filtering should be sufficient)
+        filteredRecipes = formattedRecipes;
+      }
 
-      console.log('Filtered American recipes:', americanRecipes.length);
-      return americanRecipes.slice(0, 20); // Limit to 20 results
+      console.log(`Filtered ${filters.cuisine || 'American'} recipes:`, filteredRecipes.length);
+      return filteredRecipes.slice(0, 20); // Limit to 20 results
 
     } catch (error) {
       console.error('Error searching US recipes:', error);
