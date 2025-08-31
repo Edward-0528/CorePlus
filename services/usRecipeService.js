@@ -1,5 +1,4 @@
 import { supabase } from '../supabaseConfig';
-import { allRecipesService } from './allRecipesService';
 
 class USRecipeService {
   constructor() {
@@ -17,56 +16,8 @@ class USRecipeService {
     console.log('Edamam App Key:', this.edamamAppKey ? 'LOADED' : 'NOT LOADED');
   }
 
-  // Search for US-focused recipes using Edamam API and AllRecipes
+  // Search for US-focused recipes using Edamam API
   async searchRecipes(query, filters = {}) {
-    try {
-      console.log('Searching US recipes for:', query, 'with filters:', filters);
-
-      // Search both sources in parallel
-      const [edamamResults, allRecipesResults] = await Promise.allSettled([
-        this.searchEdamamRecipes(query, filters),
-        allRecipesService.searchRecipes(query, filters)
-      ]);
-
-      let combinedRecipes = [];
-
-      // Add Edamam results
-      if (edamamResults.status === 'fulfilled') {
-        combinedRecipes.push(...edamamResults.value);
-      } else {
-        console.error('Edamam search failed:', edamamResults.reason);
-      }
-
-      // Add AllRecipes results  
-      if (allRecipesResults.status === 'fulfilled') {
-        const formattedAllRecipes = allRecipesResults.value.map(recipe => 
-          allRecipesService.formatRecipe(recipe)
-        );
-        combinedRecipes.push(...formattedAllRecipes);
-      } else {
-        console.error('AllRecipes search failed:', allRecipesResults.reason);
-      }
-
-      // If both sources failed, use demo recipes
-      if (combinedRecipes.length === 0) {
-        console.log('Both recipe sources failed, using demo recipes');
-        combinedRecipes = this.getDemoUSRecipes(query);
-      }
-
-      // Remove duplicates based on title similarity
-      const uniqueRecipes = this.removeDuplicateRecipes(combinedRecipes);
-
-      console.log(`Found ${uniqueRecipes.length} total recipes from combined sources`);
-      return uniqueRecipes.slice(0, 20); // Limit to 20 results
-
-    } catch (error) {
-      console.error('Error searching US recipes:', error);
-      return this.getDemoUSRecipes(query);
-    }
-  }
-
-  // Search Edamam API (extracted from original searchRecipes method)
-  async searchEdamamRecipes(query, filters = {}) {
     try {
       if (!this.edamamAppId || !this.edamamAppKey) {
         console.log('Edamam API credentials not loaded, using demo recipes. Please restart Expo after adding env variables.');
@@ -164,7 +115,7 @@ class USRecipeService {
 
     } catch (error) {
       console.error('Error searching US recipes:', error);
-      throw error;
+      return this.getDemoUSRecipes(query);
     }
   }
 
@@ -582,73 +533,6 @@ class USRecipeService {
       console.error('Error saving user ingredients:', error);
       throw error;
     }
-  }
-
-  // Remove duplicate recipes based on title similarity
-  removeDuplicateRecipes(recipes) {
-    const uniqueRecipes = [];
-    const seenTitles = new Set();
-
-    for (const recipe of recipes) {
-      const normalizedTitle = recipe.title.toLowerCase()
-        .replace(/[^\w\s]/g, '') // Remove punctuation
-        .replace(/\s+/g, ' ')    // Normalize whitespace
-        .trim();
-
-      // Check for exact matches or very similar titles
-      const isDuplicate = Array.from(seenTitles).some(existingTitle => {
-        const similarity = this.calculateStringSimilarity(normalizedTitle, existingTitle);
-        return similarity > 0.8; // 80% similarity threshold
-      });
-
-      if (!isDuplicate) {
-        uniqueRecipes.push(recipe);
-        seenTitles.add(normalizedTitle);
-      }
-    }
-
-    console.log(`Removed ${recipes.length - uniqueRecipes.length} duplicate recipes`);
-    return uniqueRecipes;
-  }
-
-  // Calculate string similarity using simple character comparison
-  calculateStringSimilarity(str1, str2) {
-    const longer = str1.length > str2.length ? str1 : str2;
-    const shorter = str1.length > str2.length ? str2 : str1;
-    
-    if (longer.length === 0) return 1.0;
-    
-    const editDistance = this.levenshteinDistance(longer, shorter);
-    return (longer.length - editDistance) / longer.length;
-  }
-
-  // Calculate Levenshtein distance between two strings
-  levenshteinDistance(str1, str2) {
-    const matrix = [];
-
-    for (let i = 0; i <= str2.length; i++) {
-      matrix[i] = [i];
-    }
-
-    for (let j = 0; j <= str1.length; j++) {
-      matrix[0][j] = j;
-    }
-
-    for (let i = 1; i <= str2.length; i++) {
-      for (let j = 1; j <= str1.length; j++) {
-        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
-          );
-        }
-      }
-    }
-
-    return matrix[str2.length][str1.length];
   }
 }
 

@@ -813,15 +813,6 @@ const RecipeBrowserScreen = ({
           />
         </TouchableOpacity>
 
-        {/* Source badge */}
-        <View style={styles.sourceBadge}>
-          <Text style={styles.sourceBadgeText}>
-            {recipe.source === 'AllRecipes' ? 'AR' : 
-             recipe.source === 'edamam' ? 'ED' : 
-             recipe.source === 'gemini' ? 'AI' : 'US'}
-          </Text>
-        </View>
-
         <View style={styles.recipeInfo}>
           <Text style={styles.recipeTitle} numberOfLines={2}>
             {recipe.title}
@@ -1723,20 +1714,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 16,
     padding: 6,
-  },
-  sourceBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    backgroundColor: 'rgba(74, 144, 226, 0.9)',
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  sourceBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#fff',
   },
   recipeInfo: {
     padding: 12,
