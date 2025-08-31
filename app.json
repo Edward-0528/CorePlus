@@ -1,32 +1,56 @@
 {
   "expo": {
-    "name": "Core+",
-    "slug": "core-plus",
+    "name": "Core Plus",
+    "slug": "core-plus-nutrition",
+    "description": "Nutrition tracking and meal planning app with AI-powered food analysis, recipe discovery, and health integration",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "scheme": "core-plus",
+    "scheme": "core-plus-nutrition",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.coreplus.nutrition",
+      "buildNumber": "1",
+      "usesAppleSignIn": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to scan food items and barcodes for nutrition tracking.",
+        "NSMicrophoneUsageDescription": "This app uses the microphone for voice interactions and food recognition features.",
+        "NSHealthShareUsageDescription": "This app integrates with HealthKit to track your nutrition data and sync with Apple Health.",
+        "NSHealthUpdateUsageDescription": "This app writes nutrition and workout data to Apple Health to provide comprehensive health tracking.",
+        "NSPhotoLibraryUsageDescription": "This app accesses your photo library to analyze food images for nutrition tracking.",
+        "NSMotionUsageDescription": "This app uses motion data to track your activities and provide better health insights."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.coreplus.nutrition",
+      "versionCode": 1,
+      "compileSdkVersion": 34,
+      "targetSdkVersion": 34,
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "com.google.android.gms.permission.ACTIVITY_RECOGNITION",
-        "android.permission.ACTIVITY_RECOGNITION",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
         "com.google.android.gms.permission.ACTIVITY_RECOGNITION",
         "android.permission.ACTIVITY_RECOGNITION",
         "android.permission.CAMERA",
@@ -37,19 +61,7 @@
           "action": "VIEW",
           "data": [
             {
-              "scheme": "core-plus"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        },
-        {
-          "action": "VIEW",
-          "data": [
-            {
-              "scheme": "core-plus"
+              "scheme": "core-plus-nutrition"
             }
           ],
           "category": [
@@ -57,15 +69,24 @@
             "DEFAULT"
           ]
         }
-      ],
-      "package": "com.anonymous.coreplus"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
-      "expo-camera",
-      "expo-secure-store"
-    ]
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Core Plus to access your camera to scan food items and barcodes for nutrition tracking."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "7d7eb55c-f566-47ba-ad1c-cc44f6f3d960"
+      }
+    }
   }
 }

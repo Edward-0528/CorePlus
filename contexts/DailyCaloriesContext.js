@@ -19,7 +19,12 @@ export const DailyCaloriesProvider = ({ children }) => {
   const [mealsLoading, setMealsLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [lastCacheUpdate, setLastCacheUpdate] = useState(null);
-  const [currentDate, setCurrentDate] = useState(new Date().toISOString().split('T')[0]);
+  const [currentDate, setCurrentDate] = useState(() => {
+    // Always initialize with the actual current date
+    const today = new Date().toISOString().split('T')[0];
+    console.log('🗓️ Initializing DailyCaloriesContext with date:', today);
+    return today;
+  });
   const [currentUserId, setCurrentUserId] = useState(null); // Track current user
 
   // Generate cache key based on current date and user ID
@@ -55,6 +60,7 @@ export const DailyCaloriesProvider = ({ children }) => {
         if (user?.id) {
           const yesterdayKey = `meals_${currentDate}_${user.id}`;
           AsyncStorage.removeItem(yesterdayKey).catch(console.warn);
+          console.log('🗑️ Cleared cache for previous date:', yesterdayKey);
         }
         
         // Force refresh from server for the new date
@@ -70,11 +76,40 @@ export const DailyCaloriesProvider = ({ children }) => {
     // Check immediately when component mounts or auth state changes
     checkDateChange();
     
-    // Set up interval to check every 10 seconds (more frequent for better accuracy)
-    const interval = setInterval(checkDateChange, 10000);
+    // Set up interval to check every 30 seconds (more frequent for better accuracy)
+    const interval = setInterval(checkDateChange, 30000);
 
     return () => clearInterval(interval);
-  }, [currentDate, isAuthenticated]);  // Cache keys
+  }, [currentDate, isAuthenticated, user?.id]);  // Added user.id to dependencies
+  
+  // Initial cleanup effect - runs once when app loads to clear any stale data
+  useEffect(() => {
+    const performInitialCleanup = async () => {
+      if (!user?.id) return;
+      
+      const today = new Date().toISOString().split('T')[0];
+      console.log('🧹 Performing initial cleanup for date:', today);
+      
+      try {
+        // Get all stored meal cache keys
+        const allKeys = await AsyncStorage.getAllKeys();
+        const mealKeys = allKeys.filter(key => 
+          key.includes(`meals_`) && key.includes(user.id) && !key.includes(today)
+        );
+        
+        // Remove all old meal caches (not today)
+        if (mealKeys.length > 0) {
+          console.log('🗑️ Cleaning up old meal caches:', mealKeys);
+          await AsyncStorage.multiRemove(mealKeys);
+        }
+      } catch (error) {
+        console.warn('Warning: Could not perform initial cleanup:', error);
+      }
+    };
+    
+    performInitialCleanup();
+  }, [user?.id]); // Run when user ID is available
+
   const TODAY_MEALS_KEY = getTodayMealsKey();
 
   // Load meals when date changes or authentication status changes
@@ -156,12 +191,20 @@ export const DailyCaloriesProvider = ({ children }) => {
         console.log('✅ Loaded meals from cache:', meals.length, 'meals');
       }
 
-      // Check if cache is stale (older than 5 minutes) or empty
+      // Check if cache is stale or from a different date
+      const currentDateFromCache = cachedMeals ? 
+        JSON.parse(cachedMeals)?.[0]?.date || JSON.parse(cachedMeals)?.[0]?.meal_date : null;
+      const isFromDifferentDate = currentDateFromCache && currentDateFromCache !== currentDate;
+      
       const shouldRefresh = !cachedUpdateTime || 
         (Date.now() - parseInt(cachedUpdateTime)) > 300000 || // 5 minutes
-        !cachedMeals;
+        !cachedMeals ||
+        isFromDifferentDate; // Force refresh if cache is from different date
 
       if (shouldRefresh) {
+        if (isFromDifferentDate) {
+          console.log('🔄 Cache is from different date, forcing refresh. Cache date:', currentDateFromCache, 'Current date:', currentDate);
+        }
         await refreshMealsFromServer();
       }
     } catch (error) {

@@ -153,13 +153,25 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
   ];
 
   // Get recent meals from context (convert todaysMeals to the format expected)
-  const recentMeals = todaysMeals.map(meal => ({
-    id: meal.id,
-    name: meal.name,  // Use the already formatted name from context
-    time: meal.time,  // Use the already formatted time from context
-    calories: meal.calories,
-    type: meal.meal_type || meal.method || 'Meal'
-  }));
+  // Add extra safety filter to ensure only today's meals are shown
+  const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+  const recentMeals = todaysMeals
+    .filter(meal => {
+      // Double-check that the meal is actually from today
+      const mealDate = meal.date || meal.meal_date;
+      if (mealDate !== today) {
+        console.log('🚫 Filtering out meal from recent meals - wrong date:', meal.name, 'date:', mealDate, 'expected:', today);
+        return false;
+      }
+      return true;
+    })
+    .map(meal => ({
+      id: meal.id,
+      name: meal.name,  // Use the already formatted name from context
+      time: meal.time,  // Use the already formatted time from context
+      calories: meal.calories,
+      type: meal.meal_type || meal.method || 'Meal'
+    }));
 
   // Helper function to format date for display
   function formatDateForDisplay(dateString) {
