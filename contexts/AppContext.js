@@ -46,6 +46,7 @@ export const AppProvider = ({ children }) => {
   const [authLoading, setAuthLoading] = useState(true);
   const [count, setCount] = useState(0);
   const [activeTab, setActiveTab] = useState('home');
+  const [nutritionSubTab, setNutritionSubTab] = useState('today');
   
   const [formData, setFormData] = useState({
     phone: '',
@@ -190,6 +191,7 @@ export const AppProvider = ({ children }) => {
     
     // Navigation actions
     setActiveTab: useCallback((tab) => setActiveTab(tab), []),
+    setNutritionSubTab: useCallback((subTab) => setNutritionSubTab(subTab), []),
   };
 
   // Memoize the context value to prevent unnecessary re-renders
@@ -210,6 +212,7 @@ export const AppProvider = ({ children }) => {
     authLoading,
     count,
     activeTab,
+    nutritionSubTab,
     formData,
     onboardingData,
     
@@ -235,6 +238,7 @@ export const AppProvider = ({ children }) => {
     authLoading,
     count,
     activeTab,
+    nutritionSubTab,
     formData,
     onboardingData,
     actions

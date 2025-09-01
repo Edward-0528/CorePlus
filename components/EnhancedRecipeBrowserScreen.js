@@ -10,8 +10,7 @@ import {
   ActivityIndicator,
   FlatList,
   Dimensions,
-  RefreshControl,
-  Animated
+  RefreshControl
 } from 'react-native';
 import { 
   View, 
@@ -21,10 +20,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, fonts } from '../utils/responsive';
 import { recipeService } from '../services/recipeService';
-import { usRecipeService } from '../services/usRecipeService';
 import { geminiService } from '../services/geminiService';
 import { useDailyCalories } from '../contexts/DailyCaloriesContext';
 import BarcodeScanner from './BarcodeScanner';
+import AnimatedLoader from './AnimatedLoader';
 
 const { width } = Dimensions.get('window');
 
@@ -88,6 +87,7 @@ const RecipeBrowserScreen = ({
   const [recipeHistory, setRecipeHistory] = useState([]);
   const [userIngredients, setUserIngredients] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   
   // Modal states
@@ -99,10 +99,6 @@ const RecipeBrowserScreen = ({
 
   // Ref for search input
   const searchInputRef = useRef(null);
-  
-  // Parallax animation values
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const headerHeight = 140; // Height of search + filters section
 
   // Get user context
   const { user: contextUser } = useDailyCalories();
@@ -124,17 +120,6 @@ const RecipeBrowserScreen = ({
     { id: 'low-cal', label: 'Low Calorie (<400)', maxCalories: '400' },
     { id: 'high-protein', label: 'High Protein (>25g)', minProtein: '25' },
     { id: 'quick', label: 'Quick (<20 min)', maxReadyTime: '20' }
-  ];
-
-  const cuisineOptions = [
-    { id: 'all', label: 'All Cuisines', icon: 'globe-outline' },
-    { id: 'american', label: 'American', icon: 'flag-outline' },
-    { id: 'italian', label: 'Italian', icon: 'wine-outline' },
-    { id: 'mexican', label: 'Mexican', icon: 'sunny-outline' },
-    { id: 'asian', label: 'Asian', icon: 'leaf-outline' },
-    { id: 'mediterranean', label: 'Mediterranean', icon: 'fish-outline' },
-    { id: 'french', label: 'French', icon: 'cafe-outline' },
-    { id: 'indian', label: 'Indian', icon: 'flame-outline' }
   ];
 
   const tabs = [
@@ -190,7 +175,7 @@ const RecipeBrowserScreen = ({
         console.log('No user ID available for loading favorites');
         return;
       }
-      const favorites = await usRecipeService.getFavoriteRecipes(user.id);
+      const favorites = await recipeService.getFavoriteRecipes(user.id);
       setFavoriteRecipes(favorites.map(fav => fav.recipe_data || fav));
     } catch (error) {
       console.error('Error loading favorites:', error);
@@ -203,7 +188,7 @@ const RecipeBrowserScreen = ({
         console.log('No user ID available for loading history');
         return;
       }
-      const history = await usRecipeService.getRecipeHistory(user.id);
+      const history = await recipeService.getRecipeHistory(user.id);
       setRecipeHistory(history.map(item => item.recipe_data || item));
     } catch (error) {
       console.error('Error loading history:', error);
@@ -216,7 +201,7 @@ const RecipeBrowserScreen = ({
         console.log('No user ID available for loading ingredients');
         return;
       }
-      const ingredients = await usRecipeService.getUserIngredients(user.id);
+      const ingredients = await recipeService.getUserIngredients(user.id);
       setUserIngredients(ingredients);
     } catch (error) {
       console.error('Error loading ingredients:', error);
@@ -315,29 +300,39 @@ const RecipeBrowserScreen = ({
     }
 
     setLoading(true);
+    
+    // Emotional loading messages for better UX
+    const loadingMessages = [
+      "Checking my recipe book...",
+      "Searching for delicious ideas...",
+      "Finding the perfect recipes...",
+      "Cooking up some suggestions...",
+      "Browsing through flavor combinations...",
+      "Hunting for culinary treasures...",
+      "Sifting through my favorite dishes...",
+      "Discovering tasty possibilities..."
+    ];
+    
+    let messageIndex = 0;
+    setLoadingMessage(loadingMessages[0]);
+    
+    // Rotate through messages every 4 seconds while loading
+    const messageInterval = setInterval(() => {
+      messageIndex = (messageIndex + 1) % loadingMessages.length;
+      setLoadingMessage(loadingMessages[messageIndex]);
+    }, 4000);
+    
     try {
       const filters = buildFilterObject();
       
-      // Use US-focused Edamam API as primary source for traditional American recipes
-      let usRecipeResults = [];
-      try {
-        console.log('Searching with US Recipe API (Edamam) for:', query);
-        usRecipeResults = await usRecipeService.searchRecipes(query, filters);
-        console.log('US Recipe Results:', usRecipeResults.length, 'traditional American recipes found');
-      } catch (usRecipeError) {
-        console.log('US Recipe search failed, trying fallback:', usRecipeError.message);
-      }
-
-      // Use Spoonacular as backup if US recipes are insufficient
+      // Use Spoonacular API as primary source for reliable recipes with real images
       let spoonacularResults = [];
-      if (usRecipeResults.length < 8) { // Increased threshold for better results
-        try {
-          console.log('Getting additional recipes from Spoonacular for:', query);
-          spoonacularResults = await recipeService.searchRecipes(query, filters);
-          console.log('Spoonacular Results:', spoonacularResults.length, 'additional recipes found');
-        } catch (spoonacularError) {
-          console.log('Spoonacular search also failed:', spoonacularError.message);
-        }
+      try {
+        console.log('Searching with Spoonacular API for:', query);
+        spoonacularResults = await recipeService.searchRecipes(query, filters);
+        console.log('Spoonacular Results:', spoonacularResults.length, 'recipes found');
+      } catch (spoonacularError) {
+        console.log('Spoonacular search failed:', spoonacularError.message);
       }
 
       // Use AI as secondary source for additional recipe suggestions
@@ -477,43 +472,28 @@ const RecipeBrowserScreen = ({
         return filtered;
       };
 
-      // Filter US recipes (these should already be clean American recipes)
-      const filteredUSResults = filterOnlyRecipes(usRecipeResults);
-      
-      // Filter Spoonacular results (backup recipes)
+      // Filter Spoonacular results (these should already be clean, but just in case)
       const filteredSpoonacularResults = filterOnlyRecipes(spoonacularResults);
       
       // Filter AI results to remove any ingredients  
       const filteredAiResults = filterOnlyRecipes(aiResults);
 
-      // Prioritize US recipes first, then Spoonacular, then AI
-      const combinedResults = [...filteredUSResults];
+      // Prioritize Spoonacular results (real recipes with real images)
+      const combinedResults = [...filteredSpoonacularResults];
       
-      // Add Spoonacular results that don't conflict with US results
-      filteredSpoonacularResults.forEach(spoonacularRecipe => {
-        const isDuplicate = filteredUSResults.some(usRecipe => 
-          usRecipe.title.toLowerCase().includes(spoonacularRecipe.title.toLowerCase()) ||
-          spoonacularRecipe.title.toLowerCase().includes(usRecipe.title.toLowerCase())
-        );
-        
-        if (!isDuplicate && combinedResults.length < 20) {
-          combinedResults.push(spoonacularRecipe);
-        }
-      });
-      
-      // Add AI results that don't conflict with existing results
+      // Add AI results that don't conflict with Spoonacular results
       filteredAiResults.forEach(aiRecipe => {
-        const isDuplicate = combinedResults.some(existingRecipe => 
-          existingRecipe.title.toLowerCase().includes(aiRecipe.title.toLowerCase()) ||
-          aiRecipe.title.toLowerCase().includes(existingRecipe.title.toLowerCase())
+        const isDuplicate = filteredSpoonacularResults.some(spoonacularRecipe => 
+          spoonacularRecipe.title.toLowerCase().includes(aiRecipe.title.toLowerCase()) ||
+          aiRecipe.title.toLowerCase().includes(spoonacularRecipe.title.toLowerCase())
         );
         
-        if (!isDuplicate && combinedResults.length < 25) {
+        if (!isDuplicate) {
           combinedResults.push(aiRecipe);
         }
       });
 
-      console.log(`Combined results: ${combinedResults.length} recipes (${filteredUSResults.length} US recipes, ${filteredSpoonacularResults.length} Spoonacular, ${filteredAiResults.length} AI)`);
+      console.log(`Combined results: ${combinedResults.length} recipes (${filteredSpoonacularResults.length} from Spoonacular, ${filteredAiResults.length} from AI)`);
 
       // Store unfiltered results for later filtering
       setAllRecipes(combinedResults);
@@ -555,7 +535,9 @@ const RecipeBrowserScreen = ({
       
       Alert.alert('Search Error', `Unable to search recipes: ${error.message}. Please try again.`);
     } finally {
+      clearInterval(messageInterval);
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -567,22 +549,36 @@ const RecipeBrowserScreen = ({
     }
 
     setLoading(true);
+    
+    // Emotional loading messages for ingredient-based search
+    const ingredientMessages = [
+      "Checking what you can cook...",
+      "Looking through your pantry...",
+      "Finding recipes with your ingredients...",
+      "Creating magic with what you have...",
+      "Discovering hidden possibilities...",
+      "Matching your ingredients to recipes..."
+    ];
+    
+    let messageIndex = 0;
+    setLoadingMessage(ingredientMessages[0]);
+    
+    // Rotate through messages every 4 seconds while loading
+    const messageInterval = setInterval(() => {
+      messageIndex = (messageIndex + 1) % ingredientMessages.length;
+      setLoadingMessage(ingredientMessages[messageIndex]);
+    }, 4000);
+    
     try {
-      // Try US recipe service first for American-style recipes
-      let results = await usRecipeService.getRecipesByIngredients(userIngredients);
-      
-      // Fallback to original service if needed
-      if (results.length < 3) {
-        const fallbackResults = await recipeService.getRecipesByIngredients(userIngredients);
-        results = [...results, ...fallbackResults];
-      }
-      
+      const results = await recipeService.getRecipesByIngredients(userIngredients);
       setRecipes(results);
     } catch (error) {
       console.error('Error finding recipes by ingredients:', error);
       Alert.alert('Search Error', 'Unable to find recipes. Please try again.');
     } finally {
+      clearInterval(messageInterval);
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -592,10 +588,6 @@ const RecipeBrowserScreen = ({
     
     if (selectedFilters.diet && selectedFilters.diet !== 'all') {
       filters.diet = selectedFilters.diet;
-    }
-    
-    if (selectedFilters.cuisine && selectedFilters.cuisine !== 'all') {
-      filters.cuisine = selectedFilters.cuisine;
     }
     
     // Apply nutrition filters
@@ -625,7 +617,7 @@ const RecipeBrowserScreen = ({
     try {
       // Add to history only if user is available
       if (user?.id) {
-        await usRecipeService.addToHistory(user.id, recipe);
+        await recipeService.addToHistory(user.id, recipe);
       }
       
       // Get detailed recipe information
@@ -636,8 +628,8 @@ const RecipeBrowserScreen = ({
         console.log('Using AI-generated recipe as-is');
         setSelectedRecipe(recipe);
         setShowRecipeDetails(true);
-      } else if (recipe.isAISearched || recipe.source === 'edamam') {
-        console.log('Using recipe as-is (AI-found or Edamam)');
+      } else if (recipe.isAISearched) {
+        console.log('Using AI-found real recipe as-is');
         setSelectedRecipe(recipe);
         setShowRecipeDetails(true);
       } else {
@@ -677,10 +669,10 @@ const RecipeBrowserScreen = ({
       const isFavorite = favoriteRecipes.some(fav => fav.id === recipe.id);
       
       if (isFavorite) {
-        await usRecipeService.removeFromFavorites(user.id, recipe.id);
+        await recipeService.removeFromFavorites(user.id, recipe.id);
         setFavoriteRecipes(prev => prev.filter(fav => fav.id !== recipe.id));
       } else {
-        await usRecipeService.addToFavorites(user.id, recipe);
+        await recipeService.addToFavorites(user.id, recipe);
         setFavoriteRecipes(prev => [recipe, ...prev]);
       }
     } catch (error) {
@@ -700,7 +692,7 @@ const RecipeBrowserScreen = ({
     
     const updatedIngredients = [...userIngredients, newIngredient.trim()];
     setUserIngredients(updatedIngredients);
-    await usRecipeService.saveUserIngredients(user.id, updatedIngredients);
+    await recipeService.saveUserIngredients(user.id, updatedIngredients);
     setNewIngredient('');
     setShowAddIngredient(false);
   };
@@ -714,7 +706,7 @@ const RecipeBrowserScreen = ({
 
     const updatedIngredients = userIngredients.filter(ing => ing !== ingredient);
     setUserIngredients(updatedIngredients);
-    await usRecipeService.saveUserIngredients(user.id, updatedIngredients);
+    await recipeService.saveUserIngredients(user.id, updatedIngredients);
   };
 
   // Handle ingredient scan
@@ -737,7 +729,7 @@ const RecipeBrowserScreen = ({
             if (ingredientName && ingredientName.trim()) {
               const updatedIngredients = [...userIngredients, ingredientName.trim()];
               setUserIngredients(updatedIngredients);
-              usRecipeService.saveUserIngredients(user.id, updatedIngredients);
+              recipeService.saveUserIngredients(user.id, updatedIngredients);
             }
           }
         }
@@ -754,41 +746,18 @@ const RecipeBrowserScreen = ({
   }, [activeTab]);
 
   // Render recipe card with nutrition facts
-  const renderRecipeCard = ({ item: recipe, index }) => {
+  const renderRecipeCard = ({ item: recipe }) => {
     const isFavorite = favoriteRecipes.some(fav => fav.id === recipe.id);
     const nutrition = recipe.nutrition || {};
     
     // Log image info for debugging
     console.log('Recipe:', recipe.title, 'Image URL:', recipe.image);
-
-    // Calculate card animation based on scroll position for subtle parallax
-    const inputRange = [
-      (index - 1) * 150, // Start animation before card comes into view
-      index * 150,       // Card is centered
-      (index + 1) * 150  // End animation after card passes
-    ];
-
-    const scale = scrollY.interpolate({
-      inputRange,
-      outputRange: [0.95, 1, 0.95],
-      extrapolate: 'clamp',
-    });
-
-    const opacity = scrollY.interpolate({
-      inputRange,
-      outputRange: [0.8, 1, 0.8],
-      extrapolate: 'clamp',
-    });
     
     return (
-      <Animated.View style={{
-        transform: [{ scale }],
-        opacity,
-      }}>
-        <TouchableOpacity 
-          style={styles.recipeCard}
-          onPress={() => handleRecipeSelect(recipe)}
-        >
+      <TouchableOpacity 
+        style={styles.recipeCard}
+        onPress={() => handleRecipeSelect(recipe)}
+      >
         {recipe.image && recipe.image !== 'https://placeholder-image-url.jpg' ? (
           <Image 
             source={{ uri: recipe.image }} 
@@ -861,8 +830,7 @@ const RecipeBrowserScreen = ({
             {recipe.isDairyFree && <Text style={styles.dietTag}>🥛 Dairy Free</Text>}
           </View>
         </View>
-        </TouchableOpacity>
-      </Animated.View>
+      </TouchableOpacity>
     );
   };
 
@@ -893,99 +861,59 @@ const RecipeBrowserScreen = ({
         <Ionicons 
           name={showFilters ? "chevron-up" : "chevron-down"} 
           size={14} 
-          color="#4A90E2" 
+          color="#50E3C2" 
         />
       </TouchableOpacity>
 
       {/* Collapsible Filter Pills */}
       {showFilters && (
-        <View style={styles.filterContainer}>
-          {/* Diet Section */}
-          <View style={styles.filterSection}>
-            <Text style={styles.filterSectionTitle}>Diet Type</Text>
-            <View style={styles.filterRow}>
-              {dietOptions.map(diet => (
-                <TouchableOpacity
-                  key={diet.id}
-                  style={[
-                    styles.filterPill,
-                    selectedFilters.diet === diet.id && styles.filterPillActive
-                  ]}
-                  onPress={() => setSelectedFilters(prev => ({ 
-                    ...prev, 
-                    diet: prev.diet === diet.id ? 'all' : diet.id 
-                  }))}
-                >
-                  <Ionicons name={diet.icon} size={12} color={
-                    selectedFilters.diet === diet.id ? '#4A90E2' : '#666'
-                  } />
-                  <Text style={[
-                    styles.filterPillText,
-                    selectedFilters.diet === diet.id && styles.filterPillTextActive
-                  ]}>
-                    {diet.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Cuisine Section */}
-          <View style={styles.filterSection}>
-            <Text style={styles.filterSectionTitle}>Cuisine Type</Text>
-            <View style={styles.filterRow}>
-              {cuisineOptions.map(cuisine => (
-                <TouchableOpacity
-                  key={cuisine.id}
-                  style={[
-                    styles.filterPill,
-                    selectedFilters.cuisine === cuisine.id && styles.filterPillActive
-                  ]}
-                  onPress={() => setSelectedFilters(prev => ({ 
-                    ...prev, 
-                    cuisine: prev.cuisine === cuisine.id ? 'all' : cuisine.id 
-                  }))}
-                >
-                  <Ionicons name={cuisine.icon} size={12} color={
-                    selectedFilters.cuisine === cuisine.id ? '#4A90E2' : '#666'
-                  } />
-                  <Text style={[
-                    styles.filterPillText,
-                    selectedFilters.cuisine === cuisine.id && styles.filterPillTextActive
-                  ]}>
-                    {cuisine.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+        <View style={styles.filterRow}>
+          {/* Diet filters - Updated with smaller rounded transparent buttons */}
+          {dietOptions.map(diet => (
+            <TouchableOpacity
+              key={diet.id}
+              style={[
+                styles.filterPill,
+                selectedFilters.diet === diet.id && styles.filterPillActive
+              ]}
+              onPress={() => setSelectedFilters(prev => ({ 
+                ...prev, 
+                diet: prev.diet === diet.id ? 'all' : diet.id 
+              }))}
+            >
+              <Ionicons name={diet.icon} size={12} color={
+                selectedFilters.diet === diet.id ? '#50E3C2' : '#666'
+              } />
+              <Text style={[
+                styles.filterPillText,
+                selectedFilters.diet === diet.id && styles.filterPillTextActive
+              ]}>
+                {diet.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
           
-          {/* Nutrition Section */}
-          <View style={styles.filterSection}>
-            <Text style={styles.filterSectionTitle}>Nutrition & Time</Text>
-            <View style={styles.filterRow}>
-              {nutritionFilters.map(filter => (
-                <TouchableOpacity
-                  key={filter.id}
-                  style={[
-                    styles.filterPill,
-                    selectedFilters[filter.id] && styles.filterPillActive
-                  ]}
-                  onPress={() => setSelectedFilters(prev => ({ 
-                    ...prev, 
-                    [filter.id]: !prev[filter.id] 
-                  }))}
-                >
-                  <Text style={[
-                    styles.filterPillText,
-                    selectedFilters[filter.id] && styles.filterPillTextActive
-                  ]}>
-                    {filter.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+          {/* Nutrition filters */}
+          {nutritionFilters.map(filter => (
+            <TouchableOpacity
+              key={filter.id}
+              style={[
+                styles.filterPill,
+                selectedFilters[filter.id] && styles.filterPillActive
+              ]}
+              onPress={() => setSelectedFilters(prev => ({ 
+                ...prev, 
+                [filter.id]: !prev[filter.id] 
+              }))}
+            >
+              <Text style={[
+                styles.filterPillText,
+                selectedFilters[filter.id] && styles.filterPillTextActive
+              ]}>
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       )}
     </View>
@@ -997,100 +925,71 @@ const RecipeBrowserScreen = ({
       case 'search':
         return (
           <View style={styles.tabContent}>
-            {/* Parallax Container for Search Tab */}
-            <View style={styles.parallaxContainer}>
-              {/* Fixed Header - Search and Filters */}
-              <Animated.View style={[
-                styles.stickyHeader,
-                {
-                  transform: [{
-                    translateY: scrollY.interpolate({
-                      inputRange: [0, headerHeight],
-                      outputRange: [0, -headerHeight],
-                      extrapolate: 'clamp',
-                    })
-                  }],
-                  opacity: scrollY.interpolate({
-                    inputRange: [0, headerHeight * 0.5, headerHeight],
-                    outputRange: [1, 0.8, 0],
-                    extrapolate: 'clamp',
-                  })
-                }
-              ]}>
-                {/* Search bar */}
-                <View style={styles.searchContainer}>
-                  <View style={styles.searchBar}>
-                    <Ionicons name="search-outline" size={20} color="#666" />
-                    <SearchInput
-                      ref={searchInputRef}
-                      onSearch={(query) => {
-                        setSearchQuery(query);
-                        searchRecipes(query);
-                      }}
-                      placeholder="Search recipes..."
-                    />
-                    <TouchableOpacity 
-                      onPress={() => {
-                        searchInputRef.current?.clear();
-                        setSearchQuery('');
-                        setRecipes([]);
-                      }}
-                      style={{ padding: 4, opacity: 0.7 }}
-                    >
-                      <Ionicons name="close-circle" size={20} color="#666" />
-                    </TouchableOpacity>
-                  </View>
-                  <TouchableOpacity 
-                    style={styles.searchButton}
-                    onPress={() => {
-                      const currentValue = searchInputRef.current?.getValue();
-                      if (currentValue && currentValue.trim()) {
-                        setSearchQuery(currentValue.trim());
-                        searchRecipes(currentValue.trim());
-                      }
-                    }}
-                  >
-                    <Text style={styles.searchButtonText}>Search</Text>
-                  </TouchableOpacity>
-                </View>
+            {/* Search bar */}
+            <View style={styles.searchContainer}>
+              <View style={styles.searchBar}>
+                <Ionicons name="search-outline" size={20} color="#666" />
+                <SearchInput
+                  ref={searchInputRef}
+                  onSearch={(query) => {
+                    setSearchQuery(query);
+                    searchRecipes(query);
+                  }}
+                  placeholder="What are we cooking?"
+                />
+                <TouchableOpacity 
+                  onPress={() => {
+                    searchInputRef.current?.clear();
+                    setSearchQuery('');
+                    setRecipes([]);
+                  }}
+                  style={{ padding: 4, opacity: 0.7 }}
+                >
+                  <Ionicons name="close-circle" size={20} color="#666" />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-                {/* Filters */}
-                {renderFilterPills()}
-              </Animated.View>
+            {/* Filters */}
+            {renderFilterPills()}
 
-              {/* Scrollable Results with Parallax */}
-              <Animated.FlatList
+            {/* Results */}
+            <View style={{ flex: 1, position: 'relative' }}>
+              <FlatList
                 data={recipes}
                 renderItem={renderRecipeCard}
                 keyExtractor={(item) => item.id.toString()}
                 numColumns={2}
                 columnWrapperStyle={styles.recipeRow}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={[
-                  styles.parallaxContent,
-                  { paddingTop: headerHeight + 20 } // Add space for header
-                ]}
-                onScroll={Animated.event(
-                  [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                  { useNativeDriver: false }
-                )}
-                scrollEventThrottle={16}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 ListEmptyComponent={
-                  loading ? (
-                    <View style={styles.loadingContainer}>
-                      <ActivityIndicator size="large" color="#4A90E2" />
-                      <Text style={styles.loadingText}>Searching recipes...</Text>
-                    </View>
-                  ) : (
+                  !loading ? (
                     <View style={styles.emptyContainer}>
                       <Ionicons name="restaurant-outline" size={64} color="#ccc" />
                       <Text style={styles.emptyText}>No recipes found</Text>
                       <Text style={styles.emptySubtext}>Try adjusting your search or filters</Text>
                     </View>
-                  )
+                  ) : null
                 }
               />
+              
+              {/* Loading Overlay - Shows on top of existing results */}
+              {loading && (
+                <View style={styles.loadingOverlay}>
+                  <View style={styles.loadingContainer}>
+                    <AnimatedLoader 
+                      size={100}
+                      accent="#50E3C2"
+                      background="transparent"
+                      label=""
+                      message={loadingMessage}
+                      showLabel={true}
+                      textColor="#333333"
+                    />
+                  </View>
+                </View>
+              )}
             </View>
           </View>
         );
@@ -1106,14 +1005,14 @@ const RecipeBrowserScreen = ({
                   style={styles.scanButton}
                   onPress={() => setShowIngredientScanner(true)}
                 >
-                  <Ionicons name="scan-outline" size={20} color="#4A90E2" />
+                  <Ionicons name="scan-outline" size={20} color="#50E3C2" />
                   <Text style={styles.scanButtonText}>Scan</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   style={styles.addButton}
                   onPress={() => setShowAddIngredient(true)}
                 >
-                  <Ionicons name="add-circle-outline" size={20} color="#4A90E2" />
+                  <Ionicons name="add-circle-outline" size={20} color="#50E3C2" />
                   <Text style={styles.addButtonText}>Add</Text>
                 </TouchableOpacity>
               </View>
@@ -1143,15 +1042,49 @@ const RecipeBrowserScreen = ({
                 </TouchableOpacity>
 
                 {recipes.length > 0 && (
-                  <FlatList
-                    data={recipes}
-                    renderItem={renderRecipeCard}
-                    keyExtractor={(item) => item.id.toString()}
-                    numColumns={2}
-                    columnWrapperStyle={styles.recipeRow}
-                    showsVerticalScrollIndicator={false}
-                    style={styles.recipesList}
-                  />
+                  <View style={{ position: 'relative' }}>
+                    <FlatList
+                      data={recipes}
+                      renderItem={renderRecipeCard}
+                      keyExtractor={(item) => item.id.toString()}
+                      numColumns={2}
+                      columnWrapperStyle={styles.recipeRow}
+                      showsVerticalScrollIndicator={false}
+                      style={styles.recipesList}
+                    />
+                    
+                    {/* Loading Overlay for ingredients search */}
+                    {loading && (
+                      <View style={styles.loadingOverlay}>
+                        <View style={styles.loadingContainer}>
+                          <AnimatedLoader 
+                            size={100}
+                            accent="#50E3C2"
+                            background="transparent"
+                            label=""
+                            message={loadingMessage}
+                            showLabel={true}
+                            textColor="#333333"
+                          />
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                )}
+                
+                {/* Show loading when no recipes but searching */}
+                {recipes.length === 0 && loading && (
+                  <View style={styles.loadingContainer}>
+                    <AnimatedLoader 
+                      size={100}
+                      accent="#50E3C2"
+                      background="transparent"
+                      label=""
+                      message={loadingMessage}
+                      showLabel={true}
+                      textColor="#333333"
+                    />
+                  </View>
                 )}
               </>
             ) : (
@@ -1241,7 +1174,7 @@ const RecipeBrowserScreen = ({
             <Ionicons 
               name={tab.icon} 
               size={20} 
-              color={activeTab === tab.id ? '#4A90E2' : '#666'} 
+              color={activeTab === tab.id ? '#50E3C2' : '#666'} 
             />
             <Text style={[
               styles.tabText,
@@ -1386,15 +1319,15 @@ const RecipeDetailsModal = ({ recipe, onClose, onSelectRecipe, onToggleFavorite,
           {/* Quick Stats */}
           <View style={styles.quickStats}>
             <View style={styles.statItem}>
-              <Ionicons name="time-outline" size={20} color="#4A90E2" />
+              <Ionicons name="time-outline" size={20} color="#50E3C2" />
               <Text style={styles.statText}>{recipe.readyInMinutes || 30} min</Text>
             </View>
             <View style={styles.statItem}>
-              <Ionicons name="people-outline" size={20} color="#4A90E2" />
+              <Ionicons name="people-outline" size={20} color="#50E3C2" />
               <Text style={styles.statText}>{recipe.servings || 1} serving{(recipe.servings || 1) > 1 ? 's' : ''}</Text>
             </View>
             <View style={styles.statItem}>
-              <Ionicons name="bar-chart-outline" size={20} color="#4A90E2" />
+              <Ionicons name="bar-chart-outline" size={20} color="#50E3C2" />
               <Text style={styles.statText}>{recipe.difficulty || 'Medium'}</Text>
             </View>
           </View>
@@ -1530,7 +1463,7 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderBottomWidth: 2,
-    borderBottomColor: '#4A90E2',
+    borderBottomColor: '#50E3C2',
   },
   tabText: {
     fontSize: 12,
@@ -1539,36 +1472,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#4A90E2',
+    color: '#50E3C2',
     fontWeight: '600',
   },
   tabContent: {
     flex: 1,
     paddingHorizontal: 16,
-  },
-  // Parallax styles
-  parallaxContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  stickyHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  parallaxContent: {
-    flexGrow: 1,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -1595,22 +1504,6 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '300',
   },
-  searchButton: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 16,
-    borderWidth: 0.5,
-    borderColor: 'rgba(74, 144, 226, 0.3)',
-    minHeight: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchButtonText: {
-    color: '#4A90E2',
-    fontWeight: '500',
-    fontSize: 14,
-  },
   filterContainer: {
     marginBottom: 4,
     paddingHorizontal: spacing.xs,
@@ -1630,7 +1523,7 @@ const styles = StyleSheet.create({
   },
   filterToggleText: {
     fontSize: 14,
-    color: '#4A90E2',
+    color: '#50E3C2',
     fontWeight: '500',
     marginHorizontal: 6,
   },
@@ -1639,19 +1532,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  filterContainer: {
-    paddingVertical: 8,
-  },
-  filterSection: {
-    marginBottom: 12,
-  },
-  filterSectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-    marginLeft: 8,
   },
   filterPill: {
     flexDirection: 'row',
@@ -1669,7 +1549,7 @@ const styles = StyleSheet.create({
   },
   filterPillActive: {
     backgroundColor: 'rgba(74, 144, 226, 0.1)',
-    borderColor: '#4A90E2',
+    borderColor: '#50E3C2',
     borderWidth: 1,
   },
   filterPillText: {
@@ -1680,7 +1560,7 @@ const styles = StyleSheet.create({
     lineHeight: 13,
   },
   filterPillTextActive: {
-    color: '#4A90E2',
+    color: '#50E3C2',
     fontWeight: '500',
   },
   recipeRow: {
@@ -1736,7 +1616,7 @@ const styles = StyleSheet.create({
   nutritionValue: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#4A90E2',
+    color: '#50E3C2',
   },
   nutritionLabel: {
     fontSize: 10,
@@ -1789,10 +1669,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#4A90E2',
+    borderColor: '#50E3C2',
   },
   scanButtonText: {
-    color: '#4A90E2',
+    color: '#50E3C2',
     fontWeight: '500',
     marginLeft: 4,
   },
@@ -1804,10 +1684,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#4A90E2',
+    borderColor: '#50E3C2',
   },
   addButtonText: {
-    color: '#4A90E2',
+    color: '#50E3C2',
     fontWeight: '500',
     marginLeft: 4,
   },
@@ -1841,7 +1721,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#50E3C2',
     paddingVertical: 12,
     borderRadius: 12,
     marginBottom: 16,
@@ -1857,12 +1737,17 @@ const styles = StyleSheet.create({
   loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 60,
+    minHeight: 200,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#666',
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    zIndex: 1000,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -1927,7 +1812,7 @@ const styles = StyleSheet.create({
   },
   addIngredientButton: {
     flex: 1,
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#50E3C2',
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -2032,7 +1917,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#50E3C2',
     color: '#fff',
     textAlign: 'center',
     lineHeight: 24,
@@ -2057,7 +1942,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E5E5',
   },
   selectRecipeButton: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#50E3C2',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

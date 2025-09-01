@@ -14,11 +14,121 @@ import { responsivePadding, fonts, spacing, scaleWidth, scaleHeight } from '../u
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { Ionicons } from '@expo/vector-icons';
 import DailyIntakeCard from './DailyIntakeCard';
+import TodaysMealsComponent from './TodaysMealsComponent';
 
 const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
   const { count, setCount, setActiveTab: setGlobalActiveTab } = useAppContext();
   const { dailyCalories, dailyMacros, dailyMicros, mealsLoading } = useDailyCalories();
   const mealManager = useMealManager();
+  
+  // Dashboard-specific styles for meals component
+  const dashboardMealStyles = {
+    section: {
+      backgroundColor: '#F8F9FA',
+      borderRadius: 12,
+      padding: 20,
+      marginBottom: 16,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: '#1A1A1A',
+    },
+    sectionAction: {
+      fontSize: 14,
+      color: '#4A90E2',
+      fontWeight: '500',
+    },
+    sectionLine: {
+      height: 1,
+      backgroundColor: '#E9ECEF',
+      marginBottom: 16,
+    },
+    card: {
+      backgroundColor: '#FFFFFF',
+      borderRadius: 8,
+      padding: 0,
+    },
+    emptyState: {
+      alignItems: 'center',
+      paddingVertical: 32,
+    },
+    emptyStateText: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: '#6C757D',
+      marginTop: 12,
+    },
+    emptyStateSubtext: {
+      fontSize: 14,
+      color: '#ADB5BD',
+      marginTop: 4,
+      textAlign: 'center',
+    },
+    mealRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+    },
+    mealInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    mealDetails: {
+      marginLeft: 12,
+      flex: 1,
+    },
+    mealName: {
+      fontSize: 15,
+      fontWeight: '500',
+      color: '#1A1A1A',
+    },
+    mealTime: {
+      fontSize: 13,
+      color: '#6C757D',
+      marginTop: 2,
+    },
+    mealCalories: {
+      alignItems: 'flex-end',
+    },
+    mealValue: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#1A1A1A',
+    },
+    mealUnit: {
+      fontSize: 12,
+      color: '#6C757D',
+    },
+    mealDivider: {
+      height: 1,
+      backgroundColor: '#F0F0F0',
+      marginHorizontal: 16,
+    },
+    moreRowButton: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+    },
+    moreRowText: {
+      fontSize: 14,
+      color: '#4A90E2',
+      fontWeight: '500',
+      marginRight: 4,
+    },
+  };
+  
   const [userProfile, setUserProfile] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -825,7 +935,22 @@ const DashboardScreen = ({ user, onLogout, loading, styles = appStyles }) => {
   const renderOverview = () => {
     return (
       <ScrollView style={{ flex: 1, paddingHorizontal: responsivePadding.container, paddingVertical: responsiveSpacing }}>
-        {/* Health Overview section removed - simplified dashboard */}
+        {/* Today's Meals Section */}
+        <TodaysMealsComponent 
+          styles={dashboardMealStyles}
+          showViewAll={true}
+          maxMealsToShow={3}
+          onViewAllPress={() => {
+            // Navigate to nutrition tab or show all meals
+            setGlobalActiveTab('nutrition');
+          }}
+          onMealPress={(meal) => {
+            // Could open meal details modal
+            console.log('Meal pressed in dashboard:', meal.name);
+          }}
+          emptyStateMessage="No meals logged today"
+          emptyStateSubtext="Start tracking your nutrition!"
+        />
       </ScrollView>
     );
   };

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mealService } from '../services/mealService';
 import { useDailyCalories } from '../contexts/DailyCaloriesContext';
 import { supabase } from '../supabaseConfig';
+import { getLocalDateString, getLocalDateStringFromDate } from '../utils/dateUtils';
 
 export const useMealManager = () => {
   const { 
@@ -33,7 +34,7 @@ export const useMealManager = () => {
       for (let i = 0; i <= 30; i++) {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = getLocalDateStringFromDate(date); // Use local date
         const cacheKey = await getMealCacheKey(dateStr);
         await AsyncStorage.removeItem(cacheKey);
       }
@@ -201,7 +202,7 @@ export const useMealManager = () => {
 
   // Get meals for a specific date (from cache or trigger load)
   const getMealsForDate = useCallback(async (date) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateString(); // Use local date
     
     // If requesting today's meals, return from context
     if (date === today) {
@@ -242,7 +243,7 @@ export const useMealManager = () => {
     
     // Generate date range
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      dates.push(d.toISOString().split('T')[0]);
+      dates.push(getLocalDateStringFromDate(new Date(d))); // Use local date
     }
     
     // Load all dates (will use cache where available)

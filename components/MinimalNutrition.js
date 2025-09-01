@@ -8,6 +8,7 @@ import {
 } from 'react-native-ui-lib';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import TodaysMealsComponent from './TodaysMealsComponent';
 
 // Minimal Components
 import MinimalComponents from './design/MinimalComponents';
@@ -163,36 +164,133 @@ const MinimalNutrition = ({ user, onLogout, loading, styles }) => {
     </View>
   );
 
-  const renderRecentMeals = () => (
-    <View paddingH-20 marginT-lg>
-      <MinimalSection title="Today's Meals" action="View All" />
-      <MinimalCard style={{ marginTop: 8 }}>
-        {recentMeals.length > 0 ? (
-          recentMeals.map((meal, index) => (
-            <MinimalMetric
-              key={meal.id}
-              icon="restaurant-outline"
-              title={`${meal.name} • ${meal.meal} • ${meal.time}`}
-              value={meal.calories}
-              unit="cal"
-              color={Colors.nutrition}
-              onPress={() => console.log(`Edit ${meal.name}`)}
-            />
-          ))
-        ) : (
-          <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-            <Ionicons name="restaurant-outline" size={32} color={Colors.border} />
-            <Text body2 color={Colors.textSecondary} marginT-sm>No meals logged today</Text>
-            <MinimalButton
-              title="Log your first meal"
-              color={Colors.nutrition}
-              style={{ marginTop: 12 }}
-            />
-          </View>
-        )}
-      </MinimalCard>
-    </View>
-  );
+  const renderRecentMeals = () => {
+    // Styles that match the minimal design system
+    const minimalMealStyles = {
+      section: {
+        paddingHorizontal: 20,
+        marginTop: 24,
+      },
+      sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+      },
+      sectionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: Colors.textPrimary || '#1A1A1A',
+      },
+      sectionAction: {
+        fontSize: 14,
+        color: Colors.nutrition || '#50E3C2',
+        fontWeight: '500',
+      },
+      sectionLine: {
+        height: 0, // No line in minimal design
+      },
+      card: {
+        backgroundColor: Colors.white || '#FFFFFF',
+        borderRadius: 12,
+        padding: 0,
+        marginTop: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+      },
+      emptyState: {
+        alignItems: 'center',
+        paddingVertical: 20,
+      },
+      emptyStateText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: Colors.textSecondary || '#6C757D',
+        marginTop: 12,
+      },
+      emptyStateSubtext: {
+        fontSize: 13,
+        color: Colors.border || '#E9ECEF',
+        marginTop: 4,
+        textAlign: 'center',
+      },
+      mealRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+      },
+      mealInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+      },
+      mealDetails: {
+        marginLeft: 12,
+        flex: 1,
+      },
+      mealName: {
+        fontSize: 15,
+        fontWeight: '500',
+        color: Colors.textPrimary || '#1A1A1A',
+      },
+      mealTime: {
+        fontSize: 13,
+        color: Colors.textSecondary || '#6C757D',
+        marginTop: 2,
+      },
+      mealCalories: {
+        alignItems: 'flex-end',
+      },
+      mealValue: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: Colors.textPrimary || '#1A1A1A',
+      },
+      mealUnit: {
+        fontSize: 12,
+        color: Colors.textSecondary || '#6C757D',
+      },
+      mealDivider: {
+        height: 1,
+        backgroundColor: Colors.border || '#F0F0F0',
+        marginHorizontal: 16,
+      },
+      moreRowButton: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+      },
+      moreRowText: {
+        fontSize: 14,
+        color: Colors.nutrition || '#50E3C2',
+        fontWeight: '500',
+        marginRight: 4,
+      },
+    };
+
+    return (
+      <TodaysMealsComponent 
+        styles={minimalMealStyles}
+        showViewAll={true}
+        maxMealsToShow={3}
+        onViewAllPress={() => {
+          console.log('View all meals pressed from minimal nutrition');
+        }}
+        onMealPress={(meal) => {
+          console.log('Meal pressed in minimal nutrition:', meal.name);
+        }}
+        emptyStateMessage="No meals logged today"
+        emptyStateSubtext="Log your first meal to start tracking"
+      />
+    );
+  };
 
   const renderWaterIntake = () => (
     <View paddingH-20 marginT-lg>

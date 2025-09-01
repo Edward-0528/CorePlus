@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseConfig';
+import { getLocalDateString, getLocalTimeString, getLocalDateStringFromDate } from '../utils/dateUtils';
 
 export const mealService = {
   // Add a new meal for the current user
@@ -11,7 +12,7 @@ export const mealService = {
       }
 
       const now = new Date();
-      const mealTime = mealData.time || now.toTimeString().split(' ')[0]; // HH:mm:ss format
+      const mealTime = mealData.time || getLocalTimeString(); // Use local time
       
       const meal = {
         user_id: user.id,
@@ -28,7 +29,7 @@ export const mealService = {
         portion_description: mealData.portion || null,
         image_uri: mealData.imageUri || null,
         confidence_score: mealData.confidence || null,
-        meal_date: mealData.date || now.toISOString().split('T')[0],
+        meal_date: mealData.date || getLocalDateString(), // Use local date
         meal_time: mealTime
       };
 
@@ -63,10 +64,10 @@ export const mealService = {
         throw new Error('User not authenticated');
       }
 
-      // Use provided date or default to today
-      const today = targetDate || new Date().toISOString().split('T')[0];
+      // Use provided date or default to today (local timezone)
+      const today = targetDate || getLocalDateString();
 
-      console.log('🔍 Fetching meals for date:', today);
+      console.log('🔍 Fetching meals for date (local timezone):', today);
 
       const { data, error } = await supabase
         .from('meals')
@@ -126,12 +127,12 @@ export const mealService = {
         throw new Error('User not authenticated');
       }
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString(); // Use local date
       const pastDate = new Date();
       pastDate.setDate(pastDate.getDate() - daysBack);
-      const pastDateStr = pastDate.toISOString().split('T')[0];
+      const pastDateStr = getLocalDateStringFromDate(pastDate); // Use local date
 
-      console.log(`🔍 Fetching historical meals from ${pastDateStr} to yesterday (excluding today: ${today})`);
+      console.log(`🔍 Fetching historical meals from ${pastDateStr} to yesterday (excluding today: ${today}) - using local timezone`);
 
       const { data, error } = await supabase
         .from('meals')

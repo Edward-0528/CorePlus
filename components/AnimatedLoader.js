@@ -11,7 +11,8 @@ export default function AnimatedLoader({
   background = '#FFFFFF',
   label = 'Core+',
   message,
-  showLabel = true
+  showLabel = true,
+  textColor = '#ffffff'
 }) {
   const ripple = useAnimationState({
     from: { scale: 1, opacity: 0.28 },
@@ -55,7 +56,7 @@ export default function AnimatedLoader({
       </View>
 
       {showLabel && (
-        <Text style={styles.label}>{label}{message ? `  •  ${message}` : ''}</Text>
+        <Text style={[styles.label, { color: textColor }]}>{label}{message ? `  •  ${message}` : ''}</Text>
       )}
 
       {Platform.OS === 'web' && (
@@ -89,16 +90,10 @@ const styles = StyleSheet.create({
     fontSize: 16, 
     color: '#ffffff', 
     fontWeight: '300',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   },
   hint: { 
     marginTop: 8, 
     fontSize: 12, 
     color: 'rgba(255, 255, 255, 0.6)',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
   }
 });

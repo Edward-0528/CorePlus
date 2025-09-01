@@ -6,6 +6,7 @@ import { spacing, fonts, scaleWidth } from '../utils/responsive';
 import { useDailyCalories } from '../contexts/DailyCaloriesContext';
 import { useMealManager } from '../hooks/useMealManager';
 import { formatTo12Hour } from '../utils/timeUtils';
+import { getLocalDateString, getLocalDateStringFromDate } from '../utils/dateUtils';
 import FoodCameraScreen from './FoodCameraScreen';
 import FoodPredictionCard from './FoodPredictionCard';
 import MultiFoodSelectionCard from './MultiFoodSelectionCard';
@@ -499,9 +500,9 @@ const NutritionScreen = () => {
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayDateStr = today.toISOString().split('T')[0]; // Format: "YYYY-MM-DD"
+    const todayDateStr = getLocalDateString(); // Use local date
     
-    console.log('🍽️ Today date for filtering:', todayDateStr);
+    console.log('🍽️ Today date for filtering (local timezone):', todayDateStr);
     
     const meals = [];
     Object.keys(mealHistory).forEach(date => {
@@ -541,9 +542,9 @@ const NutritionScreen = () => {
       for (let i = 1; i <= 7; i++) {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
-        dates.push(date.toISOString().split('T')[0]);
+        dates.push(getLocalDateStringFromDate(date)); // Use local date
       }
-      console.log('📅 Loading historical data for dates:', dates);
+      console.log('📅 Loading historical data for dates (local timezone):', dates);
       loadMealHistory(dates);
       
       // Load more data progressively after initial load
@@ -553,10 +554,10 @@ const NutritionScreen = () => {
           for (let i = 8; i <= 30; i++) {
             const date = new Date(today);
             date.setDate(date.getDate() - i);
-            extendedDates.push(date.toISOString().split('T')[0]);
+            extendedDates.push(getLocalDateStringFromDate(date)); // Use local date
           }
           if (extendedDates.length > 0) {
-            console.log('📅 Loading extended historical data for dates:', extendedDates);
+            console.log('📅 Loading extended historical data for dates (local timezone):', extendedDates);
             loadMealHistory(extendedDates);
           }
         }
@@ -945,11 +946,11 @@ const NutritionScreen = () => {
       for (let i = 1; i <= 7; i++) {
         const date = new Date(today);
         date.setDate(date.getDate() - i);
-        dates.push(date.toISOString().split('T')[0]);
+        dates.push(getLocalDateStringFromDate(date)); // Use local date
       }
       
       await loadMealHistory(dates);
-      console.log('🔄 Nutrition screen refreshed successfully with fresh data');
+      console.log('🔄 Nutrition screen refreshed successfully with fresh data (local timezone)');
     } catch (error) {
       console.error('❌ Error refreshing nutrition screen:', error);
     } finally {

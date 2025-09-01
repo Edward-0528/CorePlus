@@ -121,17 +121,22 @@ export const authService = {
   // Sign in with email and password
   signIn: async (email, password) => {
     try {
+      console.log('🔐 AuthService: Starting signIn for:', email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error('🔐 AuthService: signIn error:', error);
         throw error;
       }
 
+      console.log('🔐 AuthService: signIn successful');
       return { success: true, data };
     } catch (error) {
+      console.error('🔐 AuthService: signIn catch:', error.message);
       return { success: false, error: error.message };
     }
   },

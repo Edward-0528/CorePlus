@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollView, RefreshControl, StyleSheet, Modal, TextInput, Alert, View } from 'react-native';
 import { 
   View as RNUIView, 
@@ -6,10 +6,18 @@ import {
   TouchableOpacity
 } from 'react-native-ui-lib';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Contexts
 import { useDailyCalories } from '../contexts/DailyCaloriesContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useAppContext } from '../contexts/AppContext';
+
+// Utils
+import { getLocalDateString } from '../utils/dateUtils';
+
+// Components
+import TodaysMealsComponent from './TodaysMealsComponent';
 
 // Define colors directly
 const AppColors = {
@@ -28,12 +36,89 @@ const AppColors = {
 };
 
 const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
-  const { dailyCalories, addCalories, foodEntries = [] } = useDailyCalories();
+  const { 
+    dailyCalories, 
+    addCalories, 
+    foodEntries = [],
+    todaysMeals = [],
+    deleteMeal,
+    mealsLoading
+  } = useDailyCalories();
   const { isPremium } = useSubscription();
+  const { setActiveTab, setNutritionSubTab } = useAppContext();
   const [refreshing, setRefreshing] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [calorieGoal, setCalorieGoal] = useState(2000);
   const [tempGoal, setTempGoal] = useState('2000');
+  const [waterIntake, setWaterIntake] = useState(0); // New state for water tracking
+  const [currentDate, setCurrentDate] = useState(getLocalDateString()); // Track current date for resets
+
+  // Load water intake from storage on component mount
+  useEffect(() => {
+    loadWaterIntake();
+  }, []);
+
+  // Check for date changes and reset water intake at local midnight
+  useEffect(() => {
+    const checkDateChange = () => {
+      const today = getLocalDateString();
+      if (today !== currentDate) {
+        console.log('🕛 Water tracker: Date changed! Resetting water intake for new day (local timezone):', today);
+        console.log('Previous date:', currentDate);
+        console.log('New date:', today);
+        
+        // Update current date state
+        setCurrentDate(today);
+        
+        // Reset water intake for the new day
+        console.log('💧 Resetting water intake for new day');
+        setWaterIntake(0);
+        
+        // Clear previous day's water data to save storage space
+        const yesterdayKey = `water_intake_${currentDate}`;
+        AsyncStorage.removeItem(yesterdayKey).catch(console.warn);
+        
+        // Load water intake for the new day (should be 0 but check anyway)
+        loadWaterIntake();
+      }
+    };
+
+    // Check immediately when component mounts
+    checkDateChange();
+    
+    // Set up interval to check every 10 seconds (same as meals system)
+    const interval = setInterval(checkDateChange, 10000);
+
+    return () => clearInterval(interval);
+  }, [currentDate]);
+
+  // Load water intake from AsyncStorage
+  const loadWaterIntake = async () => {
+    try {
+      const today = getLocalDateString(); // Use local timezone date
+      const savedWater = await AsyncStorage.getItem(`water_intake_${today}`);
+      if (savedWater) {
+        const intake = parseInt(savedWater);
+        console.log(`💧 Loaded water intake for ${today}: ${intake} cups`);
+        setWaterIntake(intake);
+      } else {
+        console.log(`💧 No saved water intake for ${today}, starting fresh`);
+        setWaterIntake(0);
+      }
+    } catch (error) {
+      console.warn('Error loading water intake:', error);
+    }
+  };
+
+  // Save water intake to AsyncStorage
+  const saveWaterIntake = async (newIntake) => {
+    try {
+      const today = getLocalDateString(); // Use local timezone date
+      await AsyncStorage.setItem(`water_intake_${today}`, newIntake.toString());
+    } catch (error) {
+      console.warn('Error saving water intake:', error);
+    }
+  };
 
   // Calculate recommended calories based on age (simple estimation)
   const getRecommendedCalories = () => {
@@ -42,19 +127,72 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
     return 2000; // Default recommendation
   };
 
+  // Handle water intake increment
+  const handleWaterIncrement = () => {
+    const newIntake = waterIntake + 1;
+    console.log(`💧 Water intake incremented: ${waterIntake} → ${newIntake} cups (${getLocalDateString()})`);
+    setWaterIntake(newIntake);
+    saveWaterIntake(newIntake);
+  };
+
+  // Calculate BMI if user has height and weight data
+  const calculateBMI = () => {
+    // Mock values - in real app you'd get these from user profile
+    // Set to healthy BMI range for normal display
+    const weight = 70; // kg (healthy weight)
+    const height = 1.75; // meters
+    
+    if (weight && height) {
+      const bmi = (weight / (height * height)).toFixed(1);
+      return bmi;
+    }
+    return '22.5'; // Default BMI
+  };
+
+  // Get BMI color based on health ranges
+  const getBMIColor = () => {
+    const bmiValue = parseFloat(calculateBMI());
+    let color, category;
+    
+    if (bmiValue < 18.5) {
+      // Underweight - Blue/Light Blue
+      color = '#4A90E2'; // Light blue for underweight
+      category = 'Underweight';
+    } else if (bmiValue >= 18.5 && bmiValue < 25) {
+      // Normal weight - Green
+      color = '#28A745'; // Green for healthy range
+      category = 'Normal';
+    } else if (bmiValue >= 25 && bmiValue < 30) {
+      // Overweight - Yellow/Orange
+      color = '#FFC107'; // Yellow/amber for overweight
+      category = 'Overweight';
+    } else {
+      // Obese - Red
+      color = '#DC3545'; // Red for obese
+      category = 'Obese';
+    }
+    
+    console.log(`📊 BMI: ${bmiValue} (${category}) - Color: ${color}`);
+    return color;
+  };
+
+  // Mock calories burned - in real app you'd get this from fitness tracking
+  const getCaloriesBurned = () => {
+    return '320'; // Mock calories burned
+  };
+
   // Mock data for metrics
   const todayStats = [
     { value: dailyCalories.toString(), label: 'Calories', color: AppColors.nutrition },
-    { value: '45', label: 'Protein', color: AppColors.primary },
-    { value: '8.2k', label: 'Steps', color: AppColors.workout },
-    { value: '7.5h', label: 'Sleep', color: AppColors.account },
-  ];
-
-  const quickActions = [
-    { icon: 'restaurant-outline', title: 'Log Meal', color: AppColors.nutrition },
-    { icon: 'fitness-outline', title: 'Workout', color: AppColors.workout },
-    { icon: 'water-outline', title: 'Water', color: AppColors.primary },
-    { icon: 'moon-outline', title: 'Sleep', color: AppColors.account },
+    { 
+      value: `${waterIntake}`, 
+      label: 'Water (cups)', 
+      color: AppColors.primary,
+      onPress: handleWaterIncrement,
+      tappable: true
+    },
+    { value: getCaloriesBurned(), label: 'Burned', color: AppColors.workout },
+    { value: calculateBMI(), label: 'BMI', color: getBMIColor() },
   ];
 
   const recentMeals = foodEntries.slice(0, 3).map(entry => ({
@@ -167,8 +305,22 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
       <View style={minimalStyles.statsContainer}>
         {todayStats.map((stat, index) => (
           <View key={index} style={minimalStyles.statItem}>
-            <Text style={[minimalStyles.statValue, { color: stat.color }]}>{stat.value}</Text>
-            <Text style={minimalStyles.statLabel}>{stat.label}</Text>
+            {stat.tappable ? (
+              <TouchableOpacity 
+                onPress={stat.onPress} 
+                style={minimalStyles.tappableStat}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={[minimalStyles.statValue, { color: stat.color }]}>{stat.value}</Text>
+                <Text style={minimalStyles.statLabel}>{stat.label}</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <Text style={[minimalStyles.statValue, { color: stat.color }]}>{stat.value}</Text>
+                <Text style={minimalStyles.statLabel}>{stat.label}</Text>
+              </>
+            )}
             {index < todayStats.length - 1 && <View style={minimalStyles.statDivider} />}
           </View>
         ))}
@@ -176,64 +328,128 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
     </View>
   );
 
-  const renderQuickActions = () => (
-    <View style={minimalStyles.section}>
-      <View style={minimalStyles.sectionHeader}>
-        <Text style={minimalStyles.sectionTitle}>Quick Actions</Text>
-      </View>
-      <View style={minimalStyles.sectionLine} />
-      
-      <View style={minimalStyles.actionsRow}>
-        {quickActions.map((action, index) => (
-          <TouchableOpacity key={index} style={minimalStyles.action} onPress={() => console.log(`Pressed ${action.title}`)}>
-            <Ionicons name={action.icon} size={20} color={action.color} />
-            <Text style={minimalStyles.actionText}>{action.title}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
+  const renderRecentActivity = () => {
+    // Dashboard-specific styles for TodaysMealsComponent
+    const dashboardMealStyles = {
+      section: {
+        backgroundColor: '#F8F9FA',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+      },
+      sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+      },
+      sectionTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#1A1A1A',
+      },
+      sectionAction: {
+        fontSize: 14,
+        color: '#4A90E2',
+        fontWeight: '500',
+      },
+      sectionLine: {
+        height: 1,
+        backgroundColor: '#E9ECEF',
+        marginBottom: 16,
+      },
+      card: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 8,
+        padding: 0,
+      },
+      emptyState: {
+        alignItems: 'center',
+        paddingVertical: 24,
+      },
+      emptyStateText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#6C757D',
+        marginTop: 8,
+      },
+      emptyStateSubtext: {
+        fontSize: 12,
+        color: '#ADB5BD',
+        marginTop: 4,
+        textAlign: 'center',
+      },
+      mealRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+      },
+      mealInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+      },
+      mealDetails: {
+        marginLeft: 12,
+        flex: 1,
+      },
+      mealName: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#1A1A1A',
+      },
+      mealTime: {
+        fontSize: 12,
+        color: '#6C757D',
+        marginTop: 2,
+      },
+      mealCalories: {
+        alignItems: 'flex-end',
+      },
+      mealValue: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#1A1A1A',
+      },
+      mealUnit: {
+        fontSize: 12,
+        color: '#6C757D',
+      },
+      mealDivider: {
+        height: 1,
+        backgroundColor: '#F1F3F4',
+        marginHorizontal: 16,
+      },
+      moreRowButton: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+      },
+      moreRowText: {
+        fontSize: 13,
+        color: '#6C757D',
+        marginRight: 4,
+      },
+    };
 
-  const renderRecentActivity = () => (
-    <View style={minimalStyles.section}>
-      <View style={minimalStyles.sectionHeader}>
-        <Text style={minimalStyles.sectionTitle}>Recent Meals</Text>
-        <TouchableOpacity>
-          <Text style={minimalStyles.sectionAction}>View All</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={minimalStyles.sectionLine} />
-      
-      <View style={minimalStyles.card}>
-        {recentMeals.length > 0 ? (
-          recentMeals.map((meal, index) => (
-            <View key={index}>
-              <TouchableOpacity style={minimalStyles.mealRow}>
-                <View style={minimalStyles.mealInfo}>
-                  <Ionicons name="restaurant-outline" size={18} color={AppColors.nutrition} />
-                  <Text style={minimalStyles.mealName}>{meal.name} • {meal.time}</Text>
-                </View>
-                <View style={minimalStyles.mealCalories}>
-                  <Text style={minimalStyles.mealValue}>{meal.calories}</Text>
-                  <Text style={minimalStyles.mealUnit}>cal</Text>
-                </View>
-              </TouchableOpacity>
-              {index < recentMeals.length - 1 && <View style={minimalStyles.mealDivider} />}
-            </View>
-          ))
-        ) : (
-          <View style={minimalStyles.emptyState}>
-            <Ionicons name="restaurant-outline" size={32} color={AppColors.border} />
-            <Text style={minimalStyles.emptyText}>No meals logged today</Text>
-            <TouchableOpacity style={minimalStyles.emptyButton}>
-              <Text style={minimalStyles.emptyButtonText}>Log your first meal</Text>
-              <View style={minimalStyles.emptyButtonUnderline} />
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-    </View>
-  );
+    return (
+      <TodaysMealsComponent
+        styles={dashboardMealStyles}
+        maxMealsToShow={3}
+        showViewAll={true}
+        onViewAllPress={() => {
+          setNutritionSubTab('meals');
+          setActiveTab('nutrition');
+        }}
+        emptyStateMessage="No meals logged today"
+        emptyStateSubtext="Log your first meal to get started"
+      />
+    );
+  };
 
   return (
     <View style={minimalStyles.container}>
@@ -253,7 +469,6 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
       >
         {renderCalorieProgress()}
         {renderTodayStats()}
-        {renderQuickActions()}
         {renderRecentActivity()}
       </ScrollView>
 
@@ -462,6 +677,13 @@ const minimalStyles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 12,
     color: AppColors.textSecondary,
+  },
+  tappableStat: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    minHeight: 50, // Ensures consistent height
+    backgroundColor: 'transparent',
   },
   statDivider: {
     position: 'absolute',

@@ -9,12 +9,14 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Contexts
 import { useDailyCalories } from '../contexts/DailyCaloriesContext';
+import { useAppContext } from '../contexts/AppContext';
 
 // Components
 import FoodCameraScreen from './FoodCameraScreen';
 import FoodPredictionCard from './FoodPredictionCard';
 import MultiFoodSelectionCard from './MultiFoodSelectionCard';
 import SwipeToDeleteWrapper from './SimpleSwipeToDelete';
+import TodaysMealsComponent from './TodaysMealsComponent';
 import FoodSearchModal from './FoodSearchModal';
 import EnhancedRecipeBrowserScreen from './EnhancedRecipeBrowserScreen';
 
@@ -36,7 +38,7 @@ const AppColors = {
 
 const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState('today');
+  const { nutritionSubTab, setNutritionSubTab } = useAppContext();
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [isCalorieCardExpanded, setIsCalorieCardExpanded] = useState(false);
   const [showDateFilter, setShowDateFilter] = useState(false);
@@ -67,18 +69,20 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
     clearCache
   } = useDailyCalories();
 
-  // Use real data, fallback to sample values for testing progress bars
-  const testMicros = {
-    fiber: dailyMicros.fiber || 8, // Show some fiber progress for testing
-    sugar: dailyMicros.sugar || 15, // Show some sugar progress for testing  
-    sodium: dailyMicros.sodium || 800 // Show some sodium progress for testing
+  // Define nutritional goals (can be made user-configurable later)
+  const nutritionGoals = {
+    protein: user?.protein_goal || 150, // grams
+    carbs: user?.carbs_goal || 225, // grams  
+    fat: user?.fat_goal || 65, // grams
+    fiber: user?.fiber_goal || 25, // grams
+    sugar: user?.sugar_goal || 50, // grams (WHO recommendation)
+    sodium: user?.sodium_goal || 2300 // mg (FDA recommendation)
   };
 
-  // Use real data, fallback to sample values for testing progress bars  
-  const testMacros = {
-    protein: dailyMacros.protein || 45, // Show protein progress for testing
-    carbs: dailyMacros.carbs || 120, // Show carbs progress for testing
-    fat: dailyMacros.fat || 25 // Show fat progress for testing
+  // Calculate progress percentages for nutrition values
+  const calculateProgress = (current, goal) => {
+    if (!goal || goal === 0) return 0;
+    return Math.min(100, (current / goal) * 100);
   };
 
   const tabs = [
@@ -151,27 +155,6 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
     { icon: 'restaurant-outline', title: 'Log Meal', color: AppColors.primary },
     { icon: 'water-outline', title: 'Water', color: AppColors.primary },
   ];
-
-  // Get recent meals from context (convert todaysMeals to the format expected)
-  // Add extra safety filter to ensure only today's meals are shown
-  const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
-  const recentMeals = todaysMeals
-    .filter(meal => {
-      // Double-check that the meal is actually from today
-      const mealDate = meal.date || meal.meal_date;
-      if (mealDate !== today) {
-        console.log('🚫 Filtering out meal from recent meals - wrong date:', meal.name, 'date:', mealDate, 'expected:', today);
-        return false;
-      }
-      return true;
-    })
-    .map(meal => ({
-      id: meal.id,
-      name: meal.name,  // Use the already formatted name from context
-      time: meal.time,  // Use the already formatted time from context
-      calories: meal.calories,
-      type: meal.meal_type || meal.method || 'Meal'
-    }));
 
   // Helper function to format date for display
   function formatDateForDisplay(dateString) {
@@ -576,14 +559,14 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
             key={tab.id}
             style={[
               minimalStyles.tab,
-              activeTab === tab.id && minimalStyles.activeTab
+              nutritionSubTab === tab.id && minimalStyles.activeTab
             ]}
-            onPress={() => setActiveTab(tab.id)}
+            onPress={() => setNutritionSubTab(tab.id)}
           >
             <Text 
               style={[
                 minimalStyles.tabText,
-                { color: activeTab === tab.id ? AppColors.nutrition : AppColors.textSecondary }
+                { color: nutritionSubTab === tab.id ? AppColors.nutrition : AppColors.textSecondary }
               ]}
             >
               {tab.label}
@@ -778,14 +761,34 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
                       marginHorizontal: 2,
                       minHeight: 75
                     }}>
-                      <Text style={{ fontSize: 11, color: '#666', fontWeight: '500', textAlign: 'center', height: 16, lineHeight: 16 }}>Protein</Text>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#4A90E2', textAlign: 'center', height: 20, lineHeight: 20, marginTop: 4 }}>
-                        {Math.round(testMacros.protein)}g
+                      <Text style={{ 
+                        fontSize: 11, 
+                        color: calculateProgress(dailyMacros.protein, nutritionGoals.protein) > 100 ? '#DC3545' : '#666', 
+                        fontWeight: '500', 
+                        textAlign: 'center', 
+                        height: 16, 
+                        lineHeight: 16 
+                      }}>Protein</Text>
+                      <Text style={{ 
+                        fontSize: 16, 
+                        fontWeight: 'bold', 
+                        color: calculateProgress(dailyMacros.protein, nutritionGoals.protein) > 100 ? '#DC3545' : '#4A90E2', 
+                        textAlign: 'center', 
+                        height: 20, 
+                        lineHeight: 20, 
+                        marginTop: 4 
+                      }}>
+                        {Math.round(dailyMacros.protein)}g
                       </Text>
                       <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ width: '30%', height: 3, backgroundColor: '#4A90E2', borderRadius: 1.5 }} />
+                        <View style={{ 
+                          width: `${Math.min(100, calculateProgress(dailyMacros.protein, nutritionGoals.protein))}%`, 
+                          height: 3, 
+                          backgroundColor: calculateProgress(dailyMacros.protein, nutritionGoals.protein) > 100 ? '#DC3545' : '#4A90E2', 
+                          borderRadius: 1.5 
+                        }} />
                       </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>150g</Text>
+                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>{nutritionGoals.protein}g</Text>
                     </View>
 
                     {/* Carbs */}
@@ -794,14 +797,34 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
                       marginHorizontal: 2,
                       minHeight: 75
                     }}>
-                      <Text style={{ fontSize: 11, color: '#666', fontWeight: '500', textAlign: 'center', height: 16, lineHeight: 16 }}>Carbs</Text>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#FF6B6B', textAlign: 'center', height: 20, lineHeight: 20, marginTop: 4 }}>
-                        {Math.round(testMacros.carbs)}g
+                      <Text style={{ 
+                        fontSize: 11, 
+                        color: calculateProgress(dailyMacros.carbs, nutritionGoals.carbs) > 100 ? '#DC3545' : '#666', 
+                        fontWeight: '500', 
+                        textAlign: 'center', 
+                        height: 16, 
+                        lineHeight: 16 
+                      }}>Carbs</Text>
+                      <Text style={{ 
+                        fontSize: 16, 
+                        fontWeight: 'bold', 
+                        color: calculateProgress(dailyMacros.carbs, nutritionGoals.carbs) > 100 ? '#DC3545' : '#FF6B6B', 
+                        textAlign: 'center', 
+                        height: 20, 
+                        lineHeight: 20, 
+                        marginTop: 4 
+                      }}>
+                        {Math.round(dailyMacros.carbs)}g
                       </Text>
                       <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ width: '53%', height: 3, backgroundColor: '#FF6B6B', borderRadius: 1.5 }} />
+                        <View style={{ 
+                          width: `${Math.min(100, calculateProgress(dailyMacros.carbs, nutritionGoals.carbs))}%`, 
+                          height: 3, 
+                          backgroundColor: calculateProgress(dailyMacros.carbs, nutritionGoals.carbs) > 100 ? '#DC3545' : '#FF6B6B', 
+                          borderRadius: 1.5 
+                        }} />
                       </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>225g</Text>
+                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>{nutritionGoals.carbs}g</Text>
                     </View>
 
                     {/* Fat */}
@@ -810,14 +833,34 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
                       marginHorizontal: 2,
                       minHeight: 75
                     }}>
-                      <Text style={{ fontSize: 11, color: '#666', fontWeight: '500', textAlign: 'center', height: 16, lineHeight: 16 }}>Fat</Text>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#FFC107', textAlign: 'center', height: 20, lineHeight: 20, marginTop: 4 }}>
-                        {Math.round(testMacros.fat)}g
+                      <Text style={{ 
+                        fontSize: 11, 
+                        color: calculateProgress(dailyMacros.fat, nutritionGoals.fat) > 100 ? '#DC3545' : '#666', 
+                        fontWeight: '500', 
+                        textAlign: 'center', 
+                        height: 16, 
+                        lineHeight: 16 
+                      }}>Fat</Text>
+                      <Text style={{ 
+                        fontSize: 16, 
+                        fontWeight: 'bold', 
+                        color: calculateProgress(dailyMacros.fat, nutritionGoals.fat) > 100 ? '#DC3545' : '#FFC107', 
+                        textAlign: 'center', 
+                        height: 20, 
+                        lineHeight: 20, 
+                        marginTop: 4 
+                      }}>
+                        {Math.round(dailyMacros.fat)}g
                       </Text>
                       <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ width: '38%', height: 3, backgroundColor: '#FFC107', borderRadius: 1.5 }} />
+                        <View style={{ 
+                          width: `${Math.min(100, calculateProgress(dailyMacros.fat, nutritionGoals.fat))}%`, 
+                          height: 3, 
+                          backgroundColor: calculateProgress(dailyMacros.fat, nutritionGoals.fat) > 100 ? '#DC3545' : '#FFC107', 
+                          borderRadius: 1.5 
+                        }} />
                       </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>65g</Text>
+                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>{nutritionGoals.fat}g</Text>
                     </View>
                   </View>
 
@@ -832,14 +875,34 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
                       marginHorizontal: 2,
                       minHeight: 75
                     }}>
-                      <Text style={{ fontSize: 11, color: '#666', fontWeight: '500', textAlign: 'center', height: 16, lineHeight: 16 }}>Fiber</Text>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#28A745', textAlign: 'center', height: 20, lineHeight: 20, marginTop: 4 }}>
-                        {Math.round(testMicros.fiber)}g
+                      <Text style={{ 
+                        fontSize: 11, 
+                        color: calculateProgress(dailyMicros.fiber, nutritionGoals.fiber) > 100 ? '#DC3545' : '#666', 
+                        fontWeight: '500', 
+                        textAlign: 'center', 
+                        height: 16, 
+                        lineHeight: 16 
+                      }}>Fiber</Text>
+                      <Text style={{ 
+                        fontSize: 16, 
+                        fontWeight: 'bold', 
+                        color: calculateProgress(dailyMicros.fiber, nutritionGoals.fiber) > 100 ? '#DC3545' : '#28A745', 
+                        textAlign: 'center', 
+                        height: 20, 
+                        lineHeight: 20, 
+                        marginTop: 4 
+                      }}>
+                        {Math.round(dailyMicros.fiber)}g
                       </Text>
                       <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ width: '32%', height: 3, backgroundColor: '#28A745', borderRadius: 1.5 }} />
+                        <View style={{ 
+                          width: `${Math.min(100, calculateProgress(dailyMicros.fiber, nutritionGoals.fiber))}%`, 
+                          height: 3, 
+                          backgroundColor: calculateProgress(dailyMicros.fiber, nutritionGoals.fiber) > 100 ? '#DC3545' : '#28A745', 
+                          borderRadius: 1.5 
+                        }} />
                       </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>25g</Text>
+                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>{nutritionGoals.fiber}g</Text>
                     </View>
 
                     {/* Sugar */}
@@ -848,14 +911,34 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
                       marginHorizontal: 2,
                       minHeight: 75
                     }}>
-                      <Text style={{ fontSize: 11, color: '#666', fontWeight: '500', textAlign: 'center', height: 16, lineHeight: 16 }}>Sugar</Text>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#FF8C42', textAlign: 'center', height: 20, lineHeight: 20, marginTop: 4 }}>
-                        {Math.round(testMicros.sugar)}g
+                      <Text style={{ 
+                        fontSize: 11, 
+                        color: calculateProgress(dailyMicros.sugar, nutritionGoals.sugar) > 100 ? '#DC3545' : '#666', 
+                        fontWeight: '500', 
+                        textAlign: 'center', 
+                        height: 16, 
+                        lineHeight: 16 
+                      }}>Sugar</Text>
+                      <Text style={{ 
+                        fontSize: 16, 
+                        fontWeight: 'bold', 
+                        color: calculateProgress(dailyMicros.sugar, nutritionGoals.sugar) > 100 ? '#DC3545' : '#FF8C42', 
+                        textAlign: 'center', 
+                        height: 20, 
+                        lineHeight: 20, 
+                        marginTop: 4 
+                      }}>
+                        {Math.round(dailyMicros.sugar)}g
                       </Text>
                       <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ width: '30%', height: 3, backgroundColor: '#FF8C42', borderRadius: 1.5 }} />
+                        <View style={{ 
+                          width: `${Math.min(100, calculateProgress(dailyMicros.sugar, nutritionGoals.sugar))}%`, 
+                          height: 3, 
+                          backgroundColor: calculateProgress(dailyMicros.sugar, nutritionGoals.sugar) > 100 ? '#DC3545' : '#FF8C42', 
+                          borderRadius: 1.5 
+                        }} />
                       </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>50g</Text>
+                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>{nutritionGoals.sugar}g</Text>
                     </View>
 
                     {/* Sodium */}
@@ -864,14 +947,34 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
                       marginHorizontal: 2,
                       minHeight: 75
                     }}>
-                      <Text style={{ fontSize: 11, color: '#666', fontWeight: '500', textAlign: 'center', height: 16, lineHeight: 16 }}>Sodium</Text>
-                      <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#6C757D', textAlign: 'center', height: 20, lineHeight: 20, marginTop: 4 }}>
-                        {Math.round(testMicros.sodium)}mg
+                      <Text style={{ 
+                        fontSize: 11, 
+                        color: calculateProgress(dailyMicros.sodium, nutritionGoals.sodium) > 100 ? '#DC3545' : '#666', 
+                        fontWeight: '500', 
+                        textAlign: 'center', 
+                        height: 16, 
+                        lineHeight: 16 
+                      }}>Sodium</Text>
+                      <Text style={{ 
+                        fontSize: 16, 
+                        fontWeight: 'bold', 
+                        color: calculateProgress(dailyMicros.sodium, nutritionGoals.sodium) > 100 ? '#DC3545' : '#6C757D', 
+                        textAlign: 'center', 
+                        height: 20, 
+                        lineHeight: 20, 
+                        marginTop: 4 
+                      }}>
+                        {Math.round(dailyMicros.sodium)}mg
                       </Text>
                       <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ width: '35%', height: 3, backgroundColor: '#6C757D', borderRadius: 1.5 }} />
+                        <View style={{ 
+                          width: `${Math.min(100, calculateProgress(dailyMicros.sodium, nutritionGoals.sodium))}%`, 
+                          height: 3, 
+                          backgroundColor: calculateProgress(dailyMicros.sodium, nutritionGoals.sodium) > 100 ? '#DC3545' : '#6C757D', 
+                          borderRadius: 1.5 
+                        }} />
                       </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>2300mg</Text>
+                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>{nutritionGoals.sodium}mg</Text>
                     </View>
                   </View>
                 </View>
@@ -896,51 +999,19 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
     );
   };
 
-  const renderRecentMeals = () => (
-    <View style={minimalStyles.section}>
-      <View style={minimalStyles.sectionHeader}>
-        <Text style={minimalStyles.sectionTitle}>Recent Meals</Text>
-        <TouchableOpacity>
-          <Text style={minimalStyles.sectionAction}>View All</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={minimalStyles.sectionLine} />
-      
-      <View style={minimalStyles.card}>
-        {recentMeals.length === 0 ? (
-          <View style={minimalStyles.emptyState}>
-            <Ionicons name="restaurant-outline" size={32} color={AppColors.textSecondary} />
-            <Text style={minimalStyles.emptyStateText}>No meals logged today</Text>
-            <Text style={minimalStyles.emptyStateSubtext}>Tap the + button to add your first meal</Text>
-          </View>
-        ) : (
-          recentMeals.map((meal, index) => (
-            <View key={meal.id}>
-              <SwipeToDeleteWrapper 
-                onDelete={() => handleDeleteMeal(meal.id)}
-                enabled={true}
-                mealName={meal.name}
-              >
-                <TouchableOpacity style={minimalStyles.mealRow}>
-                  <View style={minimalStyles.mealInfo}>
-                    <Ionicons name="restaurant-outline" size={18} color={AppColors.nutrition} />
-                    <View style={minimalStyles.mealDetails}>
-                      <Text style={minimalStyles.mealName}>{meal.name}</Text>
-                      <Text style={minimalStyles.mealTime}>{meal.type} • {meal.time}</Text>
-                    </View>
-                  </View>
-                  <View style={minimalStyles.mealCalories}>
-                    <Text style={minimalStyles.mealValue}>{meal.calories}</Text>
-                    <Text style={minimalStyles.mealUnit}>cal</Text>
-                  </View>
-                </TouchableOpacity>
-              </SwipeToDeleteWrapper>
-              {index < recentMeals.length - 1 && <View style={minimalStyles.mealDivider} />}
-            </View>
-          ))
-        )}
-      </View>
-    </View>
+  const renderTodaysMeals = () => (
+    <TodaysMealsComponent 
+      styles={minimalStyles}
+      showViewAll={true}
+      onViewAllPress={() => {
+        // Could navigate to full meals view or switch to meals tab
+        console.log('View all meals pressed');
+      }}
+      onMealPress={(meal) => {
+        // Could open meal details modal
+        console.log('Meal pressed:', meal.name);
+      }}
+    />
   );
 
   const renderRecipeContent = () => {
@@ -959,13 +1030,14 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
   };
 
   const renderContent = () => {
-    switch (activeTab) {
+    switch (nutritionSubTab) {
       case 'today':
         return (
           <>
             {renderNutritionStats()}
             {renderCalorieProgress()}
-            {renderRecentMeals()}
+            {/* Debug component removed */}
+            {renderTodaysMeals()}
           </>
         );
       case 'meals':
@@ -983,7 +1055,7 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       {renderTabs()}
       
       {/* Conditional ScrollView - don't use for recipes tab to avoid VirtualizedList nesting */}
-      {activeTab === 'recipes' ? (
+      {nutritionSubTab === 'recipes' ? (
         renderContent()
       ) : (
         <ScrollView

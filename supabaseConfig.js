@@ -4,11 +4,23 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-// Validate that environment variables are set
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please check your .env file and ensure EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY are set.'
-  );
+// Log configuration status for debugging
+console.log('🔧 Supabase Config Status:');
+console.log('  - URL present:', !!supabaseUrl);
+console.log('  - Key present:', !!supabaseAnonKey);
+if (supabaseUrl) {
+  console.log('  - URL starts with:', supabaseUrl.substring(0, 20) + '...');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Validate that environment variables are set
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Missing Supabase configuration.');
+  console.error('Please set environment variables before starting Expo:');
+  console.error('$env:EXPO_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"');
+  console.error('$env:EXPO_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"');
+  console.error('Then run: npx expo start');
+} else {
+  console.log('✅ Supabase configuration loaded successfully');
+}
+
+export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
