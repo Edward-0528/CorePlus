@@ -18,7 +18,6 @@ import MultiFoodSelectionCard from './MultiFoodSelectionCard';
 import SwipeToDeleteWrapper from './SimpleSwipeToDelete';
 import TodaysMealsComponent from './TodaysMealsComponent';
 import FoodSearchModal from './FoodSearchModal';
-import EnhancedRecipeBrowserScreen from './EnhancedRecipeBrowserScreen';
 
 // Define colors directly
 const AppColors = {
@@ -1017,14 +1016,17 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
   const renderRecipeContent = () => {
     return (
       <View style={{ flex: 1 }}>
-        <EnhancedRecipeBrowserScreen
-          visible={true}
-          onClose={() => {}} // No close needed since it's embedded
-          onSelectRecipe={handleRecipeSelect}
-          user={user}
-          isPremium={true}
-          embedded={true} // Flag to indicate it's embedded in the main screen
-        />
+        <View style={minimalStyles.section}>
+          <View style={minimalStyles.card}>
+            <View style={minimalStyles.emptyState}>
+              <Ionicons name="restaurant-outline" size={48} color={AppColors.nutrition} />
+              <Text style={minimalStyles.emptyStateText}>Coming Soon</Text>
+              <Text style={minimalStyles.emptyStateSubtext}>
+                We're building an amazing recipe collection for you. Check back soon for personalized meal ideas and cooking inspiration!
+              </Text>
+            </View>
+          </View>
+        </View>
       </View>
     );
   };

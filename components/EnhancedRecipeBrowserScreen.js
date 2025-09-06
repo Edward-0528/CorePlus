@@ -21,6 +21,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, fonts } from '../utils/responsive';
 import { recipeService } from '../services/recipeService';
 import { geminiService } from '../services/geminiService';
+import { tastyService } from '../services/tastyService';
+import { unifiedRecipeService } from '../services/unifiedRecipeService';
 import { useDailyCalories } from '../contexts/DailyCaloriesContext';
 import BarcodeScanner from './BarcodeScanner';
 import AnimatedLoader from './AnimatedLoader';
@@ -83,6 +85,7 @@ const RecipeBrowserScreen = ({
   
   // Data states
   const [recipes, setRecipes] = useState([]);
+  const [ingredientRecipes, setIngredientRecipes] = useState([]);
   const [favoriteRecipes, setFavoriteRecipes] = useState([]);
   const [recipeHistory, setRecipeHistory] = useState([]);
   const [userIngredients, setUserIngredients] = useState([]);
@@ -150,6 +153,15 @@ const RecipeBrowserScreen = ({
       loadInitialData();
     }
   }, [visible, user?.id]);
+
+  // Clear recipes when switching tabs to prevent duplication
+  useEffect(() => {
+    if (activeTab === 'search') {
+      setIngredientRecipes([]);
+    } else if (activeTab === 'ingredients') {
+      setRecipes([]);
+    }
+  }, [activeTab]);
 
   const loadInitialData = async () => {
     setLoading(true);
@@ -325,214 +337,39 @@ const RecipeBrowserScreen = ({
     try {
       const filters = buildFilterObject();
       
-      // Use Spoonacular API as primary source for reliable recipes with real images
-      let spoonacularResults = [];
-      try {
-        console.log('Searching with Spoonacular API for:', query);
-        spoonacularResults = await recipeService.searchRecipes(query, filters);
-        console.log('Spoonacular Results:', spoonacularResults.length, 'recipes found');
-      } catch (spoonacularError) {
-        console.log('Spoonacular search failed:', spoonacularError.message);
-      }
-
-      // Use AI as secondary source for additional recipe suggestions
-      let aiResults = [];
-      try {
-        console.log('Getting additional suggestions from Gemini AI for:', query);
-        aiResults = await geminiService.searchRecipes(query, {
-          diet: filters.diet,
-          maxCalories: filters.maxCalories,
-          maxCookTime: filters.maxReadyTime,
-          allergies: filters.intolerances ? filters.intolerances.split(',') : [],
-          servings: 4
-        });
-        console.log('AI Results:', aiResults.length, 'recipes found');
-      } catch (aiError) {
-        console.log('AI search failed, using only Spoonacular results:', aiError.message);
-      }
-
-      // Filter out ingredients and ensure we only have actual recipes
-      const filterOnlyRecipes = (results) => {
-        console.log('Filtering results, before:', results.length);
-        const filtered = results.filter(item => {
-          // Must have a title
-          if (!item.title) {
-            console.log('Rejected: No title -', item);
-            return false;
-          }
-          
-          // Filter out single ingredients (typically short, single words)
-          const title = item.title.toLowerCase().trim();
-          console.log('Checking title:', title);
-          
-          // Skip if it looks like a single ingredient
-          if (title.split(' ').length === 1 && title.length < 8) {
-            console.log('Rejected: Single word ingredient -', title);
-            return false;
-          }
-          
-          // Comprehensive ingredient keywords list
-          const ingredientKeywords = [
-            // Basic ingredients
-            'salt', 'pepper', 'oil', 'butter', 'flour', 'sugar', 'egg', 'milk',
-            'onion', 'garlic', 'tomato', 'cheese', 'chicken', 'beef', 'pork',
-            'fish', 'rice', 'pasta', 'bread', 'water', 'wine', 'vinegar',
-            'herbs', 'spices', 'lemon', 'lime', 'celery', 'carrot', 'potato',
-            'avocado', 'spinach', 'lettuce', 'cucumber', 'bell pepper',
-            
-            // Specific problematic ingredients you mentioned
-            'black pepper', 'shredded cheddar cheese', 'salt and pepper',
-            'cheddar cheese', 'mozzarella cheese', 'parmesan cheese',
-            'olive oil', 'vegetable oil', 'coconut oil', 'sesame oil',
-            'sea salt', 'kosher salt', 'table salt', 'iodized salt',
-            'white pepper', 'red pepper', 'cayenne pepper',
-            'ground pepper', 'cracked pepper', 'peppercorn',
-            
-            // Cheese variations
-            'cheese', 'american cheese', 'swiss cheese', 'provolone cheese',
-            'goat cheese', 'cream cheese', 'cottage cheese', 'ricotta cheese',
-            'feta cheese', 'blue cheese', 'brie cheese', 'camembert cheese',
-            
-            // Common cooking ingredients
-            'baking powder', 'baking soda', 'vanilla extract', 'almond extract',
-            'soy sauce', 'worcestershire sauce', 'hot sauce', 'barbecue sauce',
-            'ketchup', 'mustard', 'mayonnaise', 'ranch dressing',
-            'italian seasoning', 'garlic powder', 'onion powder', 'paprika',
-            'cumin', 'oregano', 'basil', 'thyme', 'rosemary', 'parsley',
-            'cilantro', 'dill', 'sage', 'bay leaves', 'cinnamon', 'nutmeg'
-          ];
-          
-          // Check exact matches for ingredient keywords
-          if (ingredientKeywords.includes(title)) {
-            console.log('Rejected: Exact ingredient keyword match -', title);
-            return false;
-          }
-          
-          // Enhanced ingredient detection - look for patterns
-          const suspiciousPatterns = [
-            /^\d+\s*(cups?|tablespoons?|teaspoons?|lbs?|pounds?|ounces?|oz|grams?|kg)/i, // measurements
-            /^fresh\s+\w+$/i, // "fresh basil", "fresh oregano"
-            /^dried\s+\w+$/i, // "dried herbs", "dried spices"
-            /^ground\s+\w+$/i, // "ground pepper", "ground cinnamon"
-            /^chopped\s+\w+$/i, // "chopped onions"
-            /^sliced\s+\w+$/i, // "sliced tomatoes"
-            /^shredded\s+\w+$/i, // "shredded cheese", "shredded lettuce"
-            /^grated\s+\w+$/i, // "grated cheese", "grated ginger"
-            /^minced\s+\w+$/i, // "minced garlic"
-            /^diced\s+\w+$/i, // "diced onions"
-            /^whole\s+\w+$/i, // "whole milk", "whole wheat"
-            /^raw\s+\w+$/i, // "raw honey"
-            /^organic\s+\w+$/i, // "organic vegetables"
-            /^extra virgin\s+/i, // "extra virgin olive oil"
-            /^\w+\s+(salt|pepper|oil|sauce|powder|extract)$/i, // "garlic powder", "soy sauce"
-            /^\w+\s+cheese$/i, // any type of cheese
-            /^all-purpose\s+/i, // "all-purpose flour"
-            /^low-fat\s+/i, // "low-fat milk"
-            /^non-fat\s+/i, // "non-fat yogurt"
-          ];
-          
-          if (suspiciousPatterns.some(pattern => pattern.test(title))) {
-            console.log('Rejected: Suspicious ingredient pattern -', title);
-            return false;
-          }
-          
-          // Must have actual cooking instructions (not just "Recipe details available on selection")
-          const hasRealInstructions = item.instructions && 
-            Array.isArray(item.instructions) && 
-            item.instructions.length > 0 &&
-            !item.instructions.every(instruction => 
-              instruction && typeof instruction === 'string' && (
-                instruction.toLowerCase().includes('recipe details available') ||
-                instruction.toLowerCase().includes('details available on selection') ||
-                instruction.toLowerCase() === 'recipe details available on selection'
-              )
-            );
-          
-          if (!hasRealInstructions && !item.analyzedInstructions && !item.isAIGenerated && !item.isAISearched) {
-            console.log('Rejected: No real instructions -', title);
-            return false;
-          }
-          
-          // Should have reasonable cooking time (ingredients don't have cooking time)
-          if (item.readyInMinutes && item.readyInMinutes < 5 && !item.isAIGenerated && !item.isAISearched) {
-            console.log('Rejected: Too short cooking time -', title, item.readyInMinutes);
-            return false;
-          }
-          
-          // Should have reasonable number of ingredients (actual recipes have multiple ingredients)
-          if (item.ingredients && Array.isArray(item.ingredients) && item.ingredients.length < 2) {
-            console.log('Rejected: Too few ingredients -', title, item.ingredients.length);
-            return false;
-          }
-          
-          console.log('Accepted recipe:', title, 'Image:', item.image ? 'Yes' : 'No');
-          return true;
-        });
-        console.log('Filtering results, after:', filtered.length);
-        return filtered;
-      };
-
-      // Filter Spoonacular results (these should already be clean, but just in case)
-      const filteredSpoonacularResults = filterOnlyRecipes(spoonacularResults);
+      // Use unified search service that combines Spoonacular, Tasty, and AI
+      console.log('🔍 Starting unified search for:', query);
+      const results = await unifiedRecipeService.searchRecipes(query, filters);
       
-      // Filter AI results to remove any ingredients  
-      const filteredAiResults = filterOnlyRecipes(aiResults);
-
-      // Prioritize Spoonacular results (real recipes with real images)
-      const combinedResults = [...filteredSpoonacularResults];
+      console.log('✨ Unified search completed:', results.length, 'recipes found');
       
-      // Add AI results that don't conflict with Spoonacular results
-      filteredAiResults.forEach(aiRecipe => {
-        const isDuplicate = filteredSpoonacularResults.some(spoonacularRecipe => 
-          spoonacularRecipe.title.toLowerCase().includes(aiRecipe.title.toLowerCase()) ||
-          aiRecipe.title.toLowerCase().includes(spoonacularRecipe.title.toLowerCase())
-        );
-        
-        if (!isDuplicate) {
-          combinedResults.push(aiRecipe);
-        }
+      // Filter out any problematic results
+      const validRecipes = results.filter(recipe => {
+        return recipe && 
+               recipe.title && 
+               recipe.title.length > 3 &&
+               !recipe.title.toLowerCase().match(/^(salt|pepper|oil|butter|cheese|milk)$/);
       });
-
-      console.log(`Combined results: ${combinedResults.length} recipes (${filteredSpoonacularResults.length} from Spoonacular, ${filteredAiResults.length} from AI)`);
-
-      // Store unfiltered results for later filtering
-      setAllRecipes(combinedResults);
       
-      // Apply client-side filtering to combined results with error handling
-      let filteredResults = [];
-      try {
-        filteredResults = applyFiltersToRecipes(combinedResults, filters);
-        console.log(`Filtered results: ${filteredResults.length} recipes after applying filters`);
-      } catch (filterError) {
-        console.error('Error applying filters:', filterError);
-        // If filtering fails, use unfiltered results
-        filteredResults = combinedResults;
-      }
+      console.log('✅ Valid recipes after filtering:', validRecipes.length);
       
-      setRecipes(filteredResults);
+      setRecipes(validRecipes);
       
-      if (combinedResults.length === 0) {
-        // If both APIs failed, at least give the user a helpful message
-        Alert.alert('Search Issue', 'Recipe search is experiencing technical difficulties. This is often temporary - please try again in a moment, or try different search terms.');
-      } else if (filteredResults.length === 0) {
-        Alert.alert('No Results', 'No recipes match your current filters. Try adjusting your filter settings.');
+      if (validRecipes.length === 0) {
+        Alert.alert('No Results', 'No recipes found for your search. Try different keywords or adjust your filters.');
       } else {
-        console.log(`Search successful! Displaying ${filteredResults.length} recipes`);
+        console.log(`🎉 Search successful! Displaying ${validRecipes.length} recipes from multiple sources`);
+        
+        // Log source breakdown for debugging
+        const sourceBreakdown = validRecipes.reduce((acc, recipe) => {
+          const source = recipe.searchSource || 'Unknown';
+          acc[source] = (acc[source] || 0) + 1;
+          return acc;
+        }, {});
+        console.log('📊 Source breakdown:', sourceBreakdown);
       }
     } catch (error) {
       console.error('Error searching recipes:', error);
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
-      
-      // Even if there's an error, try to show any results we might have
-      if (recipes.length > 0) {
-        console.log('Using existing recipes despite error');
-        return;
-      }
-      
       Alert.alert('Search Error', `Unable to search recipes: ${error.message}. Please try again.`);
     } finally {
       clearInterval(messageInterval);
@@ -571,7 +408,7 @@ const RecipeBrowserScreen = ({
     
     try {
       const results = await recipeService.getRecipesByIngredients(userIngredients);
-      setRecipes(results);
+      setIngredientRecipes(results);
     } catch (error) {
       console.error('Error finding recipes by ingredients:', error);
       Alert.alert('Search Error', 'Unable to find recipes. Please try again.');
@@ -632,8 +469,28 @@ const RecipeBrowserScreen = ({
         console.log('Using AI-found real recipe as-is');
         setSelectedRecipe(recipe);
         setShowRecipeDetails(true);
+      } else if (recipe.isTastyRecipe || recipe.searchSource === 'Tasty') {
+        // For Tasty recipes, try to get detailed information from Tasty API
+        console.log('🔍 Fetching detailed Tasty recipe information for:', recipe.title);
+        const detailedTastyRecipe = await tastyService.getRecipeDetails(recipe.id);
+        
+        if (detailedTastyRecipe) {
+          console.log('✅ Got detailed recipe from Tasty API:', {
+            title: detailedTastyRecipe.title,
+            instructions: detailedTastyRecipe.analyzedInstructions?.[0]?.steps?.length || 0,
+            ingredients: detailedTastyRecipe.extendedIngredients?.length || 0,
+            nutrition: detailedTastyRecipe.nutrition?.nutrients?.length || 0,
+            readyTime: detailedTastyRecipe.readyInMinutes,
+            summary: detailedTastyRecipe.summary?.substring(0, 100) + '...'
+          });
+          setSelectedRecipe(detailedTastyRecipe);
+        } else {
+          console.log('⚠️ Using basic Tasty recipe data - detailed fetch failed');
+          setSelectedRecipe(recipe);
+        }
+        setShowRecipeDetails(true);
       } else {
-        // Try to get detailed recipe information from API
+        // Try to get detailed recipe information from API (only for Spoonacular recipes)
         const detailedRecipe = await recipeService.getRecipeDetails(recipe.id);
         
         if (detailedRecipe) {
@@ -1041,10 +898,10 @@ const RecipeBrowserScreen = ({
                   </Text>
                 </TouchableOpacity>
 
-                {recipes.length > 0 && (
+                {ingredientRecipes.length > 0 && (
                   <View style={{ position: 'relative' }}>
                     <FlatList
-                      data={recipes}
+                      data={ingredientRecipes}
                       renderItem={renderRecipeCard}
                       keyExtractor={(item) => item.id.toString()}
                       numColumns={2}

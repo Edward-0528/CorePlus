@@ -7,10 +7,12 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { authService } from './authService';
 import { socialAuthService } from './socialAuthService';
 import { biometricService } from './biometricService';
+import { revenueCatService } from './services/revenueCatService';
 import { styles } from './styles/AppStyles';
 import { AppProvider, useAppContext } from './contexts/AppContext';
 import { DailyCaloriesProvider } from './contexts/DailyCaloriesContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
+import { WorkoutSessionProvider } from './contexts/WorkoutSessionContext';
 
 // Design System
 import { configureDesignSystem } from './components/design/Theme';
@@ -100,6 +102,9 @@ function AppContent() {
         setShowLogin(false);
         setShowSignUp(false);
         
+        // Set RevenueCat user ID for tracking
+        await revenueCatService.setUserID(session.user.id);
+        
         // Check if user needs onboarding
         const needsOnboarding = await checkIfUserNeedsOnboarding(session.user.id);
         setShowOnboarding(needsOnboarding);
@@ -110,6 +115,9 @@ function AppContent() {
       } else {
         // User signed out - clear all user data
         console.log('🧹 User signed out - clearing user data');
+        
+        // Clear RevenueCat user data
+        await revenueCatService.logout();
         
         // Clear caches to prevent data bleeding between users
         try {
@@ -150,11 +158,17 @@ function AppContent() {
   const checkAuthState = async () => {
     setAuthLoading(true);
     try {
+      // Initialize RevenueCat first
+      await revenueCatService.initialize();
+      
       const { data: { user } } = await authService.getCurrentUser();
       if (user) {
         setUser(user);
         setIsAuthenticated(true);
         setShowLanding(false);
+        
+        // Set RevenueCat user ID for tracking
+        await revenueCatService.setUserID(user.id);
         
         // For existing users, check if they have completed onboarding
         const needsOnboarding = await checkIfUserNeedsOnboarding(user.id);
@@ -709,10 +723,12 @@ export default function App() {
         <AppProvider>
           <SubscriptionProvider>
             <DailyCaloriesProvider>
-              <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
-                <AppContent />
-                <StatusBar style="auto" />
-              </SafeAreaView>
+              <WorkoutSessionProvider>
+                <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
+                  <AppContent />
+                  <StatusBar style="auto" />
+                </SafeAreaView>
+              </WorkoutSessionProvider>
             </DailyCaloriesProvider>
           </SubscriptionProvider>
         </AppProvider>

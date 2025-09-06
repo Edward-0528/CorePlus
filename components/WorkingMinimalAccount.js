@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, RefreshControl, Alert, StyleSheet, View } from 'react-native';
+import { ScrollView, RefreshControl, Alert, StyleSheet, View, Modal } from 'react-native';
 import { 
   View as RNUIView, 
   Text, 
@@ -7,6 +7,8 @@ import {
   Switch
 } from 'react-native-ui-lib';
 import { Ionicons } from '@expo/vector-icons';
+import { revenueCatService } from '../services/revenueCatService';
+import SubscriptionScreen from './SubscriptionScreen';
 
 // Define colors directly
 const AppColors = {
@@ -30,6 +32,22 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const [notifications, setNotifications] = useState(true);
   const [biometrics, setBiometrics] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [showSubscriptions, setShowSubscriptions] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+
+  // Check premium status on component mount
+  React.useEffect(() => {
+    checkPremiumStatus();
+  }, []);
+
+  const checkPremiumStatus = async () => {
+    try {
+      const premium = await revenueCatService.hasActiveSubscription();
+      setIsPremium(premium);
+    } catch (error) {
+      console.error('Error checking premium status:', error);
+    }
+  };
 
   const userStats = [
     { value: '24', label: 'Days Active', color: AppColors.success },
@@ -45,6 +63,18 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
         { icon: 'person-outline', title: 'Edit Profile', subtitle: 'Name, email, preferences' },
         { icon: 'fitness-outline', title: 'Health Goals', subtitle: 'Weight, activity level' },
         { icon: 'star-outline', title: 'Achievements', subtitle: 'View your progress' },
+      ]
+    },
+    {
+      section: 'Subscription',
+      items: [
+        { 
+          icon: isPremium ? 'diamond' : 'diamond-outline', 
+          title: isPremium ? 'Core+ Premium' : 'Upgrade to Premium', 
+          subtitle: isPremium ? 'Manage your subscription' : 'Unlock all features',
+          onPress: () => setShowSubscriptions(true),
+          premium: true
+        },
       ]
     },
     {
@@ -163,15 +193,32 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
         {section.items.map((item, index) => (
           <View key={index}>
             <TouchableOpacity 
-              style={minimalStyles.menuItem}
-              onPress={() => console.log(`Pressed ${item.title}`)}
+              style={[
+                minimalStyles.menuItem,
+                item.premium && isPremium && minimalStyles.premiumMenuItem
+              ]}
+              onPress={item.onPress || (() => console.log(`Pressed ${item.title}`))}
             >
               <View style={minimalStyles.menuItemContent}>
-                <Ionicons name={item.icon} size={20} color={AppColors.textSecondary} />
+                <Ionicons 
+                  name={item.icon} 
+                  size={20} 
+                  color={item.premium && isPremium ? AppColors.warning : AppColors.textSecondary} 
+                />
                 <View style={minimalStyles.menuItemText}>
-                  <Text style={minimalStyles.menuItemTitle}>{item.title}</Text>
+                  <Text style={[
+                    minimalStyles.menuItemTitle,
+                    item.premium && isPremium && { color: AppColors.warning }
+                  ]}>
+                    {item.title}
+                  </Text>
                   <Text style={minimalStyles.menuItemSubtitle}>{item.subtitle}</Text>
                 </View>
+                {item.premium && isPremium && (
+                  <View style={minimalStyles.premiumBadge}>
+                    <Text style={minimalStyles.premiumBadgeText}>ACTIVE</Text>
+                  </View>
+                )}
               </View>
               {item.toggle ? (
                 <Switch
@@ -221,6 +268,20 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
         {menuItems.map(renderMenuSection)}
         {renderLogoutButton()}
       </ScrollView>
+
+      {/* Subscription Modal */}
+      <Modal
+        visible={showSubscriptions}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SubscriptionScreen 
+          onClose={() => {
+            setShowSubscriptions(false);
+            checkPremiumStatus(); // Refresh premium status after closing
+          }}
+        />
+      </Modal>
     </View>
   );
 };
@@ -410,6 +471,22 @@ const minimalStyles = StyleSheet.create({
     fontWeight: '500',
     color: AppColors.danger,
     marginLeft: 8,
+  },
+  premiumMenuItem: {
+    borderLeftWidth: 3,
+    borderLeftColor: AppColors.warning,
+  },
+  premiumBadge: {
+    backgroundColor: AppColors.warning,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  premiumBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: AppColors.white,
   },
 });
 
