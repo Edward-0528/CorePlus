@@ -18,6 +18,7 @@ class RevenueCatService {
 
       if (!androidKey && !iosKey) {
         console.warn('⚠️ RevenueCat API keys not found in environment');
+        // Don't throw error, just mark as failed initialization
         return;
       }
 
@@ -25,29 +26,50 @@ class RevenueCatService {
       const apiKey = Platform.OS === 'android' ? androidKey : iosKey;
       if (!apiKey) {
         console.warn(`⚠️ RevenueCat API key not found for ${Platform.OS}`);
+        // Don't throw error, just mark as failed initialization
         return;
       }
 
-      await Purchases.configure({ apiKey });
+      // Add timeout for initialization
+      const initPromise = Purchases.configure({ apiKey });
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('RevenueCat initialization timeout')), 10000)
+      );
+
+      await Promise.race([initPromise, timeoutPromise]);
       
       // Set debug logs (disable in production)
       if (__DEV__) {
         await Purchases.setLogLevel('DEBUG');
+      } else {
+        await Purchases.setLogLevel('ERROR');
       }
 
       this.isInitialized = true;
       console.log('✅ RevenueCat initialized successfully');
 
-      // Load initial customer info
-      await this.refreshCustomerInfo();
+      // Load initial customer info with error handling
+      try {
+        await this.refreshCustomerInfo();
+      } catch (customerInfoError) {
+        console.warn('RevenueCat customer info refresh failed:', customerInfoError);
+        // Don't fail initialization if customer info fails
+      }
       
     } catch (error) {
       console.error('❌ RevenueCat initialization failed:', error);
+      this.isInitialized = false;
+      // Don't throw error to prevent app crash
     }
   }
 
   async refreshCustomerInfo() {
     try {
+      if (!this.isInitialized) {
+        console.warn('RevenueCat not initialized, skipping customer info refresh');
+        return null;
+      }
+      
       this.customerInfo = await Purchases.getCustomerInfo();
       console.log('📊 Customer info refreshed:', {
         hasActiveSubscription: this.hasActiveSubscription(),
@@ -174,7 +196,13 @@ class RevenueCatService {
   async setUserID(userID) {
     try {
       if (!this.isInitialized) {
-        await this.initialize();
+        console.warn('RevenueCat not initialized, skipping user ID setting');
+        return;
+      }
+
+      if (!userID) {
+        console.warn('No user ID provided');
+        return;
       }
 
       await Purchases.logIn(userID);
@@ -183,6 +211,7 @@ class RevenueCatService {
       console.log(`👤 User logged in to RevenueCat: ${userID}`);
     } catch (error) {
       console.error('❌ Failed to set user ID:', error);
+      // Don't throw error to prevent app crash
     }
   }
 

@@ -27,6 +27,7 @@ import WorkingMinimalAccount from './components/WorkingMinimalAccount';
 import MinimalNavigation from './components/MinimalNavigation';
 import LoadingScreen from './components/LoadingScreen';
 import HealthServiceTest from './components/HealthServiceTest';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Initialize design system
 configureDesignSystem();
@@ -158,8 +159,13 @@ function AppContent() {
   const checkAuthState = async () => {
     setAuthLoading(true);
     try {
-      // Initialize RevenueCat first
-      await revenueCatService.initialize();
+      // Initialize RevenueCat first with error handling
+      try {
+        await revenueCatService.initialize();
+      } catch (rcError) {
+        console.warn('RevenueCat initialization failed:', rcError);
+        // Continue app initialization even if RevenueCat fails
+      }
       
       const { data: { user } } = await authService.getCurrentUser();
       if (user) {
@@ -167,17 +173,30 @@ function AppContent() {
         setIsAuthenticated(true);
         setShowLanding(false);
         
-        // Set RevenueCat user ID for tracking
-        await revenueCatService.setUserID(user.id);
+        // Set RevenueCat user ID for tracking with error handling
+        try {
+          await revenueCatService.setUserID(user.id);
+        } catch (rcError) {
+          console.warn('RevenueCat user ID setting failed:', rcError);
+          // Continue without blocking the app
+        }
         
         // For existing users, check if they have completed onboarding
         const needsOnboarding = await checkIfUserNeedsOnboarding(user.id);
         setShowOnboarding(needsOnboarding);
+      } else {
+        // No user found, show landing
+        setShowLanding(true);
+        setIsAuthenticated(false);
       }
     } catch (error) {
       console.error('Auth check error:', error);
+      // Don't crash the app, show landing screen instead
+      setShowLanding(true);
+      setIsAuthenticated(false);
+    } finally {
+      setAuthLoading(false);
     }
-    setAuthLoading(false);
   };
 
   const checkIfUserNeedsOnboarding = async (userId) => {
@@ -718,21 +737,23 @@ function AppContent() {
 
 export default function App() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AppProvider>
-          <SubscriptionProvider>
-            <DailyCaloriesProvider>
-              <WorkoutSessionProvider>
-                <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
-                  <AppContent />
-                  <StatusBar style="auto" />
-                </SafeAreaView>
-              </WorkoutSessionProvider>
-            </DailyCaloriesProvider>
-          </SubscriptionProvider>
-        </AppProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <AppProvider>
+            <SubscriptionProvider>
+              <DailyCaloriesProvider>
+                <WorkoutSessionProvider>
+                  <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
+                    <AppContent />
+                    <StatusBar style="auto" />
+                  </SafeAreaView>
+                </WorkoutSessionProvider>
+              </DailyCaloriesProvider>
+            </SubscriptionProvider>
+          </AppProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }

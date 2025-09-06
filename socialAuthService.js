@@ -6,6 +6,12 @@ export const socialAuthService = {
   signInWithGoogle: async () => {
     try {
       console.log('Initiating Google OAuth with Supabase...');
+      
+      // Check if we're in production and handle gracefully
+      if (!supabase || !supabase.auth) {
+        throw new Error('Supabase not properly initialized');
+      }
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -13,7 +19,6 @@ export const socialAuthService = {
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
-            hd: 'coreplus.app', // Optional: restrict to specific domain
           },
           scopes: 'openid email profile',
         },
@@ -21,7 +26,10 @@ export const socialAuthService = {
 
       console.log('Google OAuth response:', { data, error });
 
-      if (error) throw error;
+      if (error) {
+        console.error('OAuth error:', error);
+        throw error;
+      }
 
       // Open the OAuth URL in the device's browser
       if (data?.url) {
@@ -32,7 +40,7 @@ export const socialAuthService = {
         if (canOpen) {
           await Linking.openURL(data.url);
         } else {
-          throw new Error('Cannot open OAuth URL');
+          throw new Error('Cannot open OAuth URL - check app permissions');
         }
       } else {
         throw new Error('No OAuth URL received from Supabase');
@@ -41,7 +49,16 @@ export const socialAuthService = {
       return { success: true, data };
     } catch (error) {
       console.error('Google OAuth error:', error);
-      return { success: false, error: error.message };
+      
+      // Provide more user-friendly error messages
+      let userMessage = error.message;
+      if (error.message.includes('network')) {
+        userMessage = 'Network error. Please check your internet connection.';
+      } else if (error.message.includes('auth')) {
+        userMessage = 'Authentication service unavailable. Please try again later.';
+      }
+      
+      return { success: false, error: userMessage };
     }
   },
 
