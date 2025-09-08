@@ -228,6 +228,20 @@ class RevenueCatService {
     }
   }
 
+  async setAttributes(attributes) {
+    try {
+      if (!this.isInitialized) {
+        console.warn('RevenueCat not initialized, skipping attributes setting');
+        return;
+      }
+
+      await Purchases.setAttributes(attributes);
+      console.log('✅ RevenueCat attributes set:', attributes);
+    } catch (error) {
+      console.error('❌ Failed to set attributes:', error);
+    }
+  }
+
   // Helper to get formatted product info
   getProductInfo(productId) {
     const product = this.products.find(p => p.identifier === productId);

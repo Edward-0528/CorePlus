@@ -7,8 +7,8 @@ import {
   Switch
 } from 'react-native-ui-lib';
 import { Ionicons } from '@expo/vector-icons';
-import { revenueCatService } from '../services/revenueCatService';
-import SubscriptionScreen from './SubscriptionScreen';
+import { useFeatureAccess } from '../hooks/useFeatureAccess';
+import UpgradeModal from './UpgradeModal';
 
 // Define colors directly
 const AppColors = {
@@ -32,22 +32,16 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const [notifications, setNotifications] = useState(true);
   const [biometrics, setBiometrics] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
-  const [showSubscriptions, setShowSubscriptions] = useState(false);
-  const [isPremium, setIsPremium] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  
+  // Use our new subscription system
+  const { subscriptionInfo } = useFeatureAccess();
+  const isPremium = subscriptionInfo?.tier === 'pro';
 
-  // Check premium status on component mount
-  React.useEffect(() => {
-    checkPremiumStatus();
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 2000);
   }, []);
-
-  const checkPremiumStatus = async () => {
-    try {
-      const premium = await revenueCatService.hasActiveSubscription();
-      setIsPremium(premium);
-    } catch (error) {
-      console.error('Error checking premium status:', error);
-    }
-  };
 
   const userStats = [
     { value: '24', label: 'Days Active', color: AppColors.success },
@@ -72,7 +66,10 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
           icon: isPremium ? 'diamond' : 'diamond-outline', 
           title: isPremium ? 'Core+ Premium' : 'Upgrade to Premium', 
           subtitle: isPremium ? 'Manage your subscription' : 'Unlock all features',
-          onPress: () => setShowSubscriptions(true),
+          onPress: () => {
+            console.log('🔔 Subscription button pressed, isPremium:', isPremium);
+            setShowUpgradeModal(true);
+          },
           premium: true
         },
       ]
@@ -115,11 +112,6 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
       ]
     }
   ];
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -269,19 +261,11 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
         {renderLogoutButton()}
       </ScrollView>
 
-      {/* Subscription Modal */}
-      <Modal
-        visible={showSubscriptions}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <SubscriptionScreen 
-          onClose={() => {
-            setShowSubscriptions(false);
-            checkPremiumStatus(); // Refresh premium status after closing
-          }}
-        />
-      </Modal>
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </View>
   );
 };

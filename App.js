@@ -1,3 +1,6 @@
+// Production safety - must be first import
+import './utils/productionSafe';
+
 import 'react-native-reanimated';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Alert, Linking, View, StyleSheet } from 'react-native';
