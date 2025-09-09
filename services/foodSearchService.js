@@ -5,14 +5,9 @@ const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
 class FoodSearchService {
   constructor() {
-    // Validate that the API key is available
-    if (!GEMINI_API_KEY) {
-      throw new Error(
-        'Missing Gemini API key. Please check your .env file and ensure EXPO_PUBLIC_GEMINI_API_KEY is set.'
-      );
-    }
-    
-    this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    // Use API key or fallback for bundling
+    const apiKey = GEMINI_API_KEY || 'fallback-key-for-bundling';
+    this.genAI = new GoogleGenerativeAI(apiKey);
     this.model = null;
     this.requestCount = 0;
     this.lastRequestTime = 0;
