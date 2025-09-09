@@ -103,12 +103,21 @@ function AppContent() {
         setShowLogin(false);
         setShowSignUp(false);
         
-        // Set RevenueCat user ID for tracking
-        await revenueCatService.setUserID(session.user.id);
+        // Set RevenueCat user ID for tracking with error handling
+        try {
+          await revenueCatService.setUserID(session.user.id);
+        } catch (rcError) {
+          console.warn('RevenueCat user ID setting failed during auth change:', rcError);
+        }
         
-        // Check if user needs onboarding
-        const needsOnboarding = await checkIfUserNeedsOnboarding(session.user.id);
-        setShowOnboarding(needsOnboarding);
+        // Check if user needs onboarding with error handling
+        try {
+          const needsOnboarding = await checkIfUserNeedsOnboarding(session.user.id);
+          setShowOnboarding(needsOnboarding);
+        } catch (onboardingError) {
+          console.warn('Onboarding check failed, defaulting to dashboard:', onboardingError);
+          setShowOnboarding(false); // Default to dashboard on error
+        }
         
         // Clear both loading states after onboarding check
         setLoading(false);
@@ -201,7 +210,14 @@ function AppContent() {
 
   const checkIfUserNeedsOnboarding = async (userId) => {
     try {
+      // Try to import supabase configuration
       const { supabase } = await import('./supabaseConfig');
+      
+      // Check if supabase is properly configured before making queries
+      if (!supabase || !process.env.EXPO_PUBLIC_SUPABASE_URL) {
+        console.warn('⚠️ Supabase not configured, skipping onboarding check - user can access app');
+        return false; // Allow user to access app without onboarding check
+      }
       
       // Fast query - only check if record exists
       const { data, error } = await supabase
@@ -211,13 +227,20 @@ function AppContent() {
         .maybeSingle();
       
       if (error) {
-        // 42P01 = Table doesn't exist
+        // Handle specific database errors
         if (error.code === '42P01' || error.message?.includes('does not exist')) {
-          console.warn('user_fitness_profiles table does not exist. Please run the SQL script to create it.');
-          return true; // Show onboarding since table doesn't exist
+          console.warn('user_fitness_profiles table does not exist. User can access app.');
+          return false; // Allow access without onboarding check if table doesn't exist
         }
-        console.error('Error checking user profile:', error);
-        return true; // Default to showing onboarding if error
+        
+        // Handle connection errors
+        if (error.message?.includes('supabaseUrl is required') || error.message?.includes('fetch')) {
+          console.warn('⚠️ Database connection issue, allowing user access');
+          return false; // Allow access on connection issues
+        }
+        
+        console.error('Database error during onboarding check:', error);
+        return false; // Default to allowing access on database errors
       }
       
       // If data exists, user has completed onboarding
@@ -231,8 +254,9 @@ function AppContent() {
         return true; // Show onboarding
       }
     } catch (error) {
-      console.error('Error checking onboarding status:', error);
-      return true; // Default to onboarding on error
+      // Handle any other errors (like import failures, network issues)
+      console.warn('⚠️ Error checking onboarding status, allowing user access:', error.message);
+      return false; // Default to allowing access on any error
     }
   };
 
