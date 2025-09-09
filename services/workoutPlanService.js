@@ -6,17 +6,26 @@ const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
 class WorkoutPlanService {
   constructor() {
+    // Check if API key is available, but don't crash if missing
     if (!GEMINI_API_KEY) {
-      throw new Error(
-        'Missing Gemini API key. Please check your .env file and ensure EXPO_PUBLIC_GEMINI_API_KEY is set.'
-      );
+      console.warn('⚠️ Gemini API key not configured. Workout generation features will be limited.');
+      this.genAI = null;
+      this.model = null;
+      this.hasApiKey = false;
+    } else {
+      console.log('✅ Gemini API key configured for workout plans');
+      this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      this.model = null;
+      this.hasApiKey = true;
     }
-    
-    this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    this.model = null;
   }
 
   async initializeModel() {
+    if (!this.hasApiKey) {
+      console.log('No Gemini API key available, skipping model initialization');
+      return false;
+    }
+    
     if (!this.model) {
       try {
         this.model = this.genAI.getGenerativeModel({ 
