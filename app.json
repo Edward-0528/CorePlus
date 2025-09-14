@@ -16,9 +16,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.coreplus.app",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSHealthShareUsageDescription": "Core+ needs to read your health data to provide personalized fitness tracking, nutrition insights, and workout recommendations tailored to your health profile.",
+        "NSHealthUpdateUsageDescription": "Core+ needs to write health data to log your workouts, meals, and fitness activities to your Health app, keeping all your wellness data synchronized."
       }
     },
     "android": {
