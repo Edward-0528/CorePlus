@@ -8,19 +8,16 @@ const REVENUECAT_API_KEY = {
   android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY,
 };
 
-// Subscription Tiers - matching your pricing strategy
+// Subscription Tiers - simplified to just Free and Pro
 export const SUBSCRIPTION_TIERS = {
   FREE: 'free',
-  PRO: 'pro',
-  ELITE: 'elite'
+  PRO: 'pro'
 };
 
 // RevenueCat Product IDs (configure these in RevenueCat dashboard)
 export const PRODUCT_IDS = {
   PRO_MONTHLY: 'core_plus_pro_monthly',
   PRO_YEARLY: 'core_plus_pro_yearly',
-  ELITE_MONTHLY: 'core_plus_elite_monthly',
-  ELITE_YEARLY: 'core_plus_elite_yearly',
 };
 
 // Feature Limits by Tier
@@ -38,28 +35,17 @@ export const FEATURE_LIMITS = {
   },
   [SUBSCRIPTION_TIERS.PRO]: {
     aiScansPerDay: -1, // unlimited
-    mealHistoryDays: 90,
-    workoutPlans: 5,
-    canExportData: true,
-    canAccessMealPlanning: true,
-    canAccessDetailedMicros: true,
-    canAccessRecipeBrowser: true,
-    canCreateCustomMacros: true,
-    supportLevel: 'priority'
-  },
-  [SUBSCRIPTION_TIERS.ELITE]: {
-    aiScansPerDay: -1, // unlimited
-    mealHistoryDays: 365,
+    mealHistoryDays: -1, // unlimited
     workoutPlans: -1, // unlimited
     canExportData: true,
     canAccessMealPlanning: true,
     canAccessDetailedMicros: true,
     canAccessRecipeBrowser: true,
     canCreateCustomMacros: true,
-    supportLevel: 'premium',
-    hasNutritionistConsultation: true,
-    canAccessAdvancedAnalytics: true,
-    canAccessBulkMealPrep: true
+    supportLevel: 'priority',
+    hasAdvancedAnalytics: true,
+    canAccessBulkMealPrep: true,
+    hasNutritionistConsultation: true
   }
 };
 

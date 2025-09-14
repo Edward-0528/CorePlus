@@ -2,7 +2,7 @@
   "expo": {
     "name": "Core+",
     "slug": "core-plus",
-    "version": "1.0.4",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,15 +15,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.coreplus.app",
-      "buildNumber": "2",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "bundleIdentifier": "com.coreplus.app"
     },
     "android": {
       "package": "com.coreplus.app",
-      "versionCode": 7,
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -50,7 +46,8 @@
             "DEFAULT"
           ]
         }
-      ]
+      ],
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"

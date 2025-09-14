@@ -5,16 +5,30 @@ const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
 class FoodSearchService {
   constructor() {
-    // Use API key or fallback for bundling
-    const apiKey = GEMINI_API_KEY || 'fallback-key-for-bundling';
-    this.genAI = new GoogleGenerativeAI(apiKey);
-    this.model = null;
+    // Check if API key is available, but don't crash if missing
+    if (!GEMINI_API_KEY) {
+      console.warn('⚠️ Gemini API key not configured. Food search features will be limited.');
+      this.genAI = null;
+      this.model = null;
+      this.hasApiKey = false;
+    } else {
+      console.log('✅ Gemini API key configured for food search');
+      this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+      this.model = null;
+      this.hasApiKey = true;
+    }
+    
     this.requestCount = 0;
     this.lastRequestTime = 0;
     this.RATE_LIMIT_DELAY = 1000; // 1 second between requests
   }
 
   async initializeModel() {
+    if (!this.hasApiKey) {
+      console.log('No Gemini API key available, skipping model initialization');
+      return false;
+    }
+    
     if (!this.model) {
       try {
         this.model = this.genAI.getGenerativeModel({ 
@@ -37,6 +51,12 @@ class FoodSearchService {
 
   async searchFood(query) {
     try {
+      // Check if API key is available
+      if (!this.hasApiKey) {
+        console.log('🔍 Gemini API not available, returning fallback food data');
+        return this.getFallbackFoodData(query);
+      }
+
       // Rate limiting
       const now = Date.now();
       if (now - this.lastRequestTime < this.RATE_LIMIT_DELAY) {
@@ -48,6 +68,9 @@ class FoodSearchService {
       console.log(`🔍 Searching for food: "${query}" (Request #${this.requestCount})`);
 
       const model = await this.initializeModel();
+      if (!model) {
+        return this.getFallbackFoodData(query);
+      }
 
       const prompt = `
 You are a nutrition expert. Given a food query, provide detailed nutritional information.
@@ -282,6 +305,19 @@ Return only the JSON array, no additional text.
         foods: [fallback]
       };
     }
+  }
+
+  getFallbackFoodData(query) {
+    console.log(`📦 Using fallback data for: "${query}"`);
+    
+    // Create a basic food item with reasonable defaults
+    const fallback = this.createFallbackFood(query);
+    
+    return {
+      success: true,
+      foods: [fallback],
+      fallback: true
+    };
   }
 }
 

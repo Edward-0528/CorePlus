@@ -1,26 +1,31 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Get configuration from environment variables
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+// Production-safe Supabase configuration
+let supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+let supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-// Log configuration status for debugging
-console.log('🔧 Supabase Config Status:');
-console.log('  - URL present:', !!supabaseUrl);
-console.log('  - Key present:', !!supabaseAnonKey);
-if (supabaseUrl) {
-  console.log('  - URL starts with:', supabaseUrl.substring(0, 20) + '...');
+// Temporary fallback for production builds until EAS secrets are configured
+if (!supabaseUrl || !supabaseAnonKey) {
+  if (!__DEV__) {
+    // Import production config only in production builds
+    const { PRODUCTION_CONFIG } = require('./config/production-temp.js');
+    supabaseUrl = PRODUCTION_CONFIG.SUPABASE_URL;
+    supabaseAnonKey = PRODUCTION_CONFIG.SUPABASE_ANON_KEY;
+  } else {
+    throw new Error('Supabase configuration missing. Please set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY environment variables.');
+  }
 }
 
-// Validate that environment variables are set
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('❌ Missing Supabase configuration.');
-  console.error('Please set environment variables before starting Expo:');
-  console.error('$env:EXPO_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"');
-  console.error('$env:EXPO_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"');
-  console.error('Then run: npx expo start');
-} else {
+// Only log in development to avoid production console issues
+if (__DEV__) {
+  console.log('🔧 Supabase Config Status:');
+  console.log('  - URL present:', !!supabaseUrl);
+  console.log('  - Key present:', !!supabaseAnonKey);
+  if (supabaseUrl) {
+    console.log('  - URL starts with:', supabaseUrl.substring(0, 30) + '...');
+  }
   console.log('✅ Supabase configuration loaded successfully');
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+// Create Supabase client with production-safe configuration
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

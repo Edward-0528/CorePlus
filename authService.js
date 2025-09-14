@@ -134,6 +134,19 @@ export const authService = {
       }
 
       console.log('🔐 AuthService: signIn successful');
+      
+      // Initialize subscription service for the user
+      if (data.user) {
+        try {
+          const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
+          await userSubscriptionService.initializeForUser(data.user);
+          console.log('✅ Subscription service initialized for user');
+        } catch (subscriptionError) {
+          console.error('⚠️ Failed to initialize subscription service:', subscriptionError);
+          // Don't fail the login if subscription service fails
+        }
+      }
+      
       return { success: true, data };
     } catch (error) {
       console.error('🔐 AuthService: signIn catch:', error.message);
@@ -147,6 +160,16 @@ export const authService = {
       // Clear all user-specific cached data before signing out
       const { cacheManager } = await import('./services/cacheManager');
       await cacheManager.clearAllUserData();
+      
+      // Clean up subscription service
+      try {
+        const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
+        await userSubscriptionService.cleanup();
+        console.log('✅ Subscription service cleaned up');
+      } catch (subscriptionError) {
+        console.error('⚠️ Failed to cleanup subscription service:', subscriptionError);
+        // Don't fail the logout if subscription cleanup fails
+      }
       
       const { error } = await supabase.auth.signOut();
       if (error) {

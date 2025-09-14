@@ -1,7 +1,11 @@
 // Enhanced Tasty Service with comprehensive endpoint testing
 class TastyService {
   constructor() {
-    this.apiKey = process.env.EXPO_PUBLIC_RAPIDAPI_KEY || '7a185a6062msh982ea92baf690fap117d8fjsn1a509397095e';
+    this.apiKey = process.env.EXPO_PUBLIC_RAPIDAPI_KEY;
+    
+    if (!this.apiKey) {
+      throw new Error('EXPO_PUBLIC_RAPIDAPI_KEY environment variable is required');
+    }
     this.baseUrl = 'https://tasty-co1.p.rapidapi.com';
     this.hasValidApiKey = this.apiKey && this.apiKey !== 'demo_key';
     

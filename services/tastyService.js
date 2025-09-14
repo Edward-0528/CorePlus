@@ -1,8 +1,12 @@
 // Clean Tasty Service using recipes/list endpoint
 class TastyService {
   constructor() {
-    this.apiKey = process.env.EXPO_PUBLIC_RAPIDAPI_KEY || '7a185a6062msh982ea92baf690fap117d8fjsn1a509397095e';
-    this.baseUrl = 'https://tasty.p.rapidapi.com';
+    this.baseURL = 'https://tasty.p.rapidapi.com';
+    this.apiKey = process.env.EXPO_PUBLIC_RAPIDAPI_KEY;
+    
+    if (!this.apiKey) {
+      throw new Error('EXPO_PUBLIC_RAPIDAPI_KEY environment variable is required');
+    }
     this.hasValidApiKey = this.apiKey && this.apiKey !== 'demo_key';
     
     if (this.hasValidApiKey) {
