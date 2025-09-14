@@ -656,6 +656,26 @@ function AppContent() {
     return 'None';
   }, [showLanding, showLogin, showSignUp, showOnboarding, isAuthenticated, user, authLoading, loading]);
 
+  // Determine safe area edges based on route
+  function getSafeAreaEdges() {
+    // For landing screen, exclude top edge to allow full-screen video
+    if (route === 'Landing') {
+      return ['bottom', 'left', 'right'];
+    }
+    // For all other screens, include all edges
+    return ['top', 'bottom', 'left', 'right'];
+  }
+
+  // Determine status bar style based on route
+  function getStatusBarStyle() {
+    // For landing screen with video background, use light style
+    if (route === 'Landing') {
+      return 'light';
+    }
+    // For all other screens with light backgrounds, use dark style
+    return 'dark';
+  }
+
   const renderAuthenticatedScreen = () => {
     const commonProps = {
       user,
@@ -756,9 +776,12 @@ function AppContent() {
 
   // Simple page transitions without animation
   return (
-    <View style={{ flex: 1 }}>
-      {route !== 'None' && renderRoute()}
-    </View>
+    <SafeAreaView style={{ flex: 1 }} edges={getSafeAreaEdges()}>
+      <View style={{ flex: 1 }}>
+        {route !== 'None' && renderRoute()}
+      </View>
+      <StatusBar style={getStatusBarStyle()} backgroundColor="transparent" translucent />
+    </SafeAreaView>
   );
 }
 
@@ -771,10 +794,7 @@ export default function App() {
             <SubscriptionProvider>
               <DailyCaloriesProvider>
                 <WorkoutSessionProvider>
-                  <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
-                    <AppContent />
-                    <StatusBar style="auto" />
-                  </SafeAreaView>
+                  <AppContent />
                 </WorkoutSessionProvider>
               </DailyCaloriesProvider>
             </SubscriptionProvider>

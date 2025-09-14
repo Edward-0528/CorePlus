@@ -326,7 +326,19 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
       
       {/* Header Overlay */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={onClose}>
+        <TouchableOpacity 
+          style={styles.headerButton} 
+          onPress={() => {
+            console.log('🔄 Close button pressed');
+            if (onClose) {
+              onClose();
+            } else {
+              console.warn('⚠️ onClose function not provided');
+            }
+          }}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Ionicons name="close-outline" size={24} color={AppColors.white} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -442,7 +454,7 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingHorizontal: 20,
     paddingBottom: 20,
-    zIndex: 1,
+    zIndex: 10,
   },
   headerButton: {
     width: 44,

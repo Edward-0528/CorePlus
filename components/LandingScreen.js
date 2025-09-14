@@ -1,6 +1,7 @@
 import React, { memo, useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import SmoothVideoBackground from './common/SmoothVideoBackground';
 
@@ -10,49 +11,50 @@ const LandingScreen = ({ onGetStarted, styles }) => {
   const [termsAccepted, setTermsAccepted] = useState(true);
 
   return (
-    <SafeAreaView style={styles.landingContainer}>
+    <View style={styles.landingContainer}>
       <SmoothVideoBackground screenType="landing">
-        <View style={styles.overlay}>
-          <View style={styles.landingContent}>
-            {/* Top Section - Hero Title */}
-            <View style={styles.topSection}>
-              <Text style={styles.newHeroTitle}>
-                Core<Text style={{fontWeight: 'bold'}}>+</Text>
-              </Text>
-              <Text style={styles.newHeroSubtitle}>
-                AI-powered fitness & nutrition tracking
-              </Text>
-            </View>
+        <SafeAreaView style={{ flex: 1 }} edges={['bottom', 'left', 'right']}>
+          <View style={styles.overlay}>
+            <View style={styles.landingContent}>
+              {/* Top Section - Hero Title */}
+              <View style={styles.topSection}>
+                <Text style={styles.newHeroTitle}>
+                  Core<Text style={{fontWeight: 'bold'}}>+</Text>
+                </Text>
+                <Text style={styles.newHeroSubtitle}>
+                  AI-powered fitness & nutrition tracking
+                </Text>
+              </View>
 
-            {/* Bottom Section */}
-            <View style={styles.bottomSection}>
-              {/* Get Started Button */}
-              <TouchableOpacity 
-                style={[styles.newGetStartedButton, !termsAccepted && styles.buttonDisabled]} 
-                onPress={termsAccepted ? onGetStarted : null}
-                disabled={!termsAccepted}
-              >
-                <Text style={styles.newGetStartedText}>Get Started</Text>
-              </TouchableOpacity>
-
-              {/* Terms and Conditions */}
-              <View style={styles.termsContainer}>
+              {/* Bottom Section */}
+              <View style={styles.bottomSection}>
+                {/* Get Started Button */}
                 <TouchableOpacity 
-                  style={styles.checkboxContainer}
-                  onPress={() => setTermsAccepted(!termsAccepted)}
+                  style={[styles.newGetStartedButton, !termsAccepted && styles.buttonDisabled]} 
+                  onPress={termsAccepted ? onGetStarted : null}
+                  disabled={!termsAccepted}
                 >
-                  <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-                    {termsAccepted && <Text style={styles.checkmark}>✓</Text>}
-                  </View>
-                  <Text style={styles.termsText}>I agree to Terms & Privacy Policy</Text>
+                  <Text style={styles.newGetStartedText}>Get Started</Text>
                 </TouchableOpacity>
+
+                {/* Terms and Conditions */}
+                <View style={styles.termsContainer}>
+                  <TouchableOpacity 
+                    style={styles.checkboxContainer}
+                    onPress={() => setTermsAccepted(!termsAccepted)}
+                  >
+                    <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                      {termsAccepted && <Text style={styles.checkmark}>✓</Text>}
+                    </View>
+                    <Text style={styles.termsText}>I agree to Terms & Privacy Policy</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
-        </View>
+        </SafeAreaView>
       </SmoothVideoBackground>
-      <StatusBar style="light" />
-    </SafeAreaView>
+    </View>
   );
 };
 
