@@ -16,11 +16,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.coreplus.app",
-      "buildNumber": "3",
+      "buildNumber": "7",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Core+ needs camera access to scan food items and analyze their nutritional content using AI-powered food recognition technology.",
+        "NSPhotoLibraryUsageDescription": "Core+ needs photo library access to save scanned food images and allow you to select photos from your gallery for nutritional analysis.",
         "NSHealthShareUsageDescription": "Core+ needs to read your health data to provide personalized fitness tracking, nutrition insights, and workout recommendations tailored to your health profile.",
-        "NSHealthUpdateUsageDescription": "Core+ needs to write health data to log your workouts, meals, and fitness activities to your Health app, keeping all your wellness data synchronized."
+        "NSHealthUpdateUsageDescription": "Core+ needs to write health data to log your workouts, meals, and fitness activities to your Health app, keeping all your wellness data synchronized.",
+        "NSMotionUsageDescription": "Core+ uses motion data to track your steps and physical activity automatically, providing accurate fitness insights without manual logging."
       }
     },
     "android": {
