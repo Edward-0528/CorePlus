@@ -33,5 +33,14 @@ allprojects {
   }
 }
 
+// Fix for react-native-ui-lib dependency validation issue
+gradle.taskGraph.whenReady { taskGraph ->
+  taskGraph.allTasks.each { task ->
+    if (task.name.contains('packageReleaseResources')) {
+      task.dependsOn(taskGraph.allTasks.findAll { it.name.contains('generateReleaseResValues') })
+    }
+  }
+}
+
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
