@@ -23,6 +23,10 @@
         "buildType": "app-bundle",
         "environment": "production"
       },
+      "ios": {
+        "distribution": "store",
+        "environment": "production"
+      },
       "env": {
         "NODE_ENV": "production"
       }

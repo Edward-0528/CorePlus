@@ -75,7 +75,7 @@ const SubscriptionPlansScreen = ({ navigation }) => {
       tier: 'pro',
       title: 'Core+ Pro',
       subtitle: 'Monthly',
-      price: '$8.99',
+      price: '$9.99', // Updated price
       period: '/month',
       description: 'Perfect for serious fitness enthusiasts',
       savings: null,
@@ -94,10 +94,10 @@ const SubscriptionPlansScreen = ({ navigation }) => {
       tier: 'pro',
       title: 'Core+ Pro',
       subtitle: 'Annual',
-      price: '$69.99',
+      price: '$79.99',
       period: '/year',
-      description: 'Best value - Save 35%!',
-      savings: 'Save $38.89',
+      description: 'Best value - Save 33%!',
+      savings: 'Save $39.89',
       popular: true,
       features: [
         'Unlimited AI food scans',
@@ -107,7 +107,7 @@ const SubscriptionPlansScreen = ({ navigation }) => {
         'Detailed micro-nutrient tracking',
         'Export nutrition data',
         'Priority customer support',
-        'Save $38.89 vs monthly'
+        'Save $39.89 vs monthly'
       ]
     },
     {
@@ -115,7 +115,7 @@ const SubscriptionPlansScreen = ({ navigation }) => {
       tier: 'elite',
       title: 'Core+ Elite',
       subtitle: 'Monthly',
-      price: '$14.99',
+      price: '$19.99',
       period: '/month',
       description: 'Ultimate wellness experience',
       savings: null,
@@ -134,10 +134,10 @@ const SubscriptionPlansScreen = ({ navigation }) => {
       tier: 'elite',
       title: 'Core+ Elite',
       subtitle: 'Annual',
-      price: '$149.99',
+      price: '$199.99',
       period: '/year',
       description: 'Premium experience - Save 17%!',
-      savings: 'Save $29.89',
+      savings: 'Save $39.89',
       features: [
         'Everything in Pro',
         'Nutritionist consultations',
@@ -146,7 +146,7 @@ const SubscriptionPlansScreen = ({ navigation }) => {
         'Custom macro targets',
         'Early access to new features',
         'Premium customer support',
-        'Save $29.89 vs monthly'
+        'Save $39.89 vs monthly'
       ]
     }
   ];
