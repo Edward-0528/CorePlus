@@ -39,6 +39,13 @@ gradle.taskGraph.whenReady { taskGraph ->
     if (task.name.contains('packageReleaseResources')) {
       task.dependsOn(taskGraph.allTasks.findAll { it.name.contains('generateReleaseResValues') })
     }
+    // Specific fix for uilib-native dependency on react-native-ui-lib
+    if (task.name == ':uilib-native:packageReleaseResources') {
+      def uilibTask = taskGraph.allTasks.find { it.name == ':react-native-ui-lib:generateReleaseResValues' }
+      if (uilibTask) {
+        task.dependsOn(uilibTask)
+      }
+    }
   }
 }
 
