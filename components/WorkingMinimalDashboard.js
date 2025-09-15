@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, RefreshControl, StyleSheet, Modal, TextInput, Alert, View } from 'react-native';
-import { 
-  View as RNUIView, 
-  Text, 
-  TouchableOpacity
-} from 'react-native-ui-lib';
+import { ScrollView, RefreshControl, StyleSheet, Modal, TextInput, Alert, View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

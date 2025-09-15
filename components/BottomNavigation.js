@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, TouchableOpacity, Text, Colors } from 'react-native-ui-lib';
+import { View, TouchableOpacity, Text } from 'react-native';
+import { Colors } from '../constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { spacing, fonts, scaleWidth } from '../utils/responsive';
@@ -87,10 +88,12 @@ const BottomNavigation = ({ activeTab, onTabPress }) => {
               </View>
             )}
             {!isActive && (
-              <Text caption color={Colors.textSecondary} marginT-xs style={{
+              <Text style={{
                 fontSize: 11,
                 fontWeight: '500',
                 textAlign: 'center',
+                color: Colors.textSecondary,
+                marginTop: 4,
               }}>
                 {tab.label}
               </Text>

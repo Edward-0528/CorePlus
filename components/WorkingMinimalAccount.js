@@ -1,11 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, RefreshControl, Alert, StyleSheet, View, Modal } from 'react-native';
-import { 
-  View as RNUIView, 
-  Text, 
-  TouchableOpacity,
-  Switch
-} from 'react-native-ui-lib';
+import { ScrollView, RefreshControl, Alert, StyleSheet, View, Modal, Text, TouchableOpacity, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
 import UpgradeModal from './UpgradeModal';
