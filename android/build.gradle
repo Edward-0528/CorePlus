@@ -33,7 +33,16 @@ allprojects {
   }
 }
 
-// Fix for react-native-ui-lib dependency validation issue
+// Comprehensive fix for react-native-ui-lib dependency validation issue
+gradle.projectsEvaluated {
+  tasks.all { task ->
+    if (task.name == 'uilib-native:packageReleaseResources') {
+      task.dependsOn(':react-native-ui-lib:generateReleaseResValues')
+    }
+  }
+}
+
+// Additional fix for task dependencies
 gradle.taskGraph.whenReady { taskGraph ->
   taskGraph.allTasks.each { task ->
     if (task.name.contains('packageReleaseResources')) {
