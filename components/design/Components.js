@@ -1,5 +1,8 @@
 import React from 'react';
-import { View, Text, Colors, Spacings } from 'react-native-ui-lib';
+import { View, Text } from 'react-native';
+import { Colors } from '../../constants/Colors';
+
+const Spacings = { s1: 4, s2: 8, s3: 12, s4: 16, s5: 20 };
 import { StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';

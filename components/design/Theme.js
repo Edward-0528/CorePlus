@@ -1,4 +1,25 @@
-import { Colors, Typography, Spacings, BorderRadiuses } from 'react-native-ui-lib';
+// Removed react-native-ui-lib dependency - using custom theme
+import { Colors } from '../../constants/Colors';
+
+const Typography = {
+  text: { fontSize: 16 },
+  caption: { fontSize: 12 },
+  title: { fontSize: 20 },
+};
+
+const Spacings = {
+  s1: 4,
+  s2: 8,
+  s3: 12,
+  s4: 16,
+  s5: 20,
+};
+
+const BorderRadiuses = {
+  br10: 10,
+  br20: 20,
+  br30: 30,
+};
 
 // Define your beautiful color palette
 export const AppColors = {

@@ -1,10 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, RefreshControl, StyleSheet, Animated, Modal, View, Text as RNText, Alert } from 'react-native';
-import { 
-  View as RNUIView, 
-  Text, 
-  TouchableOpacity
-} from 'react-native-ui-lib';
+import { ScrollView, RefreshControl, StyleSheet, Animated, Modal, View, Text, Alert, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Contexts

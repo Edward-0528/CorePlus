@@ -1,11 +1,6 @@
 import React, { useState } from 'react';
-import { ScrollView, RefreshControl } from 'react-native';
-import { 
-  View, 
-  Text, 
-  Colors, 
-  TouchableOpacity
-} from 'react-native-ui-lib';
+import { ScrollView, RefreshControl, View, Text, TouchableOpacity } from 'react-native';
+import { Colors } from '../constants/Colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import TodaysMealsComponent from './TodaysMealsComponent';

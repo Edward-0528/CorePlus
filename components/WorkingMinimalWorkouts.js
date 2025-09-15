@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, RefreshControl, StyleSheet, View } from 'react-native';
-import { 
-  View as RNUIView, 
-  Text, 
-  TouchableOpacity
-} from 'react-native-ui-lib';
+import { ScrollView, RefreshControl, StyleSheet, Modal, Alert, View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { healthService } from '../services/healthService';
 import { localWorkoutService } from '../services/localWorkoutService';
