@@ -12,11 +12,7 @@ import {
   Dimensions,
   RefreshControl
 } from 'react-native';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity
-} from 'react-native-ui-lib';
+import { Text, View, TouchableOpacity, Colors } from './UILibReplacement';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, fonts } from '../utils/responsive';
 import { recipeService } from '../services/recipeService';

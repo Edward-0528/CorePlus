@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
-import { ScrollView, RefreshControl, Alert } from 'react-native';
 import { 
-  View, 
-  Text, 
-  Colors, 
-  TouchableOpacity,
-  Switch
-} from 'react-native-ui-lib';
+  ScrollView, 
+  RefreshControl, 
+  Alert,
+  StyleSheet
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { AppColors } from '../constants/AppColors';
+import { Text, View, TouchableOpacity, Colors, Switch } from './UILibReplacement';
 
 // Minimal Components
 import MinimalComponents from './design/MinimalComponents';

@@ -28,15 +28,16 @@ class WorkoutPlanService {
     
     if (!this.model) {
       try {
-        this.model = this.genAI.getGenerativeModel({ 
-          model: "gemini-1.5-flash-8b",
-          generationConfig: {
-            temperature: 0.3,
-            topK: 10,
-            topP: 0.8,
-            maxOutputTokens: 2000,
-          },
-        });
+            console.log('🤖 Using Gemini 1.5 Flash 8B (cost-optimized) for workout planning');
+    
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash-8b",
+      generationConfig: {
+        temperature: 0.3,
+        topK: 10,
+        maxOutputTokens: 1500, // Reduced from 2000 to save costs
+      }
+    });
         console.log('🤖 Gemini model initialized for workout planning');
       } catch (error) {
         console.error('❌ Failed to initialize Gemini model:', error);

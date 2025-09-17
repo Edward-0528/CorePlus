@@ -1,12 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollView, RefreshControl } from 'react-native';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity
-} from 'react-native-ui-lib';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { AppColors } from '../constants/AppColors';
+import { Text, View, TouchableOpacity, Colors } from './UILibReplacement';
 
 // Define colors directly to avoid RNUI Colors import issues
 const AppColors = {

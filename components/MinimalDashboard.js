@@ -1,28 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, RefreshControl } from 'react-native';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity
-} from 'react-native-ui-lib';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-
-// Define colors directly
-const AppColors = {
-  primary: '#4A90E2',
-  white: '#FFFFFF',
-  border: '#E9ECEF',
-  textPrimary: '#212529',
-  textSecondary: '#6C757D',
-  textLight: '#ADB5BD',
-  backgroundSecondary: '#F8F9FA',
-  nutrition: '#50E3C2',
-  workout: '#FF6B6B',
-  account: '#FFC107',
-  success: '#28A745',
-  warning: '#FFC107',
-};
+import { AppColors } from '../constants/AppColors';
+import { Text, View, TouchableOpacity, Colors } from './UILibReplacement';
 
 // Minimal Components
 import MinimalComponents from './design/MinimalComponentsFixed';

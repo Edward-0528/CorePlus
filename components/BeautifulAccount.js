@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, RefreshControl, Alert } from 'react-native';
-import { 
-  View, 
-  Text, 
-  Colors, 
-  TouchableOpacity,
-  Button,
-  Switch
-} from 'react-native-ui-lib';
+import { AppColors } from '../constants/AppColors';
+import { Text, View, TouchableOpacity, Colors } from './UILibReplacement';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';

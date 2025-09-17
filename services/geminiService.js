@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { securityService } from './apiKeySecurityService.js';
 
 class GeminiService {
   constructor() {
@@ -6,14 +7,21 @@ class GeminiService {
     this.apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || 'demo_key';
     
     if (this.apiKey && this.apiKey !== 'demo_key') {
+      // Validate API key security
+      securityService.validateGeminiKey(this.apiKey);
+      console.log('🤖 Initializing Gemini 1.5 Flash 8B (most cost-effective model)');
       this.genAI = new GoogleGenerativeAI(this.apiKey);
-      this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" });
     }
   }
 
   // Search for recipes using AI
   async searchRecipes(query, userPreferences = {}) {
     try {
+      // Security checks
+      securityService.checkRateLimit('gemini');
+      securityService.monitorModelUsage('gemini-1.5-flash-8b', 'recipe-search');
+      
       if (!this.model) {
         throw new Error('Gemini API not configured');
       }

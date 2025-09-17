@@ -2,24 +2,8 @@ import React, { useState } from 'react';
 import { ScrollView, RefreshControl, Alert, StyleSheet, View, Modal, Text, TouchableOpacity, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
+import { AppColors, validateColor } from '../constants/AppColors';
 import UpgradeModal from './UpgradeModal';
-
-// Define colors directly
-const AppColors = {
-  primary: '#4A90E2',
-  white: '#FFFFFF',
-  border: '#E9ECEF',
-  textPrimary: '#212529',
-  textSecondary: '#6C757D',
-  textLight: '#ADB5BD',
-  backgroundSecondary: '#F8F9FA',
-  nutrition: '#50E3C2',
-  workout: '#FF6B6B',
-  account: '#FFC107',
-  success: '#28A745',
-  warning: '#FFC107',
-  danger: '#DC3545',
-};
 
 const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const [refreshing, setRefreshing] = useState(false);

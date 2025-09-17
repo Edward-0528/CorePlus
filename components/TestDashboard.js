@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, RefreshControl, StyleSheet } from 'react-native';
-import { 
-  View, 
-  Text, 
-  Colors, 
-  TouchableOpacity
-} from 'react-native-ui-lib';
+import { AppColors } from '../constants/AppColors';
+import { Text, View, TouchableOpacity, Colors } from './UILibReplacement';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 

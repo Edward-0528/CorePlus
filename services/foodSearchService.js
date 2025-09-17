@@ -37,10 +37,11 @@ class FoodSearchService {
             temperature: 0.1,
             topK: 1,
             topP: 0.95,
-            maxOutputTokens: 1000,
+            maxOutputTokens: 800, // Reduced from 1000 to save costs
           },
         });
-        console.log('🤖 Gemini model initialized for food search');
+        console.log('🤖 Gemini model initialized for food search with gemini-1.5-flash-8b (cost-optimized)');
+        console.log('💰 Using most cost-effective model with reduced token limits');
       } catch (error) {
         console.error('❌ Failed to initialize Gemini model:', error);
         throw error;

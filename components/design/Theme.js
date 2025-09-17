@@ -1,5 +1,5 @@
-// Removed react-native-ui-lib dependency - using custom theme
-import { Colors } from '../../constants/Colors';
+// Custom theme system without react-native-ui-lib dependency
+import { AppColors } from '../../constants/AppColors';
 
 const Typography = {
   text: { fontSize: 16 },
@@ -19,60 +19,6 @@ const BorderRadiuses = {
   br10: 10,
   br20: 20,
   br30: 30,
-};
-
-// Define your beautiful color palette
-export const AppColors = {
-  // Primary Brand Colors
-  primary: '#4A90E2',
-  primaryLight: '#7BB0F0',
-  primaryDark: '#2C5EAA',
-  
-  // Secondary Colors  
-  secondary: '#50E3C2',
-  secondaryLight: '#7FEBD3',
-  secondaryDark: '#3BAF96',
-  
-  // Accent Colors
-  accent: '#FF6B6B',
-  accentLight: '#FF8E8E', 
-  accentDark: '#E55555',
-  
-  // Neutral Colors
-  white: '#FFFFFF',
-  lightGray: '#F8F9FA',
-  gray: '#E9ECEF',
-  mediumGray: '#6C757D',
-  darkGray: '#495057',
-  black: '#212529',
-  
-  // Status Colors
-  success: '#28A745',
-  warning: '#FFC107', 
-  error: '#DC3545',
-  info: '#17A2B8',
-  
-  // Background Colors
-  background: '#FFFFFF',
-  backgroundSecondary: '#F8F9FA',
-  backgroundTertiary: '#E9ECEF',
-  
-  // Text Colors
-  textPrimary: '#212529',
-  textSecondary: '#6C757D',
-  textLight: '#ADB5BD',
-  textInverse: '#FFFFFF',
-  
-  // Functional Colors
-  border: '#E9ECEF',
-  shadow: 'rgba(0, 0, 0, 0.1)',
-  overlay: 'rgba(0, 0, 0, 0.5)',
-  
-  // Feature-specific Colors
-  nutrition: '#50E3C2',
-  workout: '#FF6B6B', 
-  health: '#4A90E2',
-  account: '#FFC107',
 };
 
 // Define typography
@@ -118,17 +64,28 @@ export const AppBorderRadius = {
 
 // Configure UI-Lib with our design system
 export const configureDesignSystem = () => {
-  // Configure Colors
-  Colors.loadColors(AppColors);
+  // Since we removed react-native-ui-lib, we don't need to load colors
+  // Colors are available directly from our constants
+  console.log('🎨 Design system configured with custom colors');
   
-  // Configure Typography
-  Typography.loadTypographies(AppTypography);
+  // Our colors are already available through imports
+  // No need for Colors.loadColors() - just use AppColors directly
   
-  // Configure Spacings
-  Spacings.loadSpacings(AppSpacing);
+  // Custom typography system (no ui-lib dependency)
+  // Typography configuration removed - using direct styles
   
-  // Configure Border Radiuses
-  BorderRadiuses.loadBorders(AppBorderRadius);
+  // Custom spacing system (no ui-lib dependency)  
+  // Spacing configuration removed - using direct values
+  
+  // Custom border radius system (no ui-lib dependency)
+  // Border radius configuration removed - using direct values
+  
+  return {
+    colors: AppColors,
+    typography: AppTypography,
+    spacing: AppSpacing,
+    borderRadius: AppBorderRadius
+  };
 };
 
 // Theme configuration object

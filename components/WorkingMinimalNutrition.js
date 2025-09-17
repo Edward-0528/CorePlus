@@ -205,7 +205,7 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
               onPress={() => setShowDateFilter(true)}
             >
               <Ionicons name="filter-outline" size={16} color={AppColors.nutrition} />
-              <RNText style={minimalStyles.filterLabel}>{filterLabel}</RNText>
+              <Text style={minimalStyles.filterLabel}>{filterLabel}</Text>
             </TouchableOpacity>
           </View>
           <View style={minimalStyles.sectionLine} />
