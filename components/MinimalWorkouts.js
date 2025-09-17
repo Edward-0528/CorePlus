@@ -5,21 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { AppColors } from '../constants/AppColors';
 import { Text, View, TouchableOpacity, Colors } from './UILibReplacement';
 
-// Define colors directly to avoid RNUI Colors import issues
-const AppColors = {
-  primary: '#4A90E2',
-  white: '#FFFFFF',
-  border: '#E9ECEF',
-  textPrimary: '#212529',
-  textSecondary: '#6C757D',
-  textLight: '#ADB5BD',
-  backgroundSecondary: '#F8F9FA',
-  nutrition: '#50E3C2',
-  workout: '#FF6B6B',
-  account: '#FFC107',
-  success: '#28A745',
-  warning: '#FFC107',
-};
+// Import health service for Apple Health integration
+import healthService from '../services/healthService';
 
 // Minimal Components
 import MinimalComponents from './design/MinimalComponents';
@@ -36,6 +23,12 @@ const {
 const MinimalWorkouts = ({ user, onLogout, loading, styles }) => {
   const [activeTab, setActiveTab] = useState('today');
   const [refreshing, setRefreshing] = useState(false);
+  const [healthData, setHealthData] = useState({
+    todayStats: [],
+    workouts: [],
+    isLoading: true,
+    hasPermissions: false
+  });
 
   const tabs = [
     { id: 'today', label: 'Today' },
@@ -43,28 +36,114 @@ const MinimalWorkouts = ({ user, onLogout, loading, styles }) => {
     { id: 'programs', label: 'Programs' },
   ];
 
-  const todayStats = [
-    { value: '45', label: 'Minutes', color: AppColors.workout },
-    { value: '320', label: 'Calories', color: AppColors.nutrition },
-    { value: '12', label: 'Exercises', color: AppColors.primary },
-    { value: '3', label: 'Sets', color: AppColors.account },
-  ];
+  // Initialize Apple Health on component mount
+  useEffect(() => {
+    initializeHealthData();
+  }, []);
 
-  const workoutHistory = [
-    { name: 'Full Body Strength', duration: '45 min', date: 'Today', calories: 320, completed: true },
-    { name: 'HIIT Cardio', duration: '30 min', date: 'Yesterday', calories: 280, completed: true },
-    { name: 'Upper Body', duration: '40 min', date: '2 days ago', calories: 250, completed: true },
-  ];
+  const initializeHealthData = async () => {
+    try {
+      console.log('🏃‍♂️ Initializing Apple Health integration...');
+      
+      // Initialize health service
+      const initialized = await healthService.initialize();
+      if (!initialized) {
+        console.warn('⚠️ Health service not available');
+        setDefaultData();
+        return;
+      }
 
-  const workoutPrograms = [
-    { name: 'Beginner Strength', weeks: 4, workouts: 12, difficulty: 'Easy' },
-    { name: 'HIIT Bootcamp', weeks: 6, workouts: 18, difficulty: 'Hard' },
-    { name: 'Flexibility Flow', weeks: 3, workouts: 9, difficulty: 'Medium' },
-  ];
+      // Request permissions
+      const hasPermissions = await healthService.requestPermissions();
+      if (!hasPermissions) {
+        console.warn('⚠️ Health permissions denied');
+        setDefaultData();
+        return;
+      }
+
+      // Load real health data
+      await loadHealthData();
+      setHealthData(prev => ({ ...prev, hasPermissions: true, isLoading: false }));
+      
+    } catch (error) {
+      console.error('❌ Failed to initialize health data:', error);
+      setDefaultData();
+    }
+  };
+
+  const loadHealthData = async () => {
+    try {
+      const today = new Date();
+      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+      
+      // Get today's health metrics
+      const [steps, calories, workouts, activeMinutes] = await Promise.all([
+        healthService.getSteps(startOfDay, new Date()),
+        healthService.getCalories(startOfDay, new Date()),
+        healthService.getWorkouts(startOfDay, new Date()),
+        healthService.getActiveMinutes(startOfDay, new Date())
+      ]);
+
+      const todayStats = [
+        { value: activeMinutes?.toString() || '0', label: 'Minutes', color: AppColors.workout },
+        { value: calories?.toString() || '0', label: 'Calories', color: AppColors.nutrition },
+        { value: workouts?.length?.toString() || '0', label: 'Workouts', color: AppColors.primary },
+        { value: steps?.toString() || '0', label: 'Steps', color: AppColors.account },
+      ];
+
+      setHealthData(prev => ({
+        ...prev,
+        todayStats,
+        workouts: workouts || [],
+        isLoading: false
+      }));
+
+    } catch (error) {
+      console.error('❌ Failed to load health data:', error);
+      setDefaultData();
+    }
+  };
+
+  const setDefaultData = () => {
+    // Set empty default state when health data is not available
+    const defaultStats = [
+      { value: '0', label: 'Minutes', color: AppColors.workout },
+      { value: '0', label: 'Calories', color: AppColors.nutrition },
+      { value: '0', label: 'Workouts', color: AppColors.primary },
+      { value: '0', label: 'Steps', color: AppColors.account },
+    ];
+
+    setHealthData({
+      todayStats: defaultStats,
+      workouts: [],
+      isLoading: false,
+      hasPermissions: false
+    });
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+    console.log('🔄 Refreshing workout data...');
+    
+    if (healthData.hasPermissions) {
+      await loadHealthData();
+    }
+    
+    setRefreshing(false);
+  };
+
+  const requestHealthPermissions = async () => {
+    try {
+      console.log('🏥 Requesting Apple Health permissions...');
+      const granted = await healthService.requestPermissions();
+      
+      if (granted) {
+        setHealthData(prev => ({ ...prev, hasPermissions: true }));
+        await loadHealthData();
+      }
+    } catch (error) {
+      console.error('❌ Failed to request health permissions:', error);
+    }
   };
 
   const renderHeader = () => (
@@ -75,7 +154,7 @@ const MinimalWorkouts = ({ user, onLogout, loading, styles }) => {
           <Text body2 color={Colors.textSecondary}>Track your fitness journey</Text>
         </View>
         <TouchableOpacity>
-          <Ionicons name="add-outline" size={24} color={Colors.workout} />
+          <Ionicons name="add-outline" size={24} color={AppColors.workout} />
         </TouchableOpacity>
       </View>
       <View style={{ height: 1, backgroundColor: Colors.border, width: '100%' }} />
@@ -96,13 +175,13 @@ const MinimalWorkouts = ({ user, onLogout, loading, styles }) => {
               paddingHorizontal: 16,
               marginRight: 20,
               borderBottomWidth: activeTab === tab.id ? 2 : 0,
-              borderBottomColor: Colors.workout,
+              borderBottomColor: AppColors.workout,
             }}
             onPress={() => setActiveTab(tab.id)}
           >
             <Text 
               body1 
-              color={activeTab === tab.id ? Colors.workout : Colors.textSecondary}
+              color={activeTab === tab.id ? AppColors.workout : Colors.textSecondary}
               style={{ fontWeight: activeTab === tab.id ? '600' : '400' }}
             >
               {tab.label}
@@ -115,86 +194,143 @@ const MinimalWorkouts = ({ user, onLogout, loading, styles }) => {
 
   const renderTodayView = () => (
     <View>
-      <View paddingH-20 marginT-lg>
-        <MinimalStats stats={todayStats} />
-      </View>
-
-      <View paddingH-20 marginT-lg>
-        <MinimalSection title="Quick Start" />
-        <MinimalCard style={{ marginTop: 8 }}>
-          <MinimalMetric
-            icon="play-outline"
-            title="Continue Last Workout"
-            value="Full Body"
-            color={Colors.workout}
-            onPress={() => console.log('Continue workout')}
-          />
-          <MinimalMetric
-            icon="flash-outline"
-            title="Quick HIIT Session"
-            value="15 min"
-            color={Colors.primary}
-            onPress={() => console.log('Quick HIIT')}
-          />
-          <MinimalMetric
-            icon="body-outline"
-            title="Stretching Routine"
-            value="10 min"
-            color={Colors.nutrition}
-            onPress={() => console.log('Stretching')}
-          />
-        </MinimalCard>
-      </View>
-
-      <View paddingH-20 marginT-lg>
-        <MinimalSection title="Today's Goal" />
-        <MinimalCard style={{ marginTop: 8 }}>
-          <View row centerV spread marginB-sm>
-            <Text body1 color={Colors.textPrimary}>Workout Duration</Text>
-            <Text h6 color={Colors.workout}>45 / 60 min</Text>
+      {/* Health Permissions Notice */}
+      {!healthData.hasPermissions && (
+        <View paddingH-20 marginT-lg>
+          <View style={{
+            backgroundColor: AppColors.warning + '20',
+            borderRadius: 12,
+            padding: 16,
+            borderLeftWidth: 4,
+            borderLeftColor: AppColors.warning
+          }}>
+            <View row centerV marginB-sm>
+              <Ionicons name="fitness-outline" size={20} color={AppColors.warning} style={{ marginRight: 8 }} />
+              <Text h6 color={AppColors.warning}>Connect Apple Health</Text>
+            </View>
+            <Text body2 color={AppColors.textSecondary} marginB-md>
+              Enable Apple Health integration to track your workouts, steps, and calories automatically.
+            </Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: AppColors.warning,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 8
+              }}
+              onPress={requestHealthPermissions}
+            >
+              <Text body2 color={AppColors.white} style={{ fontWeight: '600' }}>
+                Connect Now
+              </Text>
+            </TouchableOpacity>
           </View>
-          <MinimalProgress progress={75} color={Colors.workout} height={3} />
-          <Text caption color={Colors.textSecondary} marginT-sm>
-            15 minutes to reach daily goal
-          </Text>
-        </MinimalCard>
+        </View>
+      )}
+
+      {/* Today's Stats */}
+      <View paddingH-20 marginT-lg>
+        <Text h6 color={Colors.textPrimary} marginB-md>Today's Activity</Text>
+        {healthData.isLoading ? (
+          <View style={{ height: 100, justifyContent: 'center', alignItems: 'center' }}>
+            <Text body2 color={Colors.textSecondary}>Loading health data...</Text>
+          </View>
+        ) : (
+          <MinimalStats stats={healthData.todayStats} />
+        )}
+      </View>
+
+      {/* Recent Workouts */}
+      <View paddingH-20 marginT-xl>
+        <Text h6 color={Colors.textPrimary} marginB-md>Recent Workouts</Text>
+        {healthData.workouts.length > 0 ? (
+          healthData.workouts.slice(0, 3).map((workout, index) => (
+            <MinimalCard key={index} style={{ marginBottom: 12 }}>
+              <View row centerV spread>
+                <View>
+                  <Text body1 color={Colors.textPrimary}>{workout.name || 'Workout'}</Text>
+                  <Text caption color={Colors.textSecondary}>
+                    {workout.duration} min • {workout.calories} cal
+                  </Text>
+                </View>
+                <View>
+                  <Ionicons 
+                    name={workout.completed ? "checkmark-circle" : "time-outline"} 
+                    size={20} 
+                    color={workout.completed ? AppColors.success : AppColors.textSecondary} 
+                  />
+                </View>
+              </View>
+            </MinimalCard>
+          ))
+        ) : (
+          <View style={{
+            padding: 24,
+            alignItems: 'center',
+            backgroundColor: AppColors.backgroundSecondary,
+            borderRadius: 12
+          }}>
+            <Ionicons name="barbell-outline" size={32} color={AppColors.textSecondary} style={{ marginBottom: 8 }} />
+            <Text body2 color={AppColors.textSecondary} style={{ textAlign: 'center' }}>
+              {healthData.hasPermissions ? 'No workouts recorded today' : 'Connect Apple Health to see your workouts'}
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
 
   const renderHistoryView = () => (
     <View paddingH-20 marginT-lg>
-      <MinimalSection title="Recent Workouts" action="View All" />
-      <MinimalCard style={{ marginTop: 8 }}>
-        {workoutHistory.map((workout, index) => (
-          <MinimalMetric
-            key={index}
-            icon="checkmark-circle-outline"
-            title={`${workout.name} • ${workout.date}`}
-            value={workout.duration}
-            color={workout.completed ? Colors.success : Colors.textLight}
-            onPress={() => console.log(`View ${workout.name}`)}
-          />
-        ))}
-      </MinimalCard>
+      <Text h6 color={Colors.textPrimary} marginB-md>Workout History</Text>
+      {healthData.hasPermissions ? (
+        <View style={{
+          padding: 24,
+          alignItems: 'center',
+          backgroundColor: AppColors.backgroundSecondary,
+          borderRadius: 12
+        }}>
+          <Ionicons name="construction-outline" size={32} color={AppColors.textSecondary} style={{ marginBottom: 8 }} />
+          <Text body2 color={AppColors.textSecondary} style={{ textAlign: 'center', marginBottom: 8 }}>
+            Workout history coming soon
+          </Text>
+          <Text caption color={AppColors.textSecondary} style={{ textAlign: 'center' }}>
+            We're building integration with your Apple Health workout history
+          </Text>
+        </View>
+      ) : (
+        <View style={{
+          padding: 24,
+          alignItems: 'center',
+          backgroundColor: AppColors.backgroundSecondary,
+          borderRadius: 12
+        }}>
+          <Ionicons name="time-outline" size={32} color={AppColors.textSecondary} style={{ marginBottom: 8 }} />
+          <Text body2 color={AppColors.textSecondary} style={{ textAlign: 'center' }}>
+            Connect Apple Health to view your workout history
+          </Text>
+        </View>
+      )}
     </View>
   );
 
   const renderProgramsView = () => (
     <View paddingH-20 marginT-lg>
-      <MinimalSection title="Workout Programs" action="Browse All" />
-      <MinimalCard style={{ marginTop: 8 }}>
-        {workoutPrograms.map((program, index) => (
-          <MinimalMetric
-            key={index}
-            icon="list-outline"
-            title={`${program.name} • ${program.difficulty}`}
-            value={`${program.weeks}w`}
-            color={Colors.workout}
-            onPress={() => console.log(`Start ${program.name}`)}
-          />
-        ))}
-      </MinimalCard>
+      <Text h6 color={Colors.textPrimary} marginB-md>Workout Programs</Text>
+      <View style={{
+        padding: 24,
+        alignItems: 'center',
+        backgroundColor: AppColors.backgroundSecondary,
+        borderRadius: 12
+      }}>
+        <Ionicons name="library-outline" size={32} color={AppColors.textSecondary} style={{ marginBottom: 8 }} />
+        <Text body2 color={AppColors.textSecondary} style={{ textAlign: 'center', marginBottom: 8 }}>
+          Custom workout programs coming soon
+        </Text>
+        <Text caption color={AppColors.textSecondary} style={{ textAlign: 'center' }}>
+          Create personalized workout routines and track your progress
+        </Text>
+      </View>
     </View>
   );
 
@@ -222,8 +358,8 @@ const MinimalWorkouts = ({ user, onLogout, loading, styles }) => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[Colors.workout]}
-            tintColor={Colors.workout}
+            colors={[AppColors.workout]}
+            tintColor={AppColors.workout}
           />
         }
       >

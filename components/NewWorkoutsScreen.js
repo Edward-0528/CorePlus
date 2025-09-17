@@ -314,10 +314,8 @@ const NewWorkoutsScreen = ({ user, onLogout, loading, styles: globalStyles }) =>
         setTodaysWorkouts(todayResult.workouts);
       }
 
-      // Load today's scheduled workouts (mock data for now)
-      // In a real app, this would come from a workout plan service
-      const mockSchedule = generateMockSchedule(profileResult);
-      setScheduledWorkouts(mockSchedule);
+      // Load today's scheduled workouts from Apple Health or workout plan service
+      await loadScheduledWorkouts(profileResult);
 
     } catch (error) {
       console.error('Error loading workout data:', error);
@@ -351,33 +349,37 @@ const NewWorkoutsScreen = ({ user, onLogout, loading, styles: globalStyles }) =>
     return null;
   }, [user?.id]);
 
-  // Generate mock schedule based on user profile
-  const generateMockSchedule = (profile) => {
-    if (!profile) return [];
-    
-    const goal = profile.main_goal;
-    const today = new Date().getDay(); // 0 = Sunday, 6 = Saturday
-    
-    // Different schedules based on goals
-    const schedules = {
-      'lose_weight': [
-        { name: 'HIIT Cardio', type: 'cardio', estimated_duration: 25, scheduled_time: '07:00' },
-        { name: 'Evening Walk', type: 'cardio', estimated_duration: 30, scheduled_time: '18:00' }
-      ],
-      'build_muscle': [
-        { name: 'Upper Body Strength', type: 'strength', estimated_duration: 45, scheduled_time: '09:00' }
-      ],
-      'keep_fit': [
-        { name: 'Full Body Workout', type: 'strength', estimated_duration: 35, scheduled_time: '08:00' }
-      ]
-    };
-
-    // Only show schedule on workout days (not Sunday or if already completed workouts today)
-    if (today === 0 || todaysWorkouts.length > 0) {
-      return [];
+  // Load scheduled workouts from Apple Health or workout plan service
+  const loadScheduledWorkouts = async (profile) => {
+    try {
+      // Try to get planned workouts from Apple Health first
+      const today = new Date();
+      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+      const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+      
+      // Check if health service is available and has permissions
+      const healthInitialized = await healthService.initialize();
+      if (healthInitialized) {
+        const hasPermissions = await healthService.requestPermissions();
+        if (hasPermissions) {
+          // Get planned workouts from Apple Health (if any)
+          const plannedWorkouts = await healthService.getPlannedWorkouts?.(startOfDay, endOfDay);
+          if (plannedWorkouts?.length > 0) {
+            setScheduledWorkouts(plannedWorkouts);
+            return;
+          }
+        }
+      }
+      
+      // If no Apple Health data or service unavailable, check if user has any active workout plans
+      // This could integrate with a workout planning service in the future
+      setScheduledWorkouts([]); // No scheduled workouts for now
+      console.log('📅 No scheduled workouts found for today');
+      
+    } catch (error) {
+      console.error('❌ Error loading scheduled workouts:', error);
+      setScheduledWorkouts([]);
     }
-
-    return schedules[goal] || schedules['keep_fit'];
   };
 
   // Handle workout logging

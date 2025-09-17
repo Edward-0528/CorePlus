@@ -6,6 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
+// Import health service for Apple Health integration
+import healthService from '../services/healthService';
+
 // Custom Components
 import { 
   BeautifulCard, 
@@ -22,77 +25,137 @@ const { width } = Dimensions.get('window');
 const BeautifulWorkouts = ({ user, onLogout, loading, styles }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('today');
+  const [healthData, setHealthData] = useState({
+    todayStats: [],
+    workouts: [],
+    weeklyStats: [],
+    isLoading: true,
+    hasPermissions: false
+  });
   
-  // Mock data - replace with real data
-  const weeklyStats = [
-    { value: '5', label: 'Workouts', color: Colors.workout },
-    { value: '2.5h', label: 'Total Time', color: Colors.primary },
-    { value: '1,250', label: 'Calories', color: Colors.accent },
-    { value: '85%', label: 'Goal', color: Colors.success },
-  ];
+  // Initialize Apple Health on component mount
+  useEffect(() => {
+    initializeHealthData();
+  }, []);
 
-  const todaysWorkouts = [
-    {
-      id: 1,
-      name: 'Morning Cardio',
-      type: 'Cardio',
-      duration: 30,
-      calories: 250,
-      completed: true,
-      time: '7:00 AM'
-    },
-    {
-      id: 2,
-      name: 'Upper Body Strength',
-      type: 'Strength',
-      duration: 45,
-      calories: 180,
-      completed: false,
-      time: '6:00 PM'
+  const initializeHealthData = async () => {
+    try {
+      console.log('🏃‍♂️ Initializing Apple Health integration...');
+      
+      // Initialize health service
+      const initialized = await healthService.initialize();
+      if (!initialized) {
+        console.warn('⚠️ Health service not available');
+        setDefaultData();
+        return;
+      }
+
+      // Request permissions
+      const hasPermissions = await healthService.requestPermissions();
+      if (!hasPermissions) {
+        console.warn('⚠️ Health permissions denied');
+        setDefaultData();
+        return;
+      }
+
+      // Load real health data
+      await loadHealthData();
+      setHealthData(prev => ({ ...prev, hasPermissions: true, isLoading: false }));
+      
+    } catch (error) {
+      console.error('❌ Failed to initialize health data:', error);
+      setDefaultData();
     }
-  ];
+  };
 
-  const workoutHistory = [
-    {
-      id: 1,
-      name: 'Full Body HIIT',
-      type: 'HIIT',
-      duration: 25,
-      calories: 300,
-      date: '2025-08-28',
-      exercises: 8
-    },
-    {
-      id: 2,
-      name: 'Yoga Flow',
-      type: 'Flexibility',
-      duration: 60,
-      calories: 150,
-      date: '2025-08-27',
-      exercises: 12
-    },
-    {
-      id: 3,
-      name: 'Leg Day',
-      type: 'Strength',
-      duration: 50,
-      calories: 220,
-      date: '2025-08-26',
-      exercises: 6
+  const loadHealthData = async () => {
+    try {
+      const today = new Date();
+      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+      const weekAgo = new Date(today.getTime() - (7 * 24 * 60 * 60 * 1000));
+      
+      // Get health metrics
+      const [steps, calories, workouts, activeMinutes] = await Promise.all([
+        healthService.getSteps(startOfDay, new Date()),
+        healthService.getCalories(startOfDay, new Date()),
+        healthService.getWorkouts(startOfDay, new Date()),
+        healthService.getActiveMinutes(startOfDay, new Date())
+      ]);
+
+      // Get weekly data for stats
+      const [weeklyWorkouts, weeklyMinutes, weeklyCalories] = await Promise.all([
+        healthService.getWorkouts(weekAgo, new Date()),
+        healthService.getActiveMinutes(weekAgo, new Date()),
+        healthService.getCalories(weekAgo, new Date())
+      ]);
+
+      const weeklyStats = [
+        { value: weeklyWorkouts?.length?.toString() || '0', label: 'Workouts', color: AppColors.workout },
+        { value: Math.round((weeklyMinutes || 0) / 60 * 10) / 10 + 'h', label: 'Total Time', color: AppColors.primary },
+        { value: (weeklyCalories || 0).toString(), label: 'Calories', color: AppColors.nutrition },
+        { value: '0%', label: 'Goal', color: AppColors.success }, // TODO: Calculate from user goals
+      ];
+
+      setHealthData(prev => ({
+        ...prev,
+        todayStats: [
+          { value: activeMinutes?.toString() || '0', label: 'Minutes', color: AppColors.workout },
+          { value: calories?.toString() || '0', label: 'Calories', color: AppColors.nutrition },
+          { value: workouts?.length?.toString() || '0', label: 'Workouts', color: AppColors.primary },
+          { value: steps?.toString() || '0', label: 'Steps', color: AppColors.account },
+        ],
+        workouts: workouts || [],
+        weeklyStats,
+        isLoading: false
+      }));
+
+    } catch (error) {
+      console.error('❌ Failed to load health data:', error);
+      setDefaultData();
     }
-  ];
+  };
 
-  const workoutTypes = [
-    { name: 'Strength', icon: 'barbell', color: Colors.workout, gradient: [Colors.workout, Colors.accentLight] },
-    { name: 'Cardio', icon: 'heart', color: Colors.accent, gradient: [Colors.accent, Colors.accentLight] },
-    { name: 'HIIT', icon: 'flash', color: Colors.warning, gradient: [Colors.warning, '#FFE066'] },
-    { name: 'Yoga', icon: 'leaf', color: Colors.success, gradient: [Colors.success, '#66BB6A'] },
-  ];
+  const setDefaultData = () => {
+    // Set empty default state when health data is not available
+    const defaultStats = [
+      { value: '0', label: 'Workouts', color: AppColors.workout },
+      { value: '0h', label: 'Total Time', color: AppColors.primary },
+      { value: '0', label: 'Calories', color: AppColors.nutrition },
+      { value: '0%', label: 'Goal', color: AppColors.success },
+    ];
+
+    setHealthData({
+      todayStats: defaultStats,
+      workouts: [],
+      weeklyStats: defaultStats,
+      isLoading: false,
+      hasPermissions: false
+    });
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Add refresh logic here
-    setTimeout(() => setRefreshing(false), 1000);
+    console.log('🔄 Refreshing workout data...');
+    
+    if (healthData.hasPermissions) {
+      await loadHealthData();
+    }
+    
+    setRefreshing(false);
+  };
+
+  const requestHealthPermissions = async () => {
+    try {
+      console.log('🏥 Requesting Apple Health permissions...');
+      const granted = await healthService.requestPermissions();
+      
+      if (granted) {
+        setHealthData(prev => ({ ...prev, hasPermissions: true }));
+        await loadHealthData();
+      }
+    } catch (error) {
+      console.error('❌ Failed to request health permissions:', error);
+    }
   };
 
   const renderHeader = () => (
