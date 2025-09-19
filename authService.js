@@ -33,18 +33,8 @@ export const authService = {
 
       console.log('AuthService: SignUpWithPhone successful:', data);
       
-      // If user was created successfully, initialize subscription service
-      if (data?.user) {
-        try {
-          console.log('🔗 Initializing subscription service for new user:', data.user.id);
-          const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
-          await userSubscriptionService.initializeForUser(data.user);
-          console.log('✅ New user subscription service initialized');
-        } catch (subscriptionError) {
-          console.warn('⚠️ Failed to initialize subscription service for new user:', subscriptionError);
-          // Don't fail signup if subscription service fails
-        }
-      }
+      // Note: Don't initialize RevenueCat here - user isn't logged in yet
+      // RevenueCat initialization will happen in the auth state listener after login
       
       return { success: true, data };
     } catch (error) {
@@ -161,18 +151,8 @@ export const authService = {
 
       console.log('AuthService: SignUp successful:', data);
       
-      // If user was created successfully, initialize subscription service
-      if (data?.user) {
-        try {
-          console.log('🔗 Initializing subscription service for new user:', data.user.id);
-          const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
-          await userSubscriptionService.initializeForUser(data.user);
-          console.log('✅ New user subscription service initialized');
-        } catch (subscriptionError) {
-          console.warn('⚠️ Failed to initialize subscription service for new user:', subscriptionError);
-          // Don't fail signup if subscription service fails
-        }
-      }
+      // Note: Don't initialize RevenueCat here - user isn't logged in yet
+      // RevenueCat initialization will happen in the auth state listener after auto-login
       
       return { success: true, data };
     } catch (error) {

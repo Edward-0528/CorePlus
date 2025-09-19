@@ -100,6 +100,8 @@ function AppContent() {
       if (session?.user) {
         // User signed in - save session data
         console.log('👤 User signed in, saving session');
+        console.log('👤 Session user ID:', session.user.id);
+        console.log('👤 Session user email:', session.user.email);
         
         setUser(session.user);
         setIsAuthenticated(true);
