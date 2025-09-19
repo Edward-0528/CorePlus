@@ -1,4 +1,11 @@
 import { supabase } from './supabaseConfig';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Session persistence keys
+const SESSION_KEYS = {
+  USER_DATA: 'core_plus_user_data',
+  AUTH_STATE: 'core_plus_auth_state',
+};
 
 export const authService = {
   // Sign up with phone number and password
@@ -25,6 +32,20 @@ export const authService = {
       }
 
       console.log('AuthService: SignUpWithPhone successful:', data);
+      
+      // If user was created successfully, initialize subscription service
+      if (data?.user) {
+        try {
+          console.log('🔗 Initializing subscription service for new user:', data.user.id);
+          const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
+          await userSubscriptionService.initializeForUser(data.user);
+          console.log('✅ New user subscription service initialized');
+        } catch (subscriptionError) {
+          console.warn('⚠️ Failed to initialize subscription service for new user:', subscriptionError);
+          // Don't fail signup if subscription service fails
+        }
+      }
+      
       return { success: true, data };
     } catch (error) {
       console.error('AuthService: SignUpWithPhone catch block:', error);
@@ -72,6 +93,8 @@ export const authService = {
   // Sign in with phone and password
   signInWithPhone: async (phone, password) => {
     try {
+      console.log('🔐 AuthService: Starting signInWithPhone for:', phone);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         phone,
         password,
@@ -81,8 +104,34 @@ export const authService = {
         throw error;
       }
 
+      console.log('🔐 AuthService: signInWithPhone successful');
+      
+      // Store user data for persistence
+      if (data.user && data.session) {
+        try {
+          await AsyncStorage.setItem(SESSION_KEYS.USER_DATA, JSON.stringify(data.user));
+          await AsyncStorage.setItem(SESSION_KEYS.AUTH_STATE, 'authenticated');
+          console.log('💾 User session saved to storage');
+        } catch (storageError) {
+          console.warn('Failed to save session to storage:', storageError);
+        }
+      }
+      
+      // Initialize subscription service for the user
+      if (data.user) {
+        try {
+          const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
+          await userSubscriptionService.initializeForUser(data.user);
+          console.log('✅ Subscription service initialized for user');
+        } catch (subscriptionError) {
+          console.error('⚠️ Failed to initialize subscription service:', subscriptionError);
+          // Don't fail the login if subscription service fails
+        }
+      }
+
       return { success: true, data };
     } catch (error) {
+      console.error('🔐 AuthService: signInWithPhone catch:', error.message);
       return { success: false, error: error.message };
     }
   },
@@ -111,6 +160,20 @@ export const authService = {
       }
 
       console.log('AuthService: SignUp successful:', data);
+      
+      // If user was created successfully, initialize subscription service
+      if (data?.user) {
+        try {
+          console.log('🔗 Initializing subscription service for new user:', data.user.id);
+          const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
+          await userSubscriptionService.initializeForUser(data.user);
+          console.log('✅ New user subscription service initialized');
+        } catch (subscriptionError) {
+          console.warn('⚠️ Failed to initialize subscription service for new user:', subscriptionError);
+          // Don't fail signup if subscription service fails
+        }
+      }
+      
       return { success: true, data };
     } catch (error) {
       console.error('AuthService: SignUp catch block:', error);
@@ -135,6 +198,17 @@ export const authService = {
 
       console.log('🔐 AuthService: signIn successful');
       
+      // Store user data for persistence
+      if (data.user && data.session) {
+        try {
+          await AsyncStorage.setItem(SESSION_KEYS.USER_DATA, JSON.stringify(data.user));
+          await AsyncStorage.setItem(SESSION_KEYS.AUTH_STATE, 'authenticated');
+          console.log('💾 User session saved to storage');
+        } catch (storageError) {
+          console.warn('Failed to save session to storage:', storageError);
+        }
+      }
+      
       // Initialize subscription service for the user
       if (data.user) {
         try {
@@ -157,6 +231,14 @@ export const authService = {
   // Sign out
   signOut: async () => {
     try {
+      // Clear stored session data
+      try {
+        await AsyncStorage.multiRemove([SESSION_KEYS.USER_DATA, SESSION_KEYS.AUTH_STATE]);
+        console.log('🗑️ Session data cleared from storage');
+      } catch (storageError) {
+        console.warn('Failed to clear session from storage:', storageError);
+      }
+      
       // Clear all user-specific cached data before signing out
       const { cacheManager } = await import('./services/cacheManager');
       await cacheManager.clearAllUserData();
@@ -189,5 +271,95 @@ export const authService = {
   // Listen to auth state changes
   onAuthStateChange: (callback) => {
     return supabase.auth.onAuthStateChange(callback);
-  }
+  },
+
+  // Check if user has a valid stored session
+  hasValidStoredSession: async () => {
+    try {
+      const [userData, authState] = await AsyncStorage.multiGet([
+        SESSION_KEYS.USER_DATA,
+        SESSION_KEYS.AUTH_STATE,
+      ]);
+      
+      return (
+        userData[1] !== null && 
+        authState[1] === 'authenticated'
+      );
+    } catch (error) {
+      console.warn('Failed to check stored session:', error);
+      return false;
+    }
+  },
+
+  // Get stored user data
+  getStoredUserData: async () => {
+    try {
+      const userData = await AsyncStorage.getItem(SESSION_KEYS.USER_DATA);
+      return userData ? JSON.parse(userData) : null;
+    } catch (error) {
+      console.warn('Failed to get stored user data:', error);
+      return null;
+    }
+  },
+
+  // Initialize session on app startup
+  initializeSession: async () => {
+    const startTime = Date.now();
+    console.log('🔄 Initializing session...');
+    
+    try {
+      // Add timeout wrapper for session retrieval
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Session timeout after 10s')), 10000)
+      );
+      
+      console.log('📡 Checking Supabase session...');
+      const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]);
+      console.log(`⏱️ Session check took ${Date.now() - startTime}ms`);
+      
+      if (error) {
+        console.error('❌ Session retrieval error:', error);
+        return { success: false, error: error.message };
+      }
+
+      if (session?.user) {
+        console.log('✅ Active Supabase session found for user:', session.user.email || session.user.phone);
+        // Update stored session data
+        try {
+          await AsyncStorage.setItem(SESSION_KEYS.USER_DATA, JSON.stringify(session.user));
+          await AsyncStorage.setItem(SESSION_KEYS.AUTH_STATE, 'authenticated');
+          console.log('💾 Session data updated in storage');
+        } catch (storageError) {
+          console.warn('⚠️ Failed to update stored session:', storageError);
+        }
+        console.log(`✅ Session initialization completed in ${Date.now() - startTime}ms`);
+        return { success: true, user: session.user, session };
+      }
+
+      // Check if we have stored session data
+      console.log('📱 Checking for stored session...');
+      const hasStoredSession = await this.hasValidStoredSession();
+      if (hasStoredSession) {
+        console.log('📱 Stored session found, checking validity...');
+        const storedUser = await this.getStoredUserData();
+        
+        // Try to refresh the session
+        const { data: { user } } = await this.getCurrentUser();
+        if (user) {
+          console.log('✅ Session refreshed successfully');
+          return { success: true, user, restored: true };
+        } else {
+          console.log('❌ Stored session invalid, clearing...');
+          await AsyncStorage.multiRemove([SESSION_KEYS.USER_DATA, SESSION_KEYS.AUTH_STATE]);
+        }
+      }
+
+      console.log('🚫 No valid session found');
+      return { success: false, error: 'No valid session' };
+    } catch (error) {
+      console.error('Session initialization error:', error);
+      return { success: false, error: error.message };
+    }
+  },
 };

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Production-safe Supabase configuration
 let supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -23,5 +24,29 @@ if (__DEV__) {
   console.log('✅ Supabase configuration loaded successfully');
 }
 
-// Create Supabase client with production-safe configuration
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Create Supabase client with enhanced session persistence and timeout settings
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+    // Add timeout settings to prevent hanging
+    flowType: 'implicit',
+  },
+  global: {
+    headers: {
+      'x-client-info': 'core-plus-mobile',
+    },
+  },
+  db: {
+    schema: 'public',
+  },
+  // Add timeout for requests
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+    timeout: 30000, // 30 second timeout
+  },
+});

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { ScrollView, RefreshControl, Alert, StyleSheet, View, Modal, Text, TouchableOpacity, Switch } from 'react-native';
+import { ScrollView, RefreshControl, Alert, StyleSheet, Switch } from 'react-native';
+import { View, Modal, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFeatureAccess } from '../hooks/useFeatureAccess';
 import { AppColors, validateColor } from '../constants/AppColors';
 import UpgradeModal from './UpgradeModal';
+import DebugAuthScreen from './DebugAuthScreen';
 
 const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const [refreshing, setRefreshing] = useState(false);
@@ -11,6 +13,7 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const [biometrics, setBiometrics] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showDebugScreen, setShowDebugScreen] = useState(false);
   
   // Use our new subscription system
   const { subscriptionInfo } = useFeatureAccess();
@@ -87,6 +90,13 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
         { icon: 'help-circle-outline', title: 'Help & Support', subtitle: 'FAQ, contact us' },
         { icon: 'document-text-outline', title: 'Privacy Policy', subtitle: 'How we protect your data' },
         { icon: 'shield-outline', title: 'Terms of Service', subtitle: 'Usage terms and conditions' },
+        { 
+          icon: 'bug-outline', 
+          title: 'Debug Authentication', 
+          subtitle: 'Troubleshoot login issues',
+          onPress: () => setShowDebugScreen(true),
+          debug: true
+        },
       ]
     }
   ];
@@ -244,6 +254,16 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
         visible={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
       />
+
+      {/* Debug Authentication Modal */}
+      <Modal
+        visible={showDebugScreen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <DebugAuthScreen onClose={() => setShowDebugScreen(false)} />
+      </Modal>
+
     </View>
   );
 };

@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, RefreshControl, Platform } from 'react-native';
+import { ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppColors } from '../constants/AppColors';
 import { Text, View, TouchableOpacity, Colors } from './UILibReplacement';
 
-// Import new HealthKit service for Apple Health integration
-import newHealthService from '../services/newHealthService';
-import HealthKitConnector from './health/HealthKitConnector';
+// Import health service for Apple Health integration
+import healthService from '../services/healthService';
 
 // Minimal Components
 import MinimalComponents from './design/MinimalComponents';
@@ -44,13 +43,20 @@ const MinimalWorkouts = ({ user, onLogout, loading, styles }) => {
 
   const initializeHealthData = async () => {
     try {
-      console.log('🏃‍♂️ Initializing HealthKit integration...');
-      setHealthData(prev => ({ ...prev, isLoading: true }));
+      console.log('🏃‍♂️ Initializing Apple Health integration...');
       
-      // Initialize new health service
-      const initialized = await newHealthService.initialize();
+      // Initialize health service
+      const initialized = await healthService.initialize();
       if (!initialized) {
-        console.warn('⚠️ HealthKit not available');
+        console.warn('⚠️ Health service not available');
+        setDefaultData();
+        return;
+      }
+
+      // Request permissions
+      const hasPermissions = await healthService.requestPermissions();
+      if (!hasPermissions) {
+        console.warn('⚠️ Health permissions denied');
         setDefaultData();
         return;
       }
@@ -60,33 +66,36 @@ const MinimalWorkouts = ({ user, onLogout, loading, styles }) => {
       setHealthData(prev => ({ ...prev, hasPermissions: true, isLoading: false }));
       
     } catch (error) {
-      console.error('❌ Failed to initialize HealthKit:', error);
+      console.error('❌ Failed to initialize health data:', error);
       setDefaultData();
     }
   };
 
   const loadHealthData = async () => {
     try {
-      console.log('📊 Loading health data from HealthKit...');
+      const today = new Date();
+      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
       
-      // Get comprehensive health data for today
-      const healthStats = await newHealthService.getTodayHealthData();
-      
-      console.log('📈 Health data received:', healthStats);
+      // Get today's health metrics
+      const [steps, calories, workouts, activeMinutes] = await Promise.all([
+        healthService.getSteps(startOfDay, new Date()),
+        healthService.getCalories(startOfDay, new Date()),
+        healthService.getWorkouts(startOfDay, new Date()),
+        healthService.getActiveMinutes(startOfDay, new Date())
+      ]);
 
       const todayStats = [
-        { value: Math.round(healthStats.calories.value).toString(), label: 'Calories', color: AppColors.nutrition },
-        { value: healthStats.steps.value.toString(), label: 'Steps', color: AppColors.account },
-        { value: `${healthStats.distance.value} km`, label: 'Distance', color: AppColors.workout },
-        { value: healthStats.heartRate.value ? `${healthStats.heartRate.value} bpm` : '0', label: 'Heart Rate', color: AppColors.primary },
+        { value: activeMinutes?.toString() || '0', label: 'Minutes', color: AppColors.workout },
+        { value: calories?.toString() || '0', label: 'Calories', color: AppColors.nutrition },
+        { value: workouts?.length?.toString() || '0', label: 'Workouts', color: AppColors.primary },
+        { value: steps?.toString() || '0', label: 'Steps', color: AppColors.account },
       ];
 
       setHealthData(prev => ({
         ...prev,
         todayStats,
-        workouts: [], // Will be populated when workout data is available
-        isLoading: false,
-        hasPermissions: healthStats.isConnected
+        workouts: workouts || [],
+        isLoading: false
       }));
 
     } catch (error) {
@@ -125,38 +134,15 @@ const MinimalWorkouts = ({ user, onLogout, loading, styles }) => {
 
   const requestHealthPermissions = async () => {
     try {
-      console.log('🏥 Requesting HealthKit permissions...');
-      console.log('🔍 Platform:', Platform.OS);
-      console.log('🔍 HealthKit service ready?', newHealthService.isReady());
+      console.log('🏥 Requesting Apple Health permissions...');
+      const granted = await healthService.requestPermissions();
       
-      // Show loading state
-      setHealthData(prev => ({ ...prev, isLoading: true }));
-      
-      // Initialize and request permissions
-      const initialized = await newHealthService.initialize();
-      
-      console.log('🔍 HealthKit initialization result:', initialized);
-      
-      if (initialized) {
-        setHealthData(prev => ({ ...prev, hasPermissions: true, isLoading: true }));
+      if (granted) {
+        setHealthData(prev => ({ ...prev, hasPermissions: true }));
         await loadHealthData();
-        console.log('✅ HealthKit connected successfully');
-        alert('✅ Apple Health connected successfully!');
-      } else {
-        console.warn('⚠️ Failed to connect to HealthKit');
-        setHealthData(prev => ({ ...prev, isLoading: false }));
-        
-        // More specific error message
-        if (Platform.OS !== 'ios') {
-          alert('Apple Health is only available on iOS devices.');
-        } else {
-          alert('Unable to connect to Apple Health. Make sure you\'re using a development build on a physical device and Health app is available.');
-        }
       }
     } catch (error) {
       console.error('❌ Failed to request health permissions:', error);
-      setHealthData(prev => ({ ...prev, isLoading: false }));
-      alert(`Failed to connect to Apple Health: ${error.message}`);
     }
   };
 
@@ -208,15 +194,39 @@ const MinimalWorkouts = ({ user, onLogout, loading, styles }) => {
 
   const renderTodayView = () => (
     <View>
-      {/* HealthKit Connector */}
-      <HealthKitConnector 
-        onConnectionChange={(connected) => {
-          setHealthData(prev => ({ ...prev, hasPermissions: connected }));
-          if (connected) {
-            loadHealthData();
-          }
-        }}
-      />
+      {/* Health Permissions Notice */}
+      {!healthData.hasPermissions && (
+        <View paddingH-20 marginT-lg>
+          <View style={{
+            backgroundColor: AppColors.warning + '20',
+            borderRadius: 12,
+            padding: 16,
+            borderLeftWidth: 4,
+            borderLeftColor: AppColors.warning
+          }}>
+            <View row centerV marginB-sm>
+              <Ionicons name="fitness-outline" size={20} color={AppColors.warning} style={{ marginRight: 8 }} />
+              <Text h6 color={AppColors.warning}>Connect Apple Health</Text>
+            </View>
+            <Text body2 color={AppColors.textSecondary} marginB-md>
+              Enable Apple Health integration to track your workouts, steps, and calories automatically.
+            </Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: AppColors.warning,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 8
+              }}
+              onPress={requestHealthPermissions}
+            >
+              <Text body2 color={AppColors.white} style={{ fontWeight: '600' }}>
+                Connect Now
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Today's Stats */}
       <View paddingH-20 marginT-lg>

@@ -2,14 +2,7 @@
 // This provides the same API but uses standard React Native components
 
 import React from 'react';
-import { Text as RNText, View as RNView, TouchableOpacity as RNTouchableOpacity } from 'react-native';
-import { AppColors } from '../constants/AppColors';
-
-// Replacement for react-native-ui-lib components
-// This provides the same API but uses standard React Native components
-
-import React from 'react';
-import { Text as RNText, View as RNView, TouchableOpacity as RNTouchableOpacity } from 'react-native';
+import { Text as RNText, View as RNView, TouchableOpacity as RNTouchableOpacity, Switch as RNSwitch } from 'react-native';
 import { AppColors } from '../constants/AppColors';
 
 // Helper function to extract ui-lib spacing and layout props
@@ -224,7 +217,7 @@ export const Colors = {
 };
 
 // Switch component (same as React Native Switch)
-export { Switch } from 'react-native';
+export const Switch = RNSwitch;
 
 export default {
   Text,

@@ -57,15 +57,8 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
         setSearchResults(result.foods);
         console.log('✅ Found', result.foods.length, 'food options');
       } else {
-        // Show the fallback food if API failed
+        // Show whatever came back without interruptive alerts
         setSearchResults(result.foods || []);
-        if (!result.success) {
-          Alert.alert(
-            'Search Notice',
-            'Using estimated nutritional information. Results may not be completely accurate.',
-            [{ text: 'OK' }]
-          );
-        }
       }
 
       setHasSearched(true);
@@ -111,12 +104,8 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
       setSearchResults([]);
       setHasSearched(false);
 
-      // Show success feedback
-      Alert.alert(
-        'Meal Added!',
-        `${food.name} has been added to your daily meals.`,
-        [{ text: 'OK', onPress: () => onClose() }]
-      );
+  // Lightweight feedback without modal interruption
+  onClose();
 
     } catch (error) {
       console.error('Error adding searched food:', error);

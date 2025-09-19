@@ -43,21 +43,36 @@ class UserSubscriptionService {
    */
   async linkUserToRevenueCat(supabaseUser) {
     try {
+      console.log('🔗 Linking user to RevenueCat:', supabaseUser.id, supabaseUser.email);
+      
+      // Ensure RevenueCat is initialized before setting user ID
+      const initResult = await revenueCatService.initialize();
+      if (!initResult.success) {
+        console.warn('⚠️ RevenueCat initialization failed, skipping user linking:', initResult.error);
+        return;
+      }
+      
       // Use Supabase user ID as RevenueCat user ID for consistency
       await revenueCatService.setUserID(supabaseUser.id);
       
       // Store user metadata in RevenueCat
-      await revenueCatService.setAttributes({
-        email: supabaseUser.email,
-        supabase_user_id: supabaseUser.id,
-        created_at: supabaseUser.created_at,
-      });
+      try {
+        await revenueCatService.setAttributes({
+          email: supabaseUser.email,
+          supabase_user_id: supabaseUser.id,
+          created_at: supabaseUser.created_at,
+          user_type: 'free' // Mark as free user initially
+        });
+        console.log('📋 User attributes set in RevenueCat');
+      } catch (attributeError) {
+        console.warn('⚠️ Failed to set RevenueCat attributes:', attributeError.message);
+      }
       
-      console.log('🔗 User linked to RevenueCat:', supabaseUser.id);
+      console.log('✅ User linked to RevenueCat:', supabaseUser.id);
       
     } catch (error) {
-      console.error('❌ Failed to link user to RevenueCat:', error);
-      throw error;
+      console.error('❌ Failed to link user to RevenueCat:', error.message);
+      // Don't throw error to prevent app crashes
     }
   }
 

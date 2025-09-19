@@ -3,7 +3,7 @@ import './utils/productionSafe';
 
 import 'react-native-reanimated';
 import React, { useState, useEffect, useMemo } from 'react';
-import { Alert, Linking, View, StyleSheet } from 'react-native';
+import { Alert, Linking, View, StyleSheet, AppState } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -24,13 +24,12 @@ import { configureDesignSystem } from './components/design/Theme';
 import AuthScreen from './components/AuthScreen';
 import OnboardingScreen from './components/OnboardingScreen';
 import WorkingMinimalDashboard from './components/WorkingMinimalDashboard';
-import WorkingMinimalWorkouts from './components/WorkingMinimalWorkouts';
 import WorkingMinimalNutrition from './components/WorkingMinimalNutrition';
 import WorkingMinimalAccount from './components/WorkingMinimalAccount';
 import MinimalNavigation from './components/MinimalNavigation';
 import LoadingScreen from './components/LoadingScreen';
-import HealthServiceTest from './components/HealthServiceTest';
 import ErrorBoundary from './components/ErrorBoundary';
+import DebugScreen from './components/DebugScreen';
 
 // Initialize design system
 configureDesignSystem();
@@ -99,18 +98,28 @@ function AppContent() {
       console.log('🔐 Auth state change:', event, session?.user?.id);
       
       if (session?.user) {
-        // User signed in
+        // User signed in - save session data
+        console.log('👤 User signed in, saving session');
+        
         setUser(session.user);
         setIsAuthenticated(true);
         setShowLanding(false);
         setShowLogin(false);
         setShowSignUp(false);
         
-        // Set RevenueCat user ID for tracking with error handling
+        // Initialize RevenueCat and user subscription service for this user
         try {
+          console.log('🔗 Initializing RevenueCat for user:', session.user.id);
           await revenueCatService.setUserID(session.user.id);
+          
+          // Initialize user subscription service for proper syncing
+          const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
+          await userSubscriptionService.initializeForUser(session.user);
+          console.log('✅ User subscription service initialized');
+          
         } catch (rcError) {
-          console.warn('RevenueCat user ID setting failed during auth change:', rcError);
+          console.warn('⚠️ RevenueCat/Subscription service setup failed:', rcError);
+          // Don't fail the login process if RevenueCat fails
         }
         
         // Check if user needs onboarding with error handling
@@ -118,7 +127,7 @@ function AppContent() {
           const needsOnboarding = await checkIfUserNeedsOnboarding(session.user.id);
           setShowOnboarding(needsOnboarding);
         } catch (onboardingError) {
-          console.warn('Onboarding check failed, defaulting to dashboard:', onboardingError);
+          console.warn('⚠️ Onboarding check failed, defaulting to dashboard:', onboardingError);
           setShowOnboarding(false); // Default to dashboard on error
         }
         
@@ -168,46 +177,114 @@ function AppContent() {
     };
   }, []);
 
+  // Handle app state changes for better subscription flow
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState) => {
+      console.log('📱 App state changed to:', nextAppState);
+      
+      if (nextAppState === 'active') {
+        console.log('📱 App became active - refreshing subscription status');
+        // App came back to foreground (potentially from purchase flow)
+        // Refresh subscription status after a brief delay
+        setTimeout(async () => {
+          try {
+            await revenueCatService.getCustomerInfo();
+            // Force re-sync subscription status
+            const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
+            if (user?.id) {
+              await userSubscriptionService.syncSubscriptionStatus(user.id);
+            }
+          } catch (error) {
+            console.warn('⚠️ Failed to refresh subscription after app resume:', error);
+          }
+        }, 1000); // 1 second delay to allow app to stabilize
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, [user?.id]);
+
   const checkAuthState = async () => {
+    const authStartTime = Date.now();
+    console.log('🔄 Starting authentication check...');
     setAuthLoading(true);
+    
     try {
       // Initialize RevenueCat first with error handling
       try {
+        console.log('💰 Initializing RevenueCat...');
+        const rcStartTime = Date.now();
         await revenueCatService.initialize();
+        console.log(`💰 RevenueCat initialized in ${Date.now() - rcStartTime}ms`);
+        // Debug: refresh and log customer info after initialization
+        try {
+          const startupInfo = await revenueCatService.refreshCustomerInfo();
+          console.log('🔍 RevenueCat customerInfo at startup:', startupInfo);
+        } catch (startupErr) {
+          console.warn('⚠️ Failed to refresh RevenueCat customerInfo at startup:', startupErr);
+        }
       } catch (rcError) {
-        console.warn('RevenueCat initialization failed:', rcError);
+        console.warn('⚠️ RevenueCat initialization failed:', rcError);
         // Continue app initialization even if RevenueCat fails
       }
       
-      const { data: { user } } = await authService.getCurrentUser();
-      if (user) {
-        setUser(user);
+      // Use enhanced session initialization
+      console.log('🔐 Checking authentication session...');
+      const sessionStartTime = Date.now();
+      const sessionResult = await authService.initializeSession();
+      console.log(`🔐 Session check completed in ${Date.now() - sessionStartTime}ms`);
+      
+      if (sessionResult.success && sessionResult.user) {
+        console.log('✅ User session restored:', sessionResult.restored ? 'from storage' : 'from server');
+        
+        setUser(sessionResult.user);
         setIsAuthenticated(true);
         setShowLanding(false);
         
         // Set RevenueCat user ID for tracking with error handling
         try {
-          await revenueCatService.setUserID(user.id);
+          console.log('💰 Setting RevenueCat user ID...');
+          await revenueCatService.setUserID(sessionResult.user.id);
+          console.log('💰 RevenueCat user ID set successfully');
+            // Debug: refresh and log customer info immediately after setting user id
+            try {
+              const info = await revenueCatService.refreshCustomerInfo();
+              console.log('🔍 RevenueCat customerInfo after setUser:', info);
+            } catch (infoErr) {
+              console.warn('⚠️ Failed to refresh RevenueCat customerInfo after setUser:', infoErr);
+            }
         } catch (rcError) {
-          console.warn('RevenueCat user ID setting failed:', rcError);
+          console.warn('⚠️ RevenueCat user ID setting failed:', rcError);
           // Continue without blocking the app
         }
         
         // For existing users, check if they have completed onboarding
-        const needsOnboarding = await checkIfUserNeedsOnboarding(user.id);
+        console.log('🎯 Checking onboarding status...');
+        const onboardingStartTime = Date.now();
+        const needsOnboarding = await checkIfUserNeedsOnboarding(sessionResult.user.id);
+        console.log(`🎯 Onboarding check completed in ${Date.now() - onboardingStartTime}ms`);
         setShowOnboarding(needsOnboarding);
       } else {
         // No user found, show landing
+        console.log('🚫 No user session found, showing landing screen');
         setShowLanding(true);
+        setShowOnboarding(false);
         setIsAuthenticated(false);
       }
     } catch (error) {
-      console.error('Auth check error:', error);
+      console.error('❌ Authentication check error:', error);
+      console.error('❌ Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack?.substring(0, 500)
+      });
       // Don't crash the app, show landing screen instead
       setShowLanding(true);
       setIsAuthenticated(false);
     } finally {
       setAuthLoading(false);
+      console.log(`✅ Total authentication check took ${Date.now() - authStartTime}ms`);
     }
   };
 
@@ -677,26 +754,17 @@ function AppContent() {
   }
 
   const renderAuthenticatedScreen = () => {
-    const commonProps = {
-      user,
-      onLogout: handleLogout,
-      loading,
-      styles,
-    };
-
     switch (activeTab) {
       case 'home':
-        return <WorkingMinimalDashboard {...commonProps} />;
-      case 'workouts':
-        return <WorkingMinimalWorkouts {...commonProps} />;
+        return <WorkingMinimalDashboard user={user} onLogout={handleLogout} loading={loading} styles={styles} />;
+      case 'debug':
+        return <DebugScreen />; // Added DebugScreen rendering
       case 'nutrition':
-        return <WorkingMinimalNutrition {...commonProps} />;
+        return <WorkingMinimalNutrition user={user} loading={loading} styles={styles} />;
       case 'account':
-        return <WorkingMinimalAccount {...commonProps} />;
-      case 'test':
-        return <HealthServiceTest {...commonProps} />;
+        return <WorkingMinimalAccount user={user} onLogout={handleLogout} loading={loading} styles={styles} />;
       default:
-        return <WorkingMinimalDashboard {...commonProps} />;
+        return null;
     }
   };
 

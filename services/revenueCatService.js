@@ -10,25 +10,32 @@ class RevenueCatService {
 
   async initialize() {
     try {
-      if (this.isInitialized) return;
+      if (this.isInitialized) return { success: true };
 
-      // Get API keys from environment
+      // Get API keys from environment with fallback and debugging
       const androidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
       const iosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
 
+      // Debug key availability (never log full keys)
+      console.log('[RC] Key presence check:', {
+        android: androidKey ? `${androidKey.slice(0, 8)}...${androidKey.slice(-4)}` : 'MISSING',
+        ios: iosKey ? `${iosKey.slice(0, 8)}...${iosKey.slice(-4)}` : 'MISSING',
+        platform: Platform.OS
+      });
+
       if (!androidKey && !iosKey) {
-        console.warn('⚠️ RevenueCat API keys not found in environment');
-        // Don't throw error, just mark as failed initialization
-        return;
+        console.error('⚠️ RevenueCat API keys not found in environment - check EAS secrets');
+        return { success: false, error: 'API keys missing' };
       }
 
-      // Configure RevenueCat
+      // Configure RevenueCat with the correct API key for platform
       const apiKey = Platform.OS === 'android' ? androidKey : iosKey;
       if (!apiKey) {
-        console.warn(`⚠️ RevenueCat API key not found for ${Platform.OS}`);
-        // Don't throw error, just mark as failed initialization
-        return;
+        console.error(`⚠️ RevenueCat API key not found for ${Platform.OS} - check EAS secrets`);
+        return { success: false, error: `No ${Platform.OS} API key` };
       }
+
+      console.log(`🔧 Configuring RevenueCat for ${Platform.OS}...`);
 
       // Add timeout for initialization
       const initPromise = Purchases.configure({ apiKey });
@@ -48,6 +55,14 @@ class RevenueCatService {
       this.isInitialized = true;
       console.log('✅ RevenueCat initialized successfully');
 
+      // Log the app user ID for debugging dashboard sync
+      try {
+        const initialInfo = await Purchases.getCustomerInfo();
+        console.log('[RC] Initial App User ID:', initialInfo.originalAppUserId);
+      } catch (infoError) {
+        console.warn('Could not get initial customer info:', infoError.message);
+      }
+
       // Load initial customer info with error handling
       try {
         await this.refreshCustomerInfo();
@@ -59,14 +74,14 @@ class RevenueCatService {
     } catch (error) {
       console.error('❌ RevenueCat initialization failed:', error);
       this.isInitialized = false;
-      // Don't throw error to prevent app crash
+      return { success: false, error: error.message };
     }
   }
 
   async refreshCustomerInfo() {
     try {
       if (!this.isInitialized) {
-        console.warn('RevenueCat not initialized, skipping customer info refresh');
+        console.log('🚧 RevenueCat not available - returning free user status');
         return null;
       }
       
@@ -77,7 +92,7 @@ class RevenueCatService {
       });
       return this.customerInfo;
     } catch (error) {
-      console.error('❌ Failed to refresh customer info:', error);
+      console.error('🚧 RevenueCat customer info failed:', error.message);
       return null;
     }
   }
@@ -113,12 +128,25 @@ class RevenueCatService {
   async purchaseProduct(productId) {
     try {
       if (!this.isInitialized) {
+        console.log('🔧 Initializing RevenueCat before purchase...');
         await this.initialize();
+        if (!this.isInitialized) {
+          throw new Error('RevenueCat failed to initialize');
+        }
       }
 
       console.log(`🛒 Attempting to purchase: ${productId}`);
       
-      const { customerInfo, productIdentifier } = await Purchases.purchaseProduct(productId);
+      // Add timeout for purchase to prevent hanging
+      const purchasePromise = Purchases.purchaseProduct(productId);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Purchase timeout - please try again')), 30000)
+      );
+
+      const { customerInfo, productIdentifier } = await Promise.race([
+        purchasePromise,
+        timeoutPromise
+      ]);
       
       this.customerInfo = customerInfo;
       
@@ -126,6 +154,17 @@ class RevenueCatService {
         productId: productIdentifier,
         hasActiveSubscription: this.hasActiveSubscription()
       });
+
+      // Force sync subscription status after successful purchase
+      try {
+        const { default: userSubscriptionService } = await import('./userSubscriptionService');
+        const user = await this.getCurrentUser();
+        if (user?.id) {
+          setTimeout(() => userSubscriptionService.syncSubscriptionStatus(user.id), 2000);
+        }
+      } catch (syncError) {
+        console.warn('⚠️ Failed to sync subscription after purchase:', syncError);
+      }
 
       return {
         success: true,
@@ -136,13 +175,21 @@ class RevenueCatService {
       console.error('❌ Purchase failed:', error);
       
       // Handle specific error cases
-      if (error.code === 'PURCHASE_CANCELLED') {
+      if (error.code === 'PURCHASE_CANCELLED' || error.message?.includes('cancelled')) {
         return { success: false, error: 'Purchase was cancelled', cancelled: true };
+      }
+      
+      if (error.code === 'USER_CANCELLED' || error.message?.includes('User cancelled')) {
+        return { success: false, error: 'Purchase was cancelled', cancelled: true };
+      }
+
+      if (error.message?.includes('timeout')) {
+        return { success: false, error: 'Purchase timed out - please try again', timeout: true };
       }
       
       return { 
         success: false, 
-        error: error.message || 'Purchase failed',
+        error: error.message || 'Purchase failed - please try again',
         code: error.code 
       };
     }
@@ -176,11 +223,37 @@ class RevenueCatService {
   }
 
   hasActiveSubscription() {
-    if (!this.customerInfo) return false;
-    
-    // Check for active premium entitlement
-    const premiumEntitlement = this.customerInfo.entitlements.active['premium'];
-    return premiumEntitlement && premiumEntitlement.isActive;
+    try {
+      if (!this.customerInfo) {
+        console.log('📊 No customer info available, returning false');
+        return false;
+      }
+      
+      if (!this.customerInfo.entitlements) {
+        console.log('📊 No entitlements object, returning false');
+        return false;
+      }
+      
+      if (!this.customerInfo.entitlements.active) {
+        console.log('📊 No active entitlements, returning false');
+        return false;
+      }
+      
+      // Check for active Pro entitlement (matches RevenueCat dashboard identifier)
+      const proEntitlement = this.customerInfo.entitlements.active['Pro'];
+      const isActive = proEntitlement && proEntitlement.isActive;
+      
+      console.log('📊 Entitlement check result:', {
+        hasProEntitlement: !!proEntitlement,
+        isActive: isActive,
+        availableEntitlements: Object.keys(this.customerInfo.entitlements.active)
+      });
+      
+      return isActive;
+    } catch (error) {
+      console.error('❌ Error checking active subscription:', error);
+      return false;
+    }
   }
 
   isPremiumUser() {
@@ -196,8 +269,12 @@ class RevenueCatService {
   async setUserID(userID) {
     try {
       if (!this.isInitialized) {
-        console.warn('RevenueCat not initialized, skipping user ID setting');
-        return;
+        console.log('🚧 RevenueCat not initialized - attempting to initialize first');
+        const initResult = await this.initialize();
+        if (!initResult.success) {
+          console.error('❌ Cannot set user ID - RevenueCat initialization failed:', initResult.error);
+          return;
+        }
       }
 
       if (!userID) {
@@ -205,13 +282,23 @@ class RevenueCatService {
         return;
       }
 
+      console.log(`👤 Setting RevenueCat user ID: ${userID}`);
       await Purchases.logIn(userID);
       await this.refreshCustomerInfo();
       
-      console.log(`👤 User logged in to RevenueCat: ${userID}`);
+      console.log(`✅ User logged in to RevenueCat: ${userID}`);
+      
+      // Log the customer info to verify user appears in dashboard
+      if (this.customerInfo) {
+        console.log('[RC] Customer created/linked:', {
+          originalAppUserId: this.customerInfo.originalAppUserId,
+          allPurchaseDates: Object.keys(this.customerInfo.allPurchaseDates || {}),
+          hasActiveEntitlements: Object.keys(this.customerInfo.entitlements?.active || {}).length > 0
+        });
+      }
+      
     } catch (error) {
-      console.error('❌ Failed to set user ID:', error);
-      // Don't throw error to prevent app crash
+      console.error('❌ RevenueCat user ID setting failed:', error.message);
     }
   }
 
@@ -239,6 +326,82 @@ class RevenueCatService {
       console.log('✅ RevenueCat attributes set:', attributes);
     } catch (error) {
       console.error('❌ Failed to set attributes:', error);
+    }
+  }
+
+  // Get comprehensive subscription status
+  async getSubscriptionStatus() {
+    try {
+      if (!this.isInitialized) {
+        console.log('🚧 RevenueCat not available, returning free status');
+        return {
+          isActive: false,
+          isPremium: false,
+          expirationDate: null,
+          productId: null,
+          willRenew: false,
+          status: 'free'
+        };
+      }
+
+      await this.refreshCustomerInfo();
+      
+      if (!this.customerInfo) {
+        return {
+          isActive: false,
+          isPremium: false,
+          expirationDate: null,
+          productId: null,
+          willRenew: false,
+          status: 'free'
+        };
+      }
+
+      const proEntitlement = this.customerInfo.entitlements.active['Pro'];
+      
+      if (proEntitlement && proEntitlement.isActive) {
+        return {
+          isActive: true,
+          isPremium: true,
+          expirationDate: proEntitlement.expirationDate,
+          productId: proEntitlement.productIdentifier,
+          willRenew: proEntitlement.willRenew,
+          status: 'premium'
+        };
+      }
+      
+      return {
+        isActive: false,
+        isPremium: false,
+        expirationDate: null,
+        productId: null,
+        willRenew: false,
+        status: 'free'
+      };
+      
+    } catch (error) {
+      console.error('❌ RevenueCat subscription status failed:', error.message);
+      return {
+        isActive: false,
+        isPremium: false,
+        expirationDate: null,
+        productId: null,
+        willRenew: false,
+        status: 'free',
+        error: error.message
+      };
+    }
+  }
+
+  // Helper to get current authenticated user
+  async getCurrentUser() {
+    try {
+      const { authService } = await import('../authService');
+      const session = await authService.getCurrentSession();
+      return session?.user || null;
+    } catch (error) {
+      console.warn('⚠️ Failed to get current user:', error);
+      return null;
     }
   }
 

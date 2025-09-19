@@ -3,7 +3,7 @@ module.exports = function (api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
-      'react-native-reanimated/plugin', // Keep this for now, will be migrated later
+      'react-native-worklets/plugin', // Updated from react-native-reanimated/plugin
       ['module:react-native-dotenv', {
         moduleName: '@env',
         path: '.env',

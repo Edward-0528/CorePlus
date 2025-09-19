@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, RefreshControl, Alert } from 'react-native';
+import { ScrollView, RefreshControl, Alert, Modal } from 'react-native';
 import { AppColors } from '../constants/AppColors';
 import { Text, View, TouchableOpacity, Colors } from './UILibReplacement';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,6 +17,8 @@ import {
   EmptyState
 } from './design/Components';
 
+import SubscriptionScreen from './SubscriptionScreen';
+
 // Contexts
 import { useSubscription } from '../contexts/SubscriptionContext';
 
@@ -25,6 +27,7 @@ const BeautifulAccount = ({ user, onLogout, loading, styles }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
   
   // Mock user stats
   const userStats = [
@@ -199,6 +202,7 @@ const BeautifulAccount = ({ user, onLogout, loading, styles }) => {
               </Text>
             </View>
             <TouchableOpacity
+              onPress={() => setShowSubscriptionModal(true)}
               style={{
                 backgroundColor: Colors.white,
                 borderRadius: 16,
@@ -379,6 +383,15 @@ const BeautifulAccount = ({ user, onLogout, loading, styles }) => {
         {/* Bottom spacing */}
         <View height={100} />
       </ScrollView>
+
+      {/* Subscription Modal */}
+      <Modal
+        visible={showSubscriptionModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SubscriptionScreen onClose={() => setShowSubscriptionModal(false)} />
+      </Modal>
     </SafeAreaView>
   );
 };

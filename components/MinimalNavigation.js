@@ -22,7 +22,7 @@ const AppColors = {
 const MinimalNavigation = ({ activeTab, onTabPress }) => {
   const tabs = [
     { id: 'home', label: 'Home', icon: 'home-outline', activeIcon: 'home', color: AppColors.primary },
-    { id: 'workouts', label: 'Workouts', icon: 'fitness-outline', activeIcon: 'fitness', color: AppColors.workout },
+    { id: 'debug', label: 'Debug', icon: 'bug-outline', activeIcon: 'bug', color: AppColors.warning }, // Added Debug tab
     { id: 'nutrition', label: 'Nutrition', icon: 'restaurant-outline', activeIcon: 'restaurant', color: AppColors.nutrition },
     { id: 'account', label: 'Account', icon: 'person-outline', activeIcon: 'person', color: AppColors.account },
   ];

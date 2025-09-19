@@ -6,8 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-// Import health service for Apple Health integration
-import healthService from '../services/healthService';
+// Import new HealthKit service for Apple Health integration
+import newHealthService from '../services/newHealthService';
 
 // Custom Components
 import { 
@@ -40,20 +40,13 @@ const BeautifulWorkouts = ({ user, onLogout, loading, styles }) => {
 
   const initializeHealthData = async () => {
     try {
-      console.log('🏃‍♂️ Initializing Apple Health integration...');
+      console.log('🏃‍♂️ Initializing HealthKit integration...');
+      setHealthData(prev => ({ ...prev, isLoading: true }));
       
-      // Initialize health service
-      const initialized = await healthService.initialize();
+      // Initialize new health service
+      const initialized = await newHealthService.initialize();
       if (!initialized) {
-        console.warn('⚠️ Health service not available');
-        setDefaultData();
-        return;
-      }
-
-      // Request permissions
-      const hasPermissions = await healthService.requestPermissions();
-      if (!hasPermissions) {
-        console.warn('⚠️ Health permissions denied');
+        console.warn('⚠️ HealthKit not available');
         setDefaultData();
         return;
       }
@@ -63,50 +56,72 @@ const BeautifulWorkouts = ({ user, onLogout, loading, styles }) => {
       setHealthData(prev => ({ ...prev, hasPermissions: true, isLoading: false }));
       
     } catch (error) {
-      console.error('❌ Failed to initialize health data:', error);
+      console.error('❌ Failed to initialize HealthKit:', error);
       setDefaultData();
     }
   };
 
   const loadHealthData = async () => {
     try {
-      const today = new Date();
-      const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-      const weekAgo = new Date(today.getTime() - (7 * 24 * 60 * 60 * 1000));
+      console.log('📊 Loading health data from HealthKit...');
       
-      // Get health metrics
-      const [steps, calories, workouts, activeMinutes] = await Promise.all([
-        healthService.getSteps(startOfDay, new Date()),
-        healthService.getCalories(startOfDay, new Date()),
-        healthService.getWorkouts(startOfDay, new Date()),
-        healthService.getActiveMinutes(startOfDay, new Date())
+      // Get comprehensive health data for today
+      const [todayHealth, weeklyHealth] = await Promise.all([
+        newHealthService.getTodayHealthData(),
+        newHealthService.getWeeklyHealthSummary()
       ]);
+      
+      console.log('📈 Health data received:', { todayHealth, weeklyHealth });
 
-      // Get weekly data for stats
-      const [weeklyWorkouts, weeklyMinutes, weeklyCalories] = await Promise.all([
-        healthService.getWorkouts(weekAgo, new Date()),
-        healthService.getActiveMinutes(weekAgo, new Date()),
-        healthService.getCalories(weekAgo, new Date())
-      ]);
+      const todayStats = [
+        { 
+          value: Math.round(todayHealth.calories.value).toString(), 
+          label: 'Calories', 
+          color: AppColors.nutrition,
+          isReal: todayHealth.calories.isReal 
+        },
+        { 
+          value: todayHealth.steps.value.toString(), 
+          label: 'Steps', 
+          color: AppColors.account,
+          isReal: todayHealth.steps.isReal 
+        },
+        { 
+          value: `${todayHealth.distance.value}`, 
+          label: 'Distance (km)', 
+          color: AppColors.workout,
+          isReal: todayHealth.distance.isReal 
+        },
+        { 
+          value: todayHealth.heartRate.value ? `${todayHealth.heartRate.value}` : '0', 
+          label: 'Heart Rate (bpm)', 
+          color: AppColors.primary,
+          isReal: todayHealth.heartRate.isReal 
+        },
+      ];
+
+      // Calculate weekly averages
+      const weeklyData = weeklyHealth.data || [];
+      const weeklyAvg = weeklyData.reduce((acc, day) => ({
+        steps: acc.steps + day.steps,
+        calories: acc.calories + day.calories,
+        distance: acc.distance + day.distance,
+      }), { steps: 0, calories: 0, distance: 0 });
 
       const weeklyStats = [
-        { value: weeklyWorkouts?.length?.toString() || '0', label: 'Workouts', color: AppColors.workout },
-        { value: Math.round((weeklyMinutes || 0) / 60 * 10) / 10 + 'h', label: 'Total Time', color: AppColors.primary },
-        { value: (weeklyCalories || 0).toString(), label: 'Calories', color: AppColors.nutrition },
-        { value: '0%', label: 'Goal', color: AppColors.success }, // TODO: Calculate from user goals
+        { value: Math.round(weeklyAvg.steps / Math.max(weeklyData.length, 1)).toString(), label: 'Avg Steps/Day', color: AppColors.account },
+        { value: Math.round(weeklyAvg.calories / Math.max(weeklyData.length, 1)).toString(), label: 'Avg Calories/Day', color: AppColors.nutrition },
+        { value: (weeklyAvg.distance / Math.max(weeklyData.length, 1)).toFixed(1), label: 'Avg Distance/Day (km)', color: AppColors.workout },
+        { value: weeklyData.length.toString(), label: 'Active Days', color: AppColors.primary },
       ];
 
       setHealthData(prev => ({
         ...prev,
-        todayStats: [
-          { value: activeMinutes?.toString() || '0', label: 'Minutes', color: AppColors.workout },
-          { value: calories?.toString() || '0', label: 'Calories', color: AppColors.nutrition },
-          { value: workouts?.length?.toString() || '0', label: 'Workouts', color: AppColors.primary },
-          { value: steps?.toString() || '0', label: 'Steps', color: AppColors.account },
-        ],
-        workouts: workouts || [],
+        todayStats,
+        workouts: [], // Will be populated when workout data is available
         weeklyStats,
-        isLoading: false
+        isLoading: false,
+        hasPermissions: todayHealth.isConnected
       }));
 
     } catch (error) {
@@ -146,15 +161,22 @@ const BeautifulWorkouts = ({ user, onLogout, loading, styles }) => {
 
   const requestHealthPermissions = async () => {
     try {
-      console.log('🏥 Requesting Apple Health permissions...');
-      const granted = await healthService.requestPermissions();
+      console.log('🏥 Requesting HealthKit permissions...');
       
-      if (granted) {
-        setHealthData(prev => ({ ...prev, hasPermissions: true }));
+      // Initialize and request permissions
+      const initialized = await newHealthService.initialize();
+      
+      if (initialized) {
+        setHealthData(prev => ({ ...prev, hasPermissions: true, isLoading: true }));
         await loadHealthData();
+        console.log('✅ HealthKit connected successfully');
+      } else {
+        console.warn('⚠️ Failed to connect to HealthKit');
+        alert('Unable to connect to Apple Health. Please check your settings and try again.');
       }
     } catch (error) {
       console.error('❌ Failed to request health permissions:', error);
+      alert('Failed to connect to Apple Health. Please try again.');
     }
   };
 

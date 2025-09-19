@@ -15,7 +15,9 @@
     "security-check": "node -e \"console.log('🔐 Security Status:'); console.log('- API Key Protection: ✅'); console.log('- Model Restrictions: ✅ (gemini-1.5-flash-8b only)'); console.log('- Rate Limiting: ✅'); console.log('- .env in .gitignore: ✅');\"",
     "analyze-billing": "node scripts/analyze-billing.js",
     "fix-colors": "node scripts/fix-colors.js",
-    "remove-ui-lib": "node scripts/remove-ui-lib.js"
+    "remove-ui-lib": "node scripts/remove-ui-lib.js",
+    "clean-database": "node tools/cleanDatabase.cjs",
+    "analyze-database": "node tools/cleanDatabase.cjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -44,17 +46,18 @@
     "react-native-confetti-cannon": "^1.5.2",
     "react-native-dotenv": "^3.4.11",
     "react-native-gesture-handler": "~2.28.0",
-    "react-native-health": "^1.19.0",
     "react-native-paper": "^5.14.5",
     "react-native-purchases": "^9.3.0",
     "react-native-reanimated": "~4.1.0",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-svg": "15.12.1",
     "react-native-vector-icons": "^10.3.0",
-    "react-native-web": "^0.21.0"
+    "react-native-web": "^0.21.0",
+    "react-native-worklets": "^0.5.1"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0"
+    "@babel/core": "^7.20.0",
+    "@expo/config-plugins": "^54.0.1"
   },
   "private": true
 }

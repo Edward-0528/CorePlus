@@ -5,14 +5,16 @@ export const socialAuthService = {
   // Google Sign In
   signInWithGoogle: async () => {
     try {
-      console.log('Initiating Google OAuth with Supabase...');
+      console.log('🔐 Initiating Google OAuth with Supabase...');
+      const startTime = Date.now();
       
       // Check if we're in production and handle gracefully
       if (!supabase || !supabase.auth) {
         throw new Error('Supabase not properly initialized');
       }
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      // Add timeout wrapper for OAuth request
+      const oauthPromise = supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: 'core-plus://auth/callback',
@@ -23,6 +25,13 @@ export const socialAuthService = {
           scopes: 'openid email profile',
         },
       });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('OAuth timeout after 15s')), 15000)
+      );
+
+      const { data, error } = await Promise.race([oauthPromise, timeoutPromise]);
+      console.log(`⏱️ OAuth request took ${Date.now() - startTime}ms`);
 
       console.log('Google OAuth response:', { data, error });
 
@@ -65,12 +74,23 @@ export const socialAuthService = {
   // Apple Sign In (iOS only)
   signInWithApple: async () => {
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      console.log('🍎 Initiating Apple OAuth with Supabase...');
+      const startTime = Date.now();
+      
+      // Add timeout wrapper for OAuth request
+      const oauthPromise = supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
           redirectTo: 'core-plus://auth/callback',
         },
       });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Apple OAuth timeout after 15s')), 15000)
+      );
+
+      const { data, error } = await Promise.race([oauthPromise, timeoutPromise]);
+      console.log(`⏱️ Apple OAuth took ${Date.now() - startTime}ms`);
 
       if (error) throw error;
 

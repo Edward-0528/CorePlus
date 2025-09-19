@@ -588,24 +588,11 @@ const NutritionScreen = () => {
     const topPrediction = predictions[0];
     const secondPrediction = predictions[1];
     
-    // Auto-select if:
-    // 1. Confidence is 90% or higher
-    // 2. OR confidence is 80%+ and significantly higher than second option (20+ point difference)
-    // 3. OR there's only one prediction with 70%+ confidence
-    
-    if (topPrediction.confidence >= 0.9) {
-      console.log('🎯 Auto-selecting: High confidence (>=90%)');
-      return true;
-    }
-    
-    if (topPrediction.confidence >= 0.8 && 
-        (!secondPrediction || (topPrediction.confidence - secondPrediction.confidence) >= 0.2)) {
-      console.log('🎯 Auto-selecting: High confidence with clear winner');
-      return true;
-    }
-    
-    if (predictions.length === 1 && topPrediction.confidence >= 0.7) {
-      console.log('🎯 Auto-selecting: Single prediction with good confidence');
+    // Make auto-select rarer to favor user choice
+    // Only auto-select if confidence is extremely high and clearly above others
+    if (topPrediction.confidence >= 0.95 && 
+        (!secondPrediction || (topPrediction.confidence - (secondPrediction.confidence || 0)) >= 0.25)) {
+      console.log('🎯 Auto-selecting: Very high confidence with clear margin');
       return true;
     }
     

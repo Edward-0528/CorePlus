@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { searchProductByText } from './barcodeService';
 
 // Get API key from environment variables
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
@@ -220,6 +221,35 @@ Return only the JSON object, no additional text.
   // Search multiple food suggestions
   async searchFoodSuggestions(query) {
     try {
+      // If no API key, fall back to OpenFoodFacts multi-result search
+      if (!this.hasApiKey) {
+        console.log('🔎 Using OpenFoodFacts fallback for suggestions (no Gemini key)');
+        const off = await searchProductByText(query, 10);
+        if (off.success && off.products?.length) {
+          const foods = off.products.map((p) => ({
+            name: p.name,
+            calories: p.calories,
+            carbs: p.carbs,
+            protein: p.protein,
+            fat: p.fat,
+            fiber: p.fiber ?? 0,
+            sugar: p.sugar ?? 0,
+            sodium: p.sodium ?? 0,
+            confidence: 0.7,
+            serving_size: p.servingSize && p.servingUnit ? `${p.servingSize}${p.servingUnit}` : 'per serving',
+            notes: 'OpenFoodFacts data',
+            searchQuery: query,
+            searchTimestamp: new Date().toISOString(),
+            method: 'search',
+          }));
+          return { success: true, foods };
+        }
+        // If OFF fails, return a single estimated fallback
+        const fallback = this.createFallbackFood(query);
+        fallback.serving_size = fallback.serving_size || 'estimated portion';
+        return { success: true, foods: [fallback], fallback: true };
+      }
+
       const model = await this.initializeModel();
 
       const prompt = `
@@ -258,14 +288,14 @@ Example for "chicken":
 Return only the JSON array, no additional text.
 `;
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const text = response.text();
 
       let cleanedText = text.trim();
       cleanedText = cleanedText.replace(/```json\n?/g, '').replace(/```\n?/g, '');
       
-      const foods = JSON.parse(cleanedText);
+      let foods = JSON.parse(cleanedText);
 
       if (!Array.isArray(foods) || foods.length === 0) {
         throw new Error('Invalid response format');
@@ -288,22 +318,77 @@ Return only the JSON array, no additional text.
         food.searchQuery = query;
         food.searchTimestamp = new Date().toISOString();
         food.method = 'search';
+        if (!food.serving_size) food.serving_size = 'per serving';
       });
+
+      // If Gemini returned only one result, try to augment with OFF suggestions
+      if (foods.length < 2) {
+        try {
+          const off = await searchProductByText(query, 5);
+          if (off.success && off.products?.length) {
+            const offFoods = off.products.slice(0, 4).map((p) => ({
+              name: p.name,
+              calories: p.calories,
+              carbs: p.carbs,
+              protein: p.protein,
+              fat: p.fat,
+              fiber: p.fiber ?? 0,
+              sugar: p.sugar ?? 0,
+              sodium: p.sodium ?? 0,
+              confidence: 0.65,
+              serving_size: p.servingSize && p.servingUnit ? `${p.servingSize}${p.servingUnit}` : 'per serving',
+              notes: 'OpenFoodFacts data',
+              searchQuery: query,
+              searchTimestamp: new Date().toISOString(),
+              method: 'search',
+            }));
+            foods = [...foods, ...offFoods];
+          }
+        } catch (e) {
+          console.warn('OFF augmentation failed:', e?.message);
+        }
+      }
 
       return {
         success: true,
-        foods: foods
+        foods
       };
 
     } catch (error) {
       console.error('❌ Food suggestions error:', error);
-      
-      // Return single fallback
+      // Fallback to OpenFoodFacts multi-result search
+      try {
+        const off = await searchProductByText(query, 10);
+        if (off.success && off.products?.length) {
+          const foods = off.products.map((p) => ({
+            name: p.name,
+            calories: p.calories,
+            carbs: p.carbs,
+            protein: p.protein,
+            fat: p.fat,
+            fiber: p.fiber ?? 0,
+            sugar: p.sugar ?? 0,
+            sodium: p.sodium ?? 0,
+            confidence: 0.7,
+            serving_size: p.servingSize && p.servingUnit ? `${p.servingSize}${p.servingUnit}` : 'per serving',
+            notes: 'OpenFoodFacts data',
+            searchQuery: query,
+            searchTimestamp: new Date().toISOString(),
+            method: 'search',
+          }));
+          return { success: true, foods };
+        }
+      } catch (e) {
+        console.warn('OFF fallback failed:', e?.message);
+      }
+
+      // Final single-item fallback
       const fallback = this.createFallbackFood(query);
+      fallback.serving_size = fallback.serving_size || 'estimated portion';
       return {
-        success: false,
-        error: error.message,
-        foods: [fallback]
+        success: true,
+        foods: [fallback],
+        fallback: true
       };
     }
   }
