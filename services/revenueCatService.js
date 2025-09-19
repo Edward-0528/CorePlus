@@ -268,6 +268,9 @@ class RevenueCatService {
 
   async setUserID(userID) {
     try {
+      console.log(`🔍 [DEBUG] setUserID called with: ${userID}`);
+      console.log(`🔍 [DEBUG] RevenueCat initialized: ${this.isInitialized}`);
+      
       if (!this.isInitialized) {
         console.log('🚧 RevenueCat not initialized - attempting to initialize first');
         const initResult = await this.initialize();
@@ -283,6 +286,15 @@ class RevenueCatService {
       }
 
       console.log(`👤 Setting RevenueCat user ID: ${userID}`);
+      
+      // Get current customer info before login to see if we have anonymous user
+      try {
+        const beforeInfo = await Purchases.getCustomerInfo();
+        console.log('[RC] Before login - Current user ID:', beforeInfo.originalAppUserId);
+      } catch (beforeError) {
+        console.warn('Could not get customer info before login:', beforeError.message);
+      }
+      
       await Purchases.logIn(userID);
       await this.refreshCustomerInfo();
       
@@ -299,6 +311,7 @@ class RevenueCatService {
       
     } catch (error) {
       console.error('❌ RevenueCat user ID setting failed:', error.message);
+      console.error('❌ Full error:', error);
     }
   }
 

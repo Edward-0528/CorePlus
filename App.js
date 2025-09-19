@@ -564,7 +564,9 @@ function AppContent() {
       
       if (loginResult.success) {
         console.log('Auto-login successful, user will be redirected to onboarding');
-        // Auth state listener will handle the rest
+        
+        // Auth state listener will handle RevenueCat user ID setting
+        console.log('🔗 Auth state listener will handle RevenueCat initialization for:', loginResult.data?.user?.id);
       } else {
         console.error('Auto-login failed:', loginResult.error);
         setLoading(false);
@@ -591,6 +593,9 @@ function AppContent() {
     const result = await authService.signIn(formData.email, formData.password);
     
     if (result.success) {
+      // Auth state listener will handle RevenueCat user ID setting
+      console.log('🔗 Auth state listener will handle RevenueCat initialization for:', result.data?.user?.id);
+      
       // Ask user if they want to enable biometric login
       await promptBiometricSetup(formData.email, formData.password);
       
@@ -665,7 +670,8 @@ function AppContent() {
       );
       
       if (loginResult.success) {
-        // Auth state listener will handle the rest
+        // Auth state listener will handle RevenueCat user ID setting
+        console.log('🔗 Auth state listener will handle RevenueCat initialization for:', loginResult.data?.user?.id);
       } else {
         setLoading(false);
         Alert.alert('Login Failed', loginResult.error);
