@@ -194,7 +194,7 @@ function AppContent() {
             // Force re-sync subscription status
             const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
             if (user?.id) {
-              await userSubscriptionService.syncSubscriptionStatus(user.id);
+              await userSubscriptionService.syncSubscriptionStatus();
             }
           } catch (error) {
             console.warn('⚠️ Failed to refresh subscription after app resume:', error);

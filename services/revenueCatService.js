@@ -160,7 +160,7 @@ class RevenueCatService {
         const { default: userSubscriptionService } = await import('./userSubscriptionService');
         const user = await this.getCurrentUser();
         if (user?.id) {
-          setTimeout(() => userSubscriptionService.syncSubscriptionStatus(user.id), 2000);
+          setTimeout(() => userSubscriptionService.syncSubscriptionStatus(), 2000);
         }
       } catch (syncError) {
         console.warn('⚠️ Failed to sync subscription after purchase:', syncError);

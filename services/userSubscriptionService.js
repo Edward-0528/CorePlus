@@ -108,13 +108,16 @@ class UserSubscriptionService {
    */
   async updateSupabaseUserProfile(subscriptionStatus) {
     try {
+      // Map RevenueCat status to tier
+      const tier = subscriptionStatus.isPremium ? 'pro' : 'free';
+      
       const { data, error } = await supabase
         .from('user_profiles')
         .upsert({
           user_id: this.currentUser.id,
-          subscription_tier: subscriptionStatus.tier,
+          subscription_tier: tier,
           subscription_status: subscriptionStatus.status,
-          subscription_expires_at: subscriptionStatus.expiresAt,
+          subscription_expires_at: subscriptionStatus.expirationDate,
           subscription_product_id: subscriptionStatus.productId,
           updated_at: new Date().toISOString(),
         }, {
@@ -123,7 +126,11 @@ class UserSubscriptionService {
 
       if (error) throw error;
       
-      console.log('✅ Supabase user profile updated with subscription data');
+      console.log('✅ Supabase user profile updated with subscription data:', {
+        tier,
+        status: subscriptionStatus.status,
+        productId: subscriptionStatus.productId
+      });
       
     } catch (error) {
       console.error('❌ Failed to update Supabase user profile:', error);
