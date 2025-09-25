@@ -73,8 +73,8 @@ const UpgradeModal = ({ visible, onClose, triggerFeature }) => {
     }
   };
 
-  const getMonthlyPackage = () => packages.find(p => p.identifier === 'core_plus_pro_monthly');
-  const getYearlyPackage = () => packages.find(p => p.identifier === 'core_plus_pro_yearly');
+  const getMonthlyPackage = () => packages.find(p => p.identifier === 'coreplus_premium_monthly:corepluselite');
+  const getYearlyPackage = () => packages.find(p => p.identifier === 'coreplus_premium_yearly:corepluselite');
 
   const calculateSavings = () => {
     const monthly = getMonthlyPackage();

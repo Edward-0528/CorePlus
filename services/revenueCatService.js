@@ -103,10 +103,10 @@ class RevenueCatService {
         await this.initialize();
       }
 
-      // Define your subscription product IDs
+      // Define your subscription product IDs (must match RevenueCat dashboard)
       const productIds = [
-        'coreplus_premium_monthly',
-        'coreplus_premium_yearly'
+        'coreplus_premium_monthly:corepluselite',
+        'coreplus_premium_yearly:corepluselite'
       ];
 
       const products = await Purchases.getProducts(productIds);

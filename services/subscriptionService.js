@@ -14,10 +14,10 @@ export const SUBSCRIPTION_TIERS = {
   PRO: 'pro'
 };
 
-// RevenueCat Product IDs (configure these in RevenueCat dashboard)
+// RevenueCat Product IDs (must match RevenueCat dashboard exactly)
 export const PRODUCT_IDS = {
-  PRO_MONTHLY: 'core_plus_pro_monthly',
-  PRO_YEARLY: 'core_plus_pro_yearly',
+  PRO_MONTHLY: 'coreplus_premium_monthly:corepluselite',
+  PRO_YEARLY: 'coreplus_premium_yearly:corepluselite',
 };
 
 // Feature Limits by Tier
