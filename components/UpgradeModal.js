@@ -21,7 +21,7 @@ const UpgradeModal = ({ visible, onClose, triggerFeature }) => {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState('yearly'); // Default to yearly for better value
+  const [selectedPlan, setSelectedPlan] = useState('monthly'); // Only monthly available for now
 
   useEffect(() => {
     if (visible) {
@@ -74,25 +74,17 @@ const UpgradeModal = ({ visible, onClose, triggerFeature }) => {
   };
 
   const getMonthlyPackage = () => packages.find(p => p.identifier === 'coreplus_premium_monthly:corepluselite');
-  const getYearlyPackage = () => packages.find(p => p.identifier === 'coreplus_premium_yearly:corepluselite');
-
-  const calculateSavings = () => {
-    const monthly = getMonthlyPackage();
-    const yearly = getYearlyPackage();
-    if (!monthly || !yearly) return 0;
-    
-    const monthlyPrice = parseFloat(monthly.product.price);
-    const yearlyPrice = parseFloat(yearly.product.price);
-    const monthlyCost = monthlyPrice * 12;
-    const savings = ((monthlyCost - yearlyPrice) / monthlyCost * 100).toFixed(0);
-    return savings;
-  };
+  
+  // Note: Yearly package removed - only monthly subscription available in RevenueCat
 
   const renderPricingCard = (plan, packageData, isRecommended = false) => {
-    if (!packageData) return null;
+    if (!packageData) {
+      console.warn(`Package data not found for plan: ${plan}`);
+      return null;
+    }
 
-    const price = packageData.product.price;
-    const currency = packageData.product.currencyCode;
+    const price = packageData.product.priceString || packageData.product.price;
+    const currency = packageData.product.currencyCode || '$';
 
     return (
       <TouchableOpacity
@@ -103,34 +95,16 @@ const UpgradeModal = ({ visible, onClose, triggerFeature }) => {
         ]}
         onPress={() => setSelectedPlan(plan)}
       >
-        {isRecommended && (
-          <View style={styles.recommendedBadge}>
-            <Text style={styles.recommendedText}>BEST VALUE</Text>
-          </View>
-        )}
-        
-        <Text style={styles.planTitle}>
-          {plan === 'monthly' ? 'Monthly' : 'Yearly'}
-        </Text>
+        <Text style={styles.planTitle}>Monthly Subscription</Text>
         
         <View style={styles.priceContainer}>
-          <Text style={styles.price}>{currency}{price}</Text>
-          <Text style={styles.period}>
-            {plan === 'monthly' ? '/month' : '/year'}
-          </Text>
+          <Text style={styles.price}>{price}</Text>
+          <Text style={styles.period}>/month</Text>
         </View>
 
-        {plan === 'yearly' && calculateSavings() > 0 && (
-          <View style={styles.savingsBadge}>
-            <Text style={styles.savingsText}>Save {calculateSavings()}%</Text>
-          </View>
-        )}
-
-        {plan === 'yearly' && (
-          <Text style={styles.effectivePrice}>
-            Just {currency}{(parseFloat(price) / 12).toFixed(2)}/month
-          </Text>
-        )}
+        <Text style={styles.planDescription}>
+          Full access to all Core+ Premium features
+        </Text>
       </TouchableOpacity>
     );
   };
@@ -214,11 +188,10 @@ const UpgradeModal = ({ visible, onClose, triggerFeature }) => {
           {/* Pricing Options */}
           {!loading && packages.length > 0 && (
             <View style={styles.pricingContainer}>
-              <Text style={styles.pricingTitle}>Choose Your Plan:</Text>
+              <Text style={styles.pricingTitle}>Monthly Subscription:</Text>
               
               <View style={styles.pricingCards}>
                 {renderPricingCard('monthly', getMonthlyPackage())}
-                {renderPricingCard('yearly', getYearlyPackage(), true)}
               </View>
             </View>
           )}
@@ -228,10 +201,11 @@ const UpgradeModal = ({ visible, onClose, triggerFeature }) => {
             <TouchableOpacity 
               style={[styles.purchaseButton, purchasing && styles.purchaseButtonDisabled]}
               onPress={() => {
-                const packageToPurchase = selectedPlan === 'monthly' ? 
-                  getMonthlyPackage() : getYearlyPackage();
+                const packageToPurchase = getMonthlyPackage();
                 if (packageToPurchase) {
                   handlePurchase(packageToPurchase);
+                } else {
+                  Alert.alert('Error', 'Monthly subscription package not found. Please try again.');
                 }
               }}
               disabled={purchasing || loading}
@@ -423,6 +397,12 @@ const styles = StyleSheet.create({
   period: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
+  },
+  planDescription: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textAlign: 'center',
+    marginTop: 8,
   },
   effectivePrice: {
     fontSize: 12,

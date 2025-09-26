@@ -15,9 +15,10 @@ export const SUBSCRIPTION_TIERS = {
 };
 
 // RevenueCat Product IDs (must match RevenueCat dashboard exactly)
+// Note: Only monthly subscription available currently
 export const PRODUCT_IDS = {
   PRO_MONTHLY: 'coreplus_premium_monthly:corepluselite',
-  PRO_YEARLY: 'coreplus_premium_yearly:corepluselite',
+  // PRO_YEARLY: Not created in RevenueCat dashboard yet
 };
 
 // Feature Limits by Tier
