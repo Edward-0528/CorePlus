@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Alert, Platform } from 'react-native';
 import subscriptionService, { SUBSCRIPTION_TIERS, FEATURE_LIMITS } from '../services/subscriptionService';
+import { revenueCatService } from '../services/revenueCatService';
 import { useAppContext } from './AppContext';
 
 const SubscriptionContext = createContext();
@@ -152,12 +153,20 @@ export const SubscriptionProvider = ({ children }) => {
   // Purchase subscription
   const purchaseSubscription = async (packageToPurchase) => {
     try {
-      const result = await subscriptionService.purchaseSubscription(packageToPurchase);
+      console.log('🛒 Purchasing subscription:', packageToPurchase?.identifier);
+      
+      // Extract product ID from package
+      const productId = packageToPurchase?.identifier || packageToPurchase?.product?.identifier;
+      if (!productId) {
+        throw new Error('Invalid package - no product identifier found');
+      }
+      
+      const result = await revenueCatService.purchaseProduct(productId);
       
       if (result.success) {
         await refreshSubscriptionInfo();
         Alert.alert(
-          'Welcome to Core+ Pro!',
+          'Welcome to Core+ Pro! 🎉',
           'Your subscription is now active. Enjoy unlimited access to all premium features!'
         );
       } else if (!result.cancelled) {
@@ -169,7 +178,7 @@ export const SubscriptionProvider = ({ children }) => {
       
       return result;
     } catch (error) {
-      console.error('Error purchasing subscription:', error);
+      console.error('❌ Error purchasing subscription:', error);
       Alert.alert('Error', 'Something went wrong. Please try again.');
       return { success: false, error: error.message };
     }
@@ -178,14 +187,15 @@ export const SubscriptionProvider = ({ children }) => {
   // Restore purchases
   const restorePurchases = async () => {
     try {
-      const result = await subscriptionService.restorePurchases();
+      console.log('🔄 Restoring purchases...');
+      const result = await revenueCatService.restorePurchases();
       
       if (result.success) {
         await refreshSubscriptionInfo();
         
-        if (subscriptionInfo.tier !== SUBSCRIPTION_TIERS.FREE) {
+        if (result.hasActiveSubscription) {
           Alert.alert(
-            'Purchases Restored!',
+            'Purchases Restored! ✅',
             'Your subscription has been restored successfully.'
           );
         } else {
@@ -203,7 +213,7 @@ export const SubscriptionProvider = ({ children }) => {
       
       return result;
     } catch (error) {
-      console.error('Error restoring purchases:', error);
+      console.error('❌ Error restoring purchases:', error);
       Alert.alert('Error', 'Something went wrong. Please try again.');
       return { success: false, error: error.message };
     }
@@ -212,10 +222,28 @@ export const SubscriptionProvider = ({ children }) => {
   // Get available subscription packages
   const getAvailablePackages = async () => {
     try {
-      return await subscriptionService.getAvailableProducts();
+      console.log('🔄 Loading RevenueCat products...');
+      const products = await revenueCatService.loadProducts();
+      
+      // Convert products to package format expected by UpgradeModal
+      const packages = products.map(product => ({
+        identifier: product.identifier,
+        packageType: product.identifier.includes('yearly') ? 'ANNUAL' : 'MONTHLY',
+        product: {
+          identifier: product.identifier,
+          description: product.description || 'Core+ Premium Subscription',
+          title: product.title || 'Core+ Premium',
+          price: product.price,
+          priceString: product.priceString,
+          currencyCode: product.currencyCode
+        }
+      }));
+      
+      console.log('✅ Packages loaded:', packages.length, 'packages');
+      return packages;
     } catch (error) {
-      console.error('Error getting available packages:', error);
-      return null;
+      console.error('❌ Error getting available packages:', error);
+      return [];
     }
   };
 
