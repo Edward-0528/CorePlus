@@ -104,6 +104,28 @@ class RevenueCatService {
         await this.initialize();
       }
 
+      console.log('🔄 [RevenueCat] Trying PRIMARY method - loading via offerings...');
+      
+      // PRIMARY METHOD: Use offerings (more reliable than direct product lookup)
+      try {
+        const offerings = await Purchases.getOfferings();
+        console.log('📦 [RevenueCat] Got offerings:', offerings);
+        
+        if (offerings.current && offerings.current.availablePackages) {
+          const products = offerings.current.availablePackages.map(pkg => pkg.product);
+          console.log('✅ [RevenueCat] SUCCESS - Products from offerings:', products);
+          this.products = products;
+          return products;
+        } else {
+          console.warn('⚠️ [RevenueCat] No current offering or packages found');
+        }
+      } catch (offeringsError) {
+        console.error('❌ [RevenueCat] Offerings method failed:', offeringsError);
+      }
+
+      // FALLBACK METHOD: Direct product lookup
+      console.log('🔄 [RevenueCat] Trying FALLBACK method - direct product lookup...');
+      
       // Define your subscription product IDs (handle all possible formats)
       // Based on RevenueCat dashboard: Subscription ID = coreplus_premium_monthly, Base Plan = corepluselite
       const productIds = [
@@ -169,22 +191,6 @@ class RevenueCatService {
       console.error('❌ Failed to load products:', error);
       console.error('❌ Product loading error details:', error.message);
       console.error('❌ Error stack:', error.stack);
-      
-      // FALLBACK: Try loading through offerings instead of direct product lookup
-      try {
-        console.log('🔄 [RevenueCat] Trying FALLBACK method - loading via offerings...');
-        const offerings = await Purchases.getOfferings();
-        
-        if (offerings.current && offerings.current.availablePackages) {
-          const productsFromOfferings = offerings.current.availablePackages.map(pkg => pkg.product);
-          console.log('✅ [RevenueCat] FALLBACK success - products from offerings:', productsFromOfferings);
-          this.products = productsFromOfferings;
-          return productsFromOfferings;
-        }
-      } catch (fallbackError) {
-        console.error('❌ [RevenueCat] Fallback method also failed:', fallbackError);
-      }
-      
       return [];
     }
   }
