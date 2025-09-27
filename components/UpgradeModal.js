@@ -31,10 +31,19 @@ const UpgradeModal = ({ visible, onClose, triggerFeature }) => {
 
   const loadPackages = async () => {
     try {
+      console.log('🔄 [UpgradeModal] Loading packages...');
       const availablePackages = await getAvailablePackages();
-      setPackages(availablePackages);
+      console.log('📦 [UpgradeModal] Packages loaded:', availablePackages);
+      console.log('📦 [UpgradeModal] Package count:', availablePackages?.length || 0);
+      
+      if (availablePackages?.length > 0) {
+        console.log('📦 [UpgradeModal] First package:', availablePackages[0]);
+        console.log('📦 [UpgradeModal] Package identifiers:', availablePackages.map(p => p.identifier));
+      }
+      
+      setPackages(availablePackages || []);
     } catch (error) {
-      console.error('Error loading packages:', error);
+      console.error('❌ [UpgradeModal] Error loading packages:', error);
     } finally {
       setLoading(false);
     }
@@ -73,7 +82,20 @@ const UpgradeModal = ({ visible, onClose, triggerFeature }) => {
     }
   };
 
-  const getMonthlyPackage = () => packages.find(p => p.identifier === 'coreplus_premium_monthly:corepluselite');
+  const getMonthlyPackage = () => {
+    console.log('🔍 [UpgradeModal] Looking for monthly package...');
+    console.log('🔍 [UpgradeModal] Available packages:', packages.length);
+    console.log('🔍 [UpgradeModal] Looking for identifier: coreplus_premium_monthly:corepluselite');
+    
+    if (packages.length > 0) {
+      console.log('🔍 [UpgradeModal] Available identifiers:', packages.map(p => p.identifier));
+    }
+    
+    const monthlyPackage = packages.find(p => p.identifier === 'coreplus_premium_monthly:corepluselite');
+    console.log('🔍 [UpgradeModal] Found monthly package:', monthlyPackage);
+    
+    return monthlyPackage;
+  };
   
   // Note: Yearly package removed - only monthly subscription available in RevenueCat
 
@@ -205,7 +227,12 @@ const UpgradeModal = ({ visible, onClose, triggerFeature }) => {
                 if (packageToPurchase) {
                   handlePurchase(packageToPurchase);
                 } else {
-                  Alert.alert('Error', 'Monthly subscription package not found. Please try again.');
+                  console.error('❌ [UpgradeModal] No monthly package found!');
+                  console.error('❌ [UpgradeModal] Available packages:', packages);
+                  Alert.alert(
+                    'Product Loading Error', 
+                    `No subscription products are available. This might be due to:\n\n• RevenueCat configuration issue\n• Network connectivity\n• Product not published\n\nPackages found: ${packages.length}\nPlease try again or contact support.`
+                  );
                 }
               }}
               disabled={purchasing || loading}

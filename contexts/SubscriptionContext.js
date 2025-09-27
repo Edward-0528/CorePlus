@@ -222,27 +222,38 @@ export const SubscriptionProvider = ({ children }) => {
   // Get available subscription packages
   const getAvailablePackages = async () => {
     try {
-      console.log('🔄 Loading RevenueCat products...');
+      console.log('🔄 [SubscriptionContext] Loading RevenueCat products...');
       const products = await revenueCatService.loadProducts();
+      console.log('📦 [SubscriptionContext] Raw products from RevenueCat:', products);
+      console.log('📦 [SubscriptionContext] Product count:', products?.length || 0);
+      
+      if (!products || products.length === 0) {
+        console.warn('⚠️ [SubscriptionContext] No products returned from RevenueCat');
+        return [];
+      }
       
       // Convert products to package format expected by UpgradeModal
-      const packages = products.map(product => ({
-        identifier: product.identifier,
-        packageType: product.identifier.includes('yearly') ? 'ANNUAL' : 'MONTHLY',
-        product: {
+      const packages = products.map(product => {
+        console.log('📦 [SubscriptionContext] Converting product:', product);
+        return {
           identifier: product.identifier,
-          description: product.description || 'Core+ Premium Subscription',
-          title: product.title || 'Core+ Premium',
-          price: product.price,
-          priceString: product.priceString,
-          currencyCode: product.currencyCode
-        }
-      }));
+          packageType: product.identifier.includes('yearly') ? 'ANNUAL' : 'MONTHLY',
+          product: {
+            identifier: product.identifier,
+            description: product.description || 'Core+ Premium Subscription',
+            title: product.title || 'Core+ Premium',
+            price: product.price,
+            priceString: product.priceString,
+            currencyCode: product.currencyCode
+          }
+        };
+      });
       
-      console.log('✅ Packages loaded:', packages.length, 'packages');
+      console.log('✅ [SubscriptionContext] Packages converted:', packages);
+      console.log('✅ [SubscriptionContext] Package identifiers:', packages.map(p => p.identifier));
       return packages;
     } catch (error) {
-      console.error('❌ Error getting available packages:', error);
+      console.error('❌ [SubscriptionContext] Error getting available packages:', error);
       return [];
     }
   };
