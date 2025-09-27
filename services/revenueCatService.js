@@ -16,11 +16,12 @@ class RevenueCatService {
       const androidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
       const iosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
 
-      // Debug key availability (never log full keys)
+      // Debug key availability (show more for debugging)
       console.log('[RC] Key presence check:', {
-        android: androidKey ? `${androidKey.slice(0, 8)}...${androidKey.slice(-4)}` : 'MISSING',
-        ios: iosKey ? `${iosKey.slice(0, 8)}...${iosKey.slice(-4)}` : 'MISSING',
-        platform: Platform.OS
+        android: androidKey ? `${androidKey.slice(0, 12)}...${androidKey.slice(-6)}` : 'MISSING',
+        ios: iosKey ? `${iosKey.slice(0, 12)}...${iosKey.slice(-6)}` : 'MISSING',
+        platform: Platform.OS,
+        usingKey: Platform.OS === 'android' ? 'Android key' : 'iOS key'
       });
 
       if (!androidKey && !iosKey) {
