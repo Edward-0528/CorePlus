@@ -104,10 +104,11 @@ class RevenueCatService {
         await this.initialize();
       }
 
-      // Define your subscription product IDs (must match RevenueCat dashboard)
-      // Note: Only monthly product exists in RevenueCat dashboard
+      // Define your subscription product IDs (handle both formats)
+      // RevenueCat might return either the full ID or just the subscription ID
       const productIds = [
-        'coreplus_premium_monthly:corepluselite'
+        'coreplus_premium_monthly:corepluselite', // Full format from RevenueCat dashboard
+        'coreplus_premium_monthly' // Google Play Billing might return just this
       ];
 
       const products = await Purchases.getProducts(productIds);

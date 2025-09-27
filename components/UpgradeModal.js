@@ -83,21 +83,25 @@ const UpgradeModal = ({ visible, onClose, triggerFeature }) => {
   };
 
   const getMonthlyPackage = () => {
-    console.log('🔍 [UpgradeModal] Looking for monthly package...');
-    console.log('🔍 [UpgradeModal] Available packages:', packages.length);
-    console.log('🔍 [UpgradeModal] Looking for identifier: coreplus_premium_monthly:corepluselite');
+    console.log('🔍 [UpgradeModal] Searching for monthly package in:', packages);
+    console.log('🔍 [UpgradeModal] Available package identifiers:', packages?.map(p => p.identifier) || []);
+    console.log('🔍 [UpgradeModal] Package types:', packages?.map(p => p.packageType) || []);
     
-    if (packages.length > 0) {
-      console.log('🔍 [UpgradeModal] Available identifiers:', packages.map(p => p.identifier));
+    if (!packages || packages.length === 0) {
+      console.warn('⚠️ [UpgradeModal] No packages available');
+      return null;
     }
     
-    const monthlyPackage = packages.find(p => p.identifier === 'coreplus_premium_monthly:corepluselite');
+    // Look for both possible product ID formats
+    let monthlyPackage = packages.find(p => p.identifier === 'coreplus_premium_monthly:corepluselite');
+    if (!monthlyPackage) {
+      monthlyPackage = packages.find(p => p.identifier === 'coreplus_premium_monthly');
+    }
+    
     console.log('🔍 [UpgradeModal] Found monthly package:', monthlyPackage);
     
     return monthlyPackage;
-  };
-  
-  // Note: Yearly package removed - only monthly subscription available in RevenueCat
+  };  // Note: Yearly package removed - only monthly subscription available in RevenueCat
 
   const renderPricingCard = (plan, packageData, isRecommended = false) => {
     if (!packageData) {
