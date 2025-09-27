@@ -104,11 +104,12 @@ class RevenueCatService {
         await this.initialize();
       }
 
-      // Define your subscription product IDs (handle both formats)
-      // RevenueCat might return either the full ID or just the subscription ID
+      // Define your subscription product IDs (handle all possible formats)
+      // Based on RevenueCat dashboard: Subscription ID = coreplus_premium_monthly, Base Plan = corepluselite
       const productIds = [
         'coreplus_premium_monthly:corepluselite', // Full format from RevenueCat dashboard
-        'coreplus_premium_monthly' // Google Play Billing might return just this
+        'coreplus_premium_monthly', // Google Play Billing might return just this
+        'corepluselite' // Maybe just the base plan ID?
       ];
 
       const products = await Purchases.getProducts(productIds);
@@ -120,9 +121,70 @@ class RevenueCatService {
         title: p.title
       })));
 
+      // DETAILED DEBUGGING - Log each product in detail
+      console.log('🔍 [RevenueCat] DETAILED PRODUCT ANALYSIS:');
+      console.log('🔍 [RevenueCat] Requested product IDs:', productIds);
+      console.log('🔍 [RevenueCat] Returned product count:', products?.length || 0);
+      
+      if (products && products.length > 0) {
+        products.forEach((product, index) => {
+          console.log(`🔍 [RevenueCat] Product ${index + 1} FULL DETAILS:`, {
+            identifier: product.identifier,
+            title: product.title,
+            description: product.description,
+            price: product.price,
+            priceString: product.priceString,
+            currencyCode: product.currencyCode,
+            fullProductObject: JSON.stringify(product, null, 2)
+          });
+        });
+      } else {
+        console.error('❌ [RevenueCat] NO PRODUCTS RETURNED - This is the core issue!');
+        
+        // Let's try getting ALL offerings to see what RevenueCat actually has
+        try {
+          console.log('🔍 [RevenueCat] Attempting to get ALL offerings...');
+          const offerings = await Purchases.getOfferings();
+          console.log('📦 [RevenueCat] ALL OFFERINGS:', offerings);
+          console.log('📦 [RevenueCat] Current offering:', offerings.current);
+          console.log('📦 [RevenueCat] All offerings keys:', Object.keys(offerings.all || {}));
+          
+          if (offerings.current) {
+            console.log('📦 [RevenueCat] Current offering packages:', offerings.current.availablePackages);
+            offerings.current.availablePackages?.forEach((pkg, index) => {
+              console.log(`📦 [RevenueCat] Package ${index + 1}:`, {
+                identifier: pkg.identifier,
+                packageType: pkg.packageType,
+                product: pkg.product
+              });
+            });
+          }
+        } catch (offeringError) {
+          console.error('❌ [RevenueCat] Error getting offerings:', offeringError);
+        }
+      }
+
       return products;
     } catch (error) {
       console.error('❌ Failed to load products:', error);
+      console.error('❌ Product loading error details:', error.message);
+      console.error('❌ Error stack:', error.stack);
+      
+      // FALLBACK: Try loading through offerings instead of direct product lookup
+      try {
+        console.log('🔄 [RevenueCat] Trying FALLBACK method - loading via offerings...');
+        const offerings = await Purchases.getOfferings();
+        
+        if (offerings.current && offerings.current.availablePackages) {
+          const productsFromOfferings = offerings.current.availablePackages.map(pkg => pkg.product);
+          console.log('✅ [RevenueCat] FALLBACK success - products from offerings:', productsFromOfferings);
+          this.products = productsFromOfferings;
+          return productsFromOfferings;
+        }
+      } catch (fallbackError) {
+        console.error('❌ [RevenueCat] Fallback method also failed:', fallbackError);
+      }
+      
       return [];
     }
   }
