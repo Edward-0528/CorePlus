@@ -64,7 +64,7 @@ const MinimalNutrition = ({ user, onLogout, loading, styles }) => {
     <View style={{ paddingHorizontal: 20, paddingVertical: 24 }}>
       <View row centerV spread marginB-lg>
         <View>
-          <Text h4 color={Colors.textPrimary}>Nutrition</Text>
+          <Text h4 color={Colors.textPrimary}>CorePlus</Text>
           <Text body2 color={Colors.textSecondary}>Track your daily intake</Text>
         </View>
         <TouchableOpacity>
@@ -135,6 +135,96 @@ const MinimalNutrition = ({ user, onLogout, loading, styles }) => {
       </MinimalCard>
     </View>
   );
+
+  const renderWeeklyHistory = () => {
+    // Generate weekly history data (mock data for now)
+    const weekDays = ['S', 'S', 'M', 'T', 'W', 'T', 'F'];
+    const weeklyData = [
+      { day: 'S', calories: 1980, onGoal: true },
+      { day: 'S', calories: 2120, onGoal: true },
+      { day: 'M', calories: 1850, onGoal: false }, // Under-goal
+      { day: 'T', calories: 2050, onGoal: true },
+      { day: 'W', calories: 2300, onGoal: false }, // Over-goal (amber)
+      { day: 'T', calories: 1950, onGoal: true },
+      { day: 'F', calories: 2100, onGoal: true },
+    ];
+
+    const avgCalories = Math.round(weeklyData.reduce((sum, day) => sum + day.calories, 0) / weeklyData.length);
+    const onGoalDays = weeklyData.filter(day => day.onGoal && day.calories >= (calorieGoal - 150) && day.calories <= (calorieGoal + 300)).length;
+
+    return (
+      <View paddingH-20 marginT-lg>
+        <MinimalSection title="History" />
+        <MinimalCard style={{ marginTop: 8 }}>
+          {/* Week header */}
+          <View marginB-md>
+            <Text body1 color={Colors.textPrimary} marginB-xs>Last 7 days</Text>
+            <Text caption color={Colors.textSecondary}>
+              Under-goal days in primary, over-goal in amber
+            </Text>
+          </View>
+
+          {/* Weekly bar chart */}
+          <View row centerV spread marginB-lg style={{ paddingHorizontal: 8 }}>
+            {weeklyData.map((dayData, index) => {
+              const progress = Math.min((dayData.calories / calorieGoal), 1.5); // Cap at 150% for visual purposes
+              const isOverGoal = dayData.calories > (calorieGoal + 300);
+              const isUnderGoal = dayData.calories < (calorieGoal - 150);
+              
+              let barColor = Colors.nutrition; // Default green for on-goal
+              if (isOverGoal) {
+                barColor = Colors.account; // Amber for over-goal
+              } else if (isUnderGoal) {
+                barColor = Colors.primary; // Primary color for under-goal
+              }
+
+              return (
+                <View key={index} centerH style={{ flex: 1 }}>
+                  <View 
+                    style={{
+                      width: 12,
+                      height: Math.max(progress * 60, 8), // Min height of 8, max height represents goal
+                      backgroundColor: barColor,
+                      borderRadius: 6,
+                      marginBottom: 8,
+                    }}
+                  />
+                  <Text caption color={Colors.textSecondary}>{dayData.day}</Text>
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Stats row */}
+          <View row spread>
+            <View style={{ flex: 1, paddingRight: 8 }}>
+              <View style={{
+                backgroundColor: Colors.backgroundSecondary,
+                borderRadius: 8,
+                padding: 12,
+                alignItems: 'center',
+              }}>
+                <Text caption color={Colors.textSecondary}>Avg kcal</Text>
+                <Text h3 color={Colors.textPrimary} marginT-xs>{avgCalories}</Text>
+              </View>
+            </View>
+            
+            <View style={{ flex: 1, paddingLeft: 8 }}>
+              <View style={{
+                backgroundColor: Colors.backgroundSecondary,
+                borderRadius: 8,
+                padding: 12,
+                alignItems: 'center',
+              }}>
+                <Text caption color={Colors.textSecondary}>On-goal streak</Text>
+                <Text h3 color={Colors.textPrimary} marginT-xs>{onGoalDays} days</Text>
+              </View>
+            </View>
+          </View>
+        </MinimalCard>
+      </View>
+    );
+  };
 
   const renderTodayStats = () => (
     <View paddingH-20 marginT-lg>
@@ -336,6 +426,7 @@ const MinimalNutrition = ({ user, onLogout, loading, styles }) => {
         }
       >
         {renderCalorieOverview()}
+        {renderWeeklyHistory()}
         {renderTodayStats()}
         {renderMacroBreakdown()}
         {renderQuickActions()}
