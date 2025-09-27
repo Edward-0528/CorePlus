@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.coreplus.app",
-    "buildNumber": "29",
+      "buildNumber": "30",
       "statusBarStyle": "dark",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,

@@ -29,7 +29,6 @@ import WorkingMinimalAccount from './components/WorkingMinimalAccount';
 import MinimalNavigation from './components/MinimalNavigation';
 import LoadingScreen from './components/LoadingScreen';
 import ErrorBoundary from './components/ErrorBoundary';
-import DebugScreen from './components/DebugScreen';
 
 // Initialize design system
 configureDesignSystem();
@@ -765,8 +764,6 @@ function AppContent() {
     switch (activeTab) {
       case 'home':
         return <WorkingMinimalDashboard user={user} onLogout={handleLogout} loading={loading} styles={styles} />;
-      case 'debug':
-        return <DebugScreen />; // Added DebugScreen rendering
       case 'nutrition':
         return <WorkingMinimalNutrition user={user} loading={loading} styles={styles} />;
       case 'account':
