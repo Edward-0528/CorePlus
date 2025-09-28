@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { ScrollView, RefreshControl, Alert, StyleSheet, Switch } from 'react-native';
 import { View, Modal, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFeatureAccess } from '../hooks/useFeatureAccess';
-import { AppColors, validateColor } from '../constants/AppColors';
-import UpgradeModal from './UpgradeModal';
+import { useFeatureAccess } from '../../../hooks/useFeatureAccess';
+import { AppColors, validateColor } from '../../../constants/AppColors';
+import UpgradeModal from '../subscription/UpgradeModal';
 
 
 const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {

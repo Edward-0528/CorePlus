@@ -14,7 +14,7 @@ import {
   StyleSheet
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { foodSearchService } from '../services/foodSearchService';
+import { foodSearchService } from '../../services/foodSearchService';
 
 // Use the same colors as WorkingMinimalNutrition
 const AppColors = {

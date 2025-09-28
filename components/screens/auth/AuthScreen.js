@@ -4,8 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { Video } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useAppContext } from '../contexts/AppContext';
-import { biometricService } from '../biometricService';
+import { useAppContext } from '../../../contexts/AppContext';
+import { biometricService } from '../../../biometricService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 

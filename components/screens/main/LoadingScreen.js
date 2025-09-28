@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, SafeAreaView, Dimensions, TouchableOpacity } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import AnimatedLoader from './AnimatedLoader';
+import AnimatedLoader from '../../ui/AnimatedLoader';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 

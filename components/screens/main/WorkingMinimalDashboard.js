@@ -4,15 +4,15 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Contexts
-import { useDailyCalories } from '../contexts/DailyCaloriesContext';
-import { useSubscription } from '../contexts/SubscriptionContext';
-import { useAppContext } from '../contexts/AppContext';
+import { useDailyCalories } from '../../../contexts/DailyCaloriesContext';
+import { useSubscription } from '../../../contexts/SubscriptionContext';
+import { useAppContext } from '../../../contexts/AppContext';
 
 // Utils
-import { getLocalDateString } from '../utils/dateUtils';
+import { getLocalDateString } from '../../../utils/dateUtils';
 
 // Components
-import TodaysMealsComponent from './TodaysMealsComponent';
+import TodaysMealsComponent from '../../nutrition/TodaysMealsComponent';
 
 // Define colors directly
 const AppColors = {

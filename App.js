@@ -20,15 +20,15 @@ import { WorkoutSessionProvider } from './contexts/WorkoutSessionContext';
 // Design System
 import { configureDesignSystem } from './components/design/Theme';
 
-// Import components
-import AuthScreen from './components/AuthScreen';
-import OnboardingScreen from './components/OnboardingScreen';
-import WorkingMinimalDashboard from './components/WorkingMinimalDashboard';
-import WorkingMinimalNutrition from './components/WorkingMinimalNutrition';
-import WorkingMinimalAccount from './components/WorkingMinimalAccount';
-import MinimalNavigation from './components/MinimalNavigation';
-import LoadingScreen from './components/LoadingScreen';
-import ErrorBoundary from './components/ErrorBoundary';
+// Import components - organized structure
+import AuthScreen from './components/screens/auth/AuthScreen';
+import OnboardingScreen from './components/screens/onboarding/OnboardingScreen';
+import WorkingMinimalDashboard from './components/screens/main/WorkingMinimalDashboard';
+import WorkingMinimalNutrition from './components/screens/main/WorkingMinimalNutrition';
+import WorkingMinimalAccount from './components/screens/main/WorkingMinimalAccount';
+import MinimalNavigation from './components/screens/main/MinimalNavigation';
+import LoadingScreen from './components/screens/main/LoadingScreen';
+import ErrorBoundary from './components/screens/main/ErrorBoundary';
 
 // Initialize design system
 configureDesignSystem();

@@ -3,15 +3,15 @@ import { SafeAreaView, ScrollView, View, Dimensions } from 'react-native';
 import { PaperProvider } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAppContext } from '../contexts/AppContext';
-import ParticleBackground from './common/ParticleBackground';
-import OnboardingStep1_Goals from './onboarding-steps/OnboardingStep1_Goals';
-import OnboardingStep2_Activities from './onboarding-steps/OnboardingStep2_Activities';
-import OnboardingStep3_PersonalInfo from './onboarding-steps/OnboardingStep3_PersonalInfo';
-import OnboardingStep4_Summary from './onboarding-steps/OnboardingStep4_Summary';
-import ImprovedDatePickerModal from './modals/ImprovedDatePickerModal';
-import ImprovedHeightPickerModal from './modals/ImprovedHeightPickerModal';
-import ImprovedWeightPickerModal from './modals/ImprovedWeightPickerModal';
+import { useAppContext } from '../../../contexts/AppContext';
+import ParticleBackground from '../../common/ParticleBackground';
+import OnboardingStep1_Goals from '../../onboarding-steps/OnboardingStep1_Goals';
+import OnboardingStep2_Activities from '../../onboarding-steps/OnboardingStep2_Activities';
+import OnboardingStep3_PersonalInfo from '../../onboarding-steps/OnboardingStep3_PersonalInfo';
+import OnboardingStep4_Summary from '../../onboarding-steps/OnboardingStep4_Summary';
+import ImprovedDatePickerModal from '../../modals/ImprovedDatePickerModal';
+import ImprovedHeightPickerModal from '../../modals/ImprovedHeightPickerModal';
+import ImprovedWeightPickerModal from '../../modals/ImprovedWeightPickerModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
