@@ -31,21 +31,37 @@ class FoodSearchService {
     }
     
     if (!this.model) {
-      try {
-        this.model = this.genAI.getGenerativeModel({ 
-          model: "gemini-1.5-flash",
-          generationConfig: {
-            temperature: 0.1,
-            topK: 1,
-            topP: 0.95,
-            maxOutputTokens: 800, // Reduced from 1000 to save costs
-          },
-        });
-        console.log('🤖 Gemini model initialized for food search with gemini-1.5-flash (supported model)');
-        console.log('💰 Using most cost-effective model with reduced token limits');
-      } catch (error) {
-        console.error('❌ Failed to initialize Gemini model:', error);
-        throw error;
+      // Try multiple models in order of preference (most cost-effective first)
+      const modelsToTry = ['gemini-2.0-flash-exp', 'gemini-2.0-flash', 'gemini-pro'];
+      
+      for (const modelName of modelsToTry) {
+        try {
+          console.log(`🧪 Attempting to initialize ${modelName}...`);
+          this.model = this.genAI.getGenerativeModel({ 
+            model: modelName,
+            generationConfig: {
+              temperature: 0.1,
+              topK: 1,
+              topP: 0.95,
+              maxOutputTokens: 800,
+            },
+          });
+          
+          // Test the model with a simple query
+          const testResult = await this.model.generateContent("Test");
+          console.log(`✅ Gemini model initialized for food search with ${modelName} (cost-optimized)`);
+          console.log('💰 Using most cost-effective model available');
+          break;
+        } catch (error) {
+          console.warn(`⚠️ Model ${modelName} failed:`, error.message);
+          this.model = null; // Reset for next attempt
+          continue;
+        }
+      }
+      
+      if (!this.model) {
+        console.error('❌ All Gemini models failed to initialize');
+        throw new Error('No supported Gemini models available');
       }
     }
     return this.model;

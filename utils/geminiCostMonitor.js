@@ -3,15 +3,19 @@
 
 class GeminiCostMonitor {
   constructor() {
-    // Approximate pricing for Gemini models (as of 2024)
+    // Approximate pricing for Gemini models (as of 2025)
     this.pricing = {
-      'gemini-1.5-flash': {
-        inputTokens: 0.0375 / 1000000,   // $0.0375 per million input tokens
-        outputTokens: 0.15 / 1000000,    // $0.15 per million output tokens
+      'gemini-2.0-flash-exp': {
+        inputTokens: 0.0075 / 1000000,   // $0.0075 per million input tokens (experimental pricing)
+        outputTokens: 0.03 / 1000000,    // $0.03 per million output tokens (experimental pricing)
       },
-      'gemini-1.5-flash': {
-        inputTokens: 0.075 / 1000000,    // $0.075 per million input tokens  
-        outputTokens: 0.30 / 1000000,    // $0.30 per million output tokens
+      'gemini-2.0-flash': {
+        inputTokens: 0.015 / 1000000,    // $0.015 per million input tokens (very cost-effective)
+        outputTokens: 0.06 / 1000000,    // $0.06 per million output tokens (very cost-effective)
+      },
+      'gemini-pro': {
+        inputTokens: 0.125 / 1000000,    // $0.125 per million input tokens
+        outputTokens: 0.375 / 1000000,   // $0.375 per million output tokens
       },
       'gemini-1.5-pro': {
         inputTokens: 1.25 / 1000000,     // $1.25 per million input tokens
@@ -30,7 +34,7 @@ class GeminiCostMonitor {
 
   // Log API usage for cost tracking
   logApiCall(modelName, inputTokens = 0, outputTokens = 0, service = 'unknown') {
-    const pricing = this.pricing[modelName] || this.pricing['gemini-1.5-flash'];
+    const pricing = this.pricing[modelName] || this.pricing['gemini-2.0-flash-exp'];
     const callCost = (inputTokens * pricing.inputTokens) + (outputTokens * pricing.outputTokens);
     
     this.usage.totalCalls++;
@@ -81,7 +85,7 @@ class GeminiCostMonitor {
       console.log(`  Output: $${outputCost.toFixed(4)}`);
     });
     
-    console.log('\n✅ Current optimization: All services use gemini-1.5-flash (supported model)');
+    console.log('\n✅ Current optimization: All services use gemini-2.0-flash (most cost-effective)');
   }
 
   // Reset usage tracking

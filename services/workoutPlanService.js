@@ -28,16 +28,32 @@ class WorkoutPlanService {
     
     if (!this.model) {
       try {
-            console.log('🤖 Using Gemini 1.5 Flash (supported model) for workout planning');
+            console.log('🤖 Using Gemini 2.0 Flash (most cost-effective) for workout planning');
     
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      generationConfig: {
-        temperature: 0.3,
-        topK: 10,
-        maxOutputTokens: 1500, // Reduced from 2000 to save costs
-      }
-    });
+    let model;
+    try {
+      // Try experimental version first (most cost-effective)
+      model = genAI.getGenerativeModel({ 
+        model: "gemini-2.0-flash-exp",
+        generationConfig: {
+          temperature: 0.3,
+          topK: 10,
+          maxOutputTokens: 1500, // Optimized for cost savings
+        }
+      });
+      console.log('✅ Using gemini-2.0-flash-exp for workout planning');
+    } catch (error) {
+      // Fallback to stable version
+      model = genAI.getGenerativeModel({ 
+        model: "gemini-2.0-flash",
+        generationConfig: {
+          temperature: 0.3,
+          topK: 10,
+          maxOutputTokens: 1500,
+        }
+      });
+      console.log('✅ Using gemini-2.0-flash for workout planning');
+    }
         console.log('🤖 Gemini model initialized for workout planning');
       } catch (error) {
         console.error('❌ Failed to initialize Gemini model:', error);
