@@ -65,7 +65,6 @@ const MinimalNutrition = ({ user, onLogout, loading, styles }) => {
       <View row centerV spread marginB-lg>
         <View>
           <Text h4 color={Colors.textPrimary}>CorePlus</Text>
-          <Text body2 color={Colors.textSecondary}>Track your daily intake</Text>
         </View>
         <TouchableOpacity>
           <Ionicons name="analytics-outline" size={24} color={Colors.nutrition} />

@@ -536,7 +536,6 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       <View style={minimalStyles.headerContent}>
         <View>
           <Text style={minimalStyles.title}>Nutrition</Text>
-          <Text style={minimalStyles.subtitle}>Track your daily intake</Text>
         </View>
         <TouchableOpacity onPress={() => setShowQuickActions(true)}>
           <Ionicons name="add-outline" size={24} color={AppColors.nutrition} />

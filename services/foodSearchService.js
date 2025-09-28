@@ -40,10 +40,10 @@ class FoodSearchService {
           this.model = this.genAI.getGenerativeModel({ 
             model: modelName,
             generationConfig: {
-              temperature: 0.1,
-              topK: 1,
-              topP: 0.95,
-              maxOutputTokens: 800,
+              temperature: 0.1,   // Lower for more consistent results
+              topK: 1,           // Most focused responses
+              topP: 0.9,         // Slightly lower for better accuracy
+              maxOutputTokens: 1000, // Increased for more detailed responses
             },
           });
           
@@ -91,38 +91,46 @@ class FoodSearchService {
       }
 
       const prompt = `
-You are a nutrition expert. Given a food query, provide detailed nutritional information.
+You are a USDA nutrition database expert. Analyze this food query and provide precise nutritional data based on standard serving sizes.
 
 Food Query: "${query}"
 
-Instructions:
-1. Interpret the query as a food item (even if it's vague or misspelled)
-2. Estimate a reasonable serving size
-3. Provide accurate nutritional information
-4. Return ONLY a valid JSON object with this exact structure:
+CRITICAL REQUIREMENTS:
+1. Use realistic, commonly consumed portion sizes (not restaurant portions)
+2. Base nutritional values on USDA nutrition database standards
+3. Be specific about preparation method (raw, cooked, fried, etc.)
+4. Account for actual weight/volume of the serving
+
+PORTION SIZE GUIDELINES:
+- Fruits: 1 medium piece (apple=180g, banana=120g, orange=130g)
+- Vegetables: 1 cup raw or 1/2 cup cooked
+- Proteins: 100g cooked portion (palm-sized)
+- Grains: 1/2 cup cooked (rice, pasta) or 1 slice bread
+- Nuts/seeds: 1 ounce (28g)
+- Oils/fats: 1 tablespoon (14g)
+
+Return ONLY valid JSON:
 
 {
-  "name": "Properly formatted food name with serving size",
+  "name": "Specific food name with exact portion",
   "calories": number,
-  "carbs": number (in grams),
-  "protein": number (in grams),
-  "fat": number (in grams),
-  "fiber": number (in grams),
-  "sugar": number (in grams),
-  "sodium": number (in mg),
-  "confidence": number (0.0-1.0, how certain you are about this food),
-  "serving_size": "description of serving size",
-  "notes": "any relevant notes about the food or assumptions made"
+  "carbs": number,
+  "protein": number,
+  "fat": number,
+  "fiber": number,
+  "sugar": number,
+  "sodium": number,
+  "confidence": number (0.8+ for common foods, 0.6+ for estimates),
+  "serving_size": "precise serving description with weight/volume",
+  "notes": "preparation method and key assumptions"
 }
 
-Examples:
-- "apple" → medium apple (180g)
-- "pizza slice" → 1 slice medium cheese pizza
-- "chicken breast" → 100g grilled chicken breast
-- "rice" → 1 cup cooked white rice
+ACCURACY EXAMPLES:
+"chicken breast" → "Grilled chicken breast, 100g" (165 cal, 31g protein)
+"apple" → "Medium Fuji apple, 180g" (95 cal, 25g carbs)
+"pizza" → "Cheese pizza slice, 1/8 of 14-inch, 107g" (285 cal, 36g carbs)
 
-Be conservative with estimates and always include serving size context in the name.
-Return only the JSON object, no additional text.
+Use precise portions and verified nutrition data. Return only JSON.
 `;
 
       const result = await model.generateContent(prompt);
@@ -199,34 +207,63 @@ Return only the JSON object, no additional text.
   }
 
   createFallbackFood(query) {
-    // Estimate calories based on common food patterns
-    let estimatedCalories = 200; // Default
-    
-    const lowCalFoods = ['apple', 'banana', 'orange', 'vegetable', 'salad', 'lettuce', 'cucumber', 'tomato'];
-    const medCalFoods = ['chicken', 'fish', 'rice', 'bread', 'pasta', 'potato'];
-    const highCalFoods = ['pizza', 'burger', 'fries', 'cake', 'ice cream', 'cheese', 'nuts'];
-    
     const queryLower = query.toLowerCase();
     
-    if (lowCalFoods.some(food => queryLower.includes(food))) {
-      estimatedCalories = 80;
-    } else if (highCalFoods.some(food => queryLower.includes(food))) {
-      estimatedCalories = 400;
-    } else if (medCalFoods.some(food => queryLower.includes(food))) {
-      estimatedCalories = 250;
+    // Enhanced food database with realistic portions and nutrition
+    const foodDatabase = {
+      // Fruits (per medium piece)
+      'apple': { calories: 95, carbs: 25, protein: 0.5, fat: 0.3, portion: 'medium apple (180g)' },
+      'banana': { calories: 105, carbs: 27, protein: 1.3, fat: 0.4, portion: 'medium banana (120g)' },
+      'orange': { calories: 62, carbs: 15, protein: 1.2, fat: 0.2, portion: 'medium orange (130g)' },
+      
+      // Proteins (per 100g cooked)
+      'chicken': { calories: 165, carbs: 0, protein: 31, fat: 3.6, portion: '100g grilled chicken breast' },
+      'fish': { calories: 206, carbs: 0, protein: 22, fat: 12, portion: '100g cooked fish fillet' },
+      'beef': { calories: 250, carbs: 0, protein: 26, fat: 15, portion: '100g lean beef' },
+      
+      // Carbs (per standard serving)
+      'rice': { calories: 205, carbs: 45, protein: 4.3, fat: 0.4, portion: '1 cup cooked white rice' },
+      'pasta': { calories: 220, carbs: 44, protein: 8, fat: 1.1, portion: '1 cup cooked pasta' },
+      'bread': { calories: 79, carbs: 14, protein: 2.7, fat: 1.1, portion: '1 slice whole grain bread' },
+      
+      // High calorie foods
+      'pizza': { calories: 285, carbs: 36, protein: 12, fat: 10, portion: '1 slice cheese pizza' },
+      'burger': { calories: 540, carbs: 40, protein: 25, fat: 31, portion: '1 medium hamburger' },
+      'fries': { calories: 365, carbs: 63, protein: 4, fat: 17, portion: 'medium fries (115g)' },
+    };
+    
+    // Find matching food or estimate
+    let foodData = null;
+    
+    for (const [key, data] of Object.entries(foodDatabase)) {
+      if (queryLower.includes(key)) {
+        foodData = { ...data };
+        break;
+      }
+    }
+    
+    // Default fallback if no match
+    if (!foodData) {
+      foodData = {
+        calories: 200,
+        carbs: 25,
+        protein: 8,
+        fat: 6,
+        portion: 'estimated serving'
+      };
     }
 
     return {
-      name: `${query} (estimated)`,
-      calories: estimatedCalories,
-      carbs: Math.round(estimatedCalories * 0.5 / 4), // 50% carbs
-      protein: Math.round(estimatedCalories * 0.25 / 4), // 25% protein  
-      fat: Math.round(estimatedCalories * 0.25 / 9), // 25% fat
+      name: `${query} (${foodData.portion})`,
+      calories: foodData.calories,
+      carbs: foodData.carbs,
+      protein: foodData.protein,
+      fat: foodData.fat,
       fiber: 3,
-      sugar: 5,
+      sugar: Math.round(foodData.carbs * 0.2), // Estimate 20% of carbs as sugar
       sodium: 150,
-      confidence: 0.3,
-      serving_size: "estimated portion",
+      confidence: 0.4,
+      serving_size: foodData.portion,
       notes: "Nutritional information estimated due to API error",
       searchQuery: query,
       searchTimestamp: new Date().toISOString(),

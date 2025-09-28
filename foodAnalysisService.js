@@ -10,44 +10,44 @@ if (!GEMINI_API_KEY) {
 
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`;
 
-// Nutrition database with estimated values per 100g
+// Enhanced nutrition database with realistic serving sizes and accurate nutrition values
 const NUTRITION_DATABASE = {
-  // Fruits
-  'apple': { calories: 52, carbs: 14, protein: 0.3, fat: 0.2, portion: 150 },
-  'banana': { calories: 89, carbs: 23, protein: 1.1, fat: 0.3, portion: 120 },
-  'orange': { calories: 47, carbs: 12, protein: 0.9, fat: 0.1, portion: 130 },
-  'strawberry': { calories: 32, carbs: 8, protein: 0.7, fat: 0.3, portion: 100 },
-  'grapes': { calories: 62, carbs: 16, protein: 0.6, fat: 0.2, portion: 80 },
-  'blueberry': { calories: 57, carbs: 14, protein: 0.7, fat: 0.3, portion: 75 },
-  'raspberry': { calories: 52, carbs: 12, protein: 1.2, fat: 0.7, portion: 75 },
-  'pineapple': { calories: 50, carbs: 13, protein: 0.5, fat: 0.1, portion: 100 },
-  'mango': { calories: 60, carbs: 15, protein: 0.8, fat: 0.4, portion: 120 },
-  'avocado': { calories: 160, carbs: 9, protein: 2, fat: 15, portion: 100 },
+  // Fruits (realistic portions)
+  'apple': { calories: 95, carbs: 25, protein: 0.5, fat: 0.3, portion: '1 medium (180g)', fiber: 4, sugar: 19, sodium: 2 },
+  'banana': { calories: 105, carbs: 27, protein: 1.3, fat: 0.4, portion: '1 medium (120g)', fiber: 3, sugar: 14, sodium: 1 },
+  'orange': { calories: 62, carbs: 15, protein: 1.2, fat: 0.2, portion: '1 medium (130g)', fiber: 3, sugar: 12, sodium: 0 },
+  'strawberry': { calories: 32, carbs: 8, protein: 0.7, fat: 0.3, portion: '1 cup (100g)', fiber: 2, sugar: 5, sodium: 1 },
+  'grapes': { calories: 62, carbs: 16, protein: 0.6, fat: 0.2, portion: '1 cup (80g)', fiber: 1, sugar: 15, sodium: 2 },
+  'blueberry': { calories: 84, carbs: 21, protein: 1, fat: 0.5, portion: '1 cup (148g)', fiber: 4, sugar: 15, sodium: 1 },
+  'raspberry': { calories: 64, carbs: 15, protein: 1.5, fat: 0.8, portion: '1 cup (123g)', fiber: 8, sugar: 5, sodium: 1 },
+  'pineapple': { calories: 82, carbs: 22, protein: 0.9, fat: 0.2, portion: '1 cup chunks (165g)', fiber: 2, sugar: 16, sodium: 2 },
+  'mango': { calories: 107, carbs: 28, protein: 1, fat: 0.5, portion: '1 cup sliced (165g)', fiber: 3, sugar: 24, sodium: 3 },
+  'avocado': { calories: 234, carbs: 12, protein: 3, fat: 21, portion: '1 medium (150g)', fiber: 10, sugar: 1, sodium: 7 },
   
-  // Vegetables
-  'broccoli': { calories: 34, carbs: 7, protein: 2.8, fat: 0.4, portion: 100 },
-  'carrot': { calories: 41, carbs: 10, protein: 0.9, fat: 0.2, portion: 80 },
-  'spinach': { calories: 23, carbs: 4, protein: 2.9, fat: 0.4, portion: 50 },
-  'tomato': { calories: 18, carbs: 4, protein: 0.9, fat: 0.2, portion: 100 },
-  'potato': { calories: 77, carbs: 17, protein: 2, fat: 0.1, portion: 150 },
-  'sweet potato': { calories: 86, carbs: 20, protein: 1.6, fat: 0.1, portion: 130 },
-  'bell pepper': { calories: 31, carbs: 7, protein: 1, fat: 0.3, portion: 80 },
-  'cucumber': { calories: 16, carbs: 4, protein: 0.7, fat: 0.1, portion: 100 },
-  'onion': { calories: 40, carbs: 9, protein: 1.1, fat: 0.1, portion: 60 },
-  'lettuce': { calories: 15, carbs: 3, protein: 1.4, fat: 0.2, portion: 50 },
-  'mushroom': { calories: 22, carbs: 3, protein: 3.1, fat: 0.3, portion: 70 },
-  'corn': { calories: 86, carbs: 19, protein: 3.3, fat: 1.4, portion: 100 },
+  // Vegetables (realistic portions)
+  'broccoli': { calories: 25, carbs: 5, protein: 3, fat: 0.3, portion: '1 cup (91g)', fiber: 2, sugar: 1, sodium: 33 },
+  'carrot': { calories: 30, carbs: 7, protein: 0.7, fat: 0.1, portion: '1 medium (61g)', fiber: 2, sugar: 3, sodium: 42 },
+  'spinach': { calories: 7, carbs: 1, protein: 0.9, fat: 0.1, portion: '1 cup fresh (30g)', fiber: 0.7, sugar: 0.1, sodium: 24 },
+  'tomato': { calories: 22, carbs: 5, protein: 1, fat: 0.2, portion: '1 medium (123g)', fiber: 1, sugar: 3, sodium: 6 },
+  'potato': { calories: 161, carbs: 37, protein: 4, fat: 0.2, portion: '1 medium baked (173g)', fiber: 4, sugar: 2, sodium: 8 },
+  'sweet potato': { calories: 112, carbs: 26, protein: 2, fat: 0.1, portion: '1 medium baked (128g)', fiber: 4, sugar: 5, sodium: 7 },
+  'bell pepper': { calories: 31, carbs: 7, protein: 1, fat: 0.3, portion: '1 cup chopped (149g)', fiber: 3, sugar: 5, sodium: 4 },
+  'cucumber': { calories: 16, carbs: 4, protein: 0.7, fat: 0.1, portion: '1 cup sliced (104g)', fiber: 1, sugar: 2, sodium: 2 },
+  'onion': { calories: 32, carbs: 7, protein: 0.9, fat: 0.1, portion: '1/2 cup chopped (80g)', fiber: 1, sugar: 3, sodium: 3 },
+  'lettuce': { calories: 5, carbs: 1, protein: 0.5, fat: 0.1, portion: '1 cup shredded (36g)', fiber: 0.5, sugar: 0.8, sodium: 3 },
+  'mushroom': { calories: 15, carbs: 2, protein: 2, fat: 0.2, portion: '1 cup sliced (70g)', fiber: 1, sugar: 1, sodium: 4 },
+  'corn': { calories: 177, carbs: 41, protein: 5, fat: 2, portion: '1 cup kernels (164g)', fiber: 5, sugar: 6, sodium: 23 },
   
-  // Proteins
-  'chicken breast': { calories: 165, carbs: 0, protein: 31, fat: 3.6, portion: 120 },
-  'chicken thigh': { calories: 209, carbs: 0, protein: 26, fat: 11, portion: 100 },
-  'salmon': { calories: 208, carbs: 0, protein: 20, fat: 13, portion: 100 },
-  'tuna': { calories: 144, carbs: 0, protein: 30, fat: 1, portion: 100 },
-  'shrimp': { calories: 85, carbs: 0, protein: 20, fat: 1.1, portion: 85 },
-  'beef': { calories: 250, carbs: 0, protein: 26, fat: 15, portion: 100 },
-  'ground beef': { calories: 254, carbs: 0, protein: 26, fat: 17, portion: 100 },
-  'pork': { calories: 242, carbs: 0, protein: 27, fat: 14, portion: 100 },
-  'turkey': { calories: 135, carbs: 0, protein: 30, fat: 1, portion: 100 },
+  // Proteins (realistic portions)
+  'chicken breast': { calories: 185, carbs: 0, protein: 35, fat: 4, portion: '4 oz cooked (112g)', fiber: 0, sugar: 0, sodium: 74 },
+  'chicken thigh': { calories: 209, carbs: 0, protein: 26, fat: 11, portion: '3 oz cooked (85g)', fiber: 0, sugar: 0, sodium: 77 },
+  'salmon': { calories: 175, carbs: 0, protein: 25, fat: 8, portion: '3 oz cooked (85g)', fiber: 0, sugar: 0, sodium: 59 },
+  'tuna': { calories: 109, carbs: 0, protein: 25, fat: 1, portion: '3 oz cooked (85g)', fiber: 0, sugar: 0, sodium: 40 },
+  'shrimp': { calories: 84, carbs: 0, protein: 18, fat: 1, portion: '3 oz cooked (85g)', fiber: 0, sugar: 0, sodium: 94 },
+  'beef': { calories: 213, carbs: 0, protein: 22, fat: 13, portion: '3 oz cooked (85g)', fiber: 0, sugar: 0, sodium: 54 },
+  'ground beef': { calories: 218, carbs: 0, protein: 22, fat: 14, portion: '3 oz cooked (85g)', fiber: 0, sugar: 0, sodium: 71 },
+  'pork': { calories: 206, carbs: 0, protein: 23, fat: 12, portion: '3 oz cooked (85g)', fiber: 0, sugar: 0, sodium: 62 },
+  'turkey': { calories: 125, carbs: 0, protein: 26, fat: 1, portion: '3 oz cooked (85g)', fiber: 0, sugar: 0, sodium: 54 },
   'egg': { calories: 155, carbs: 1.1, protein: 13, fat: 11, portion: 50 },
   'tofu': { calories: 76, carbs: 1.9, protein: 8, fat: 4.8, portion: 100 },
   'beans': { calories: 127, carbs: 23, protein: 9, fat: 0.5, portion: 100 },
@@ -192,18 +192,32 @@ export const foodAnalysisService = {
 
   // Call Gemini API for intelligent food identification
   async callGeminiVision(base64Image) {
-    const prompt = `Analyze this food image and provide detailed nutritional information. Please identify:
+    const prompt = `Analyze this food image and provide detailed nutritional information following USDA standards. Please identify:
 
 1. The specific food items visible (be as specific as possible - e.g., "grilled chicken breast" not just "chicken")
-2. Estimated portion sizes for each item
-3. For each food item, estimate complete nutritional values per serving:
-   - Calories
+2. REALISTIC portion sizes based on typical serving measurements:
+   - Use standard measurements (cups, tablespoons, ounces, grams)
+   - For proteins: typical serving = 3-4 oz (85-115g)
+   - For vegetables: typical serving = 1/2 to 1 cup
+   - For grains: typical serving = 1/2 to 1 cup cooked
+   - For fruits: 1 medium piece or 1/2 to 1 cup
+   - Avoid vague terms like "small portion" or "large serving"
+
+3. For each food item, provide ACCURATE nutritional values per actual serving size:
+   - Calories (based on actual portion, not per 100g)
    - Carbohydrates (g)
-   - Protein (g)
+   - Protein (g) 
    - Fat (g)
    - Fiber (g)
    - Sugar (g)
    - Sodium (mg)
+
+PORTION ACCURACY EXAMPLES:
+- Chicken breast (4 oz/115g) = ~165 calories
+- Apple (1 medium/180g) = ~95 calories  
+- Brown rice (1/2 cup cooked/100g) = ~110 calories
+- Broccoli (1 cup/90g) = ~25 calories
+
 4. Confidence level for each identification (0.0 to 1.0)
 
 Format your response as JSON:
@@ -211,7 +225,7 @@ Format your response as JSON:
   "foods": [
     {
       "name": "specific food name",
-      "portion": "description of portion size",
+      "portion": "realistic serving description with measurements",
       "confidence": 0.95,
       "nutrition": {
         "calories": 250,
@@ -226,7 +240,7 @@ Format your response as JSON:
   ]
 }
 
-Be accurate and specific. If you're unsure about a food item, lower the confidence score accordingly.`;
+CRITICAL: Provide nutrition values for the ACTUAL portion identified, not per 100g. Use realistic serving sizes that people actually eat.`;
 
     const requestBody = {
       contents: [
@@ -270,19 +284,36 @@ Be accurate and specific. If you're unsure about a food item, lower the confiden
 
   // Call Gemini API for text-based food analysis
   async callGeminiText(textDescription) {
-    const prompt = `Analyze this food description and provide detailed nutritional information: "${textDescription}"
+    const prompt = `Analyze this food description and provide detailed nutritional information following USDA standards: "${textDescription}"
 
 Please identify:
 1. The specific food items mentioned (be as specific as possible - e.g., "grilled chicken breast" not just "chicken")
-2. Estimated realistic portion sizes for each item based on typical serving sizes
-3. For each food item, estimate complete nutritional values per serving:
-   - Calories
+2. REALISTIC portion sizes based on standard measurements and typical servings:
+   - If quantities are mentioned (like "2 eggs" or "1 cup rice"), use those EXACTLY
+   - If no quantities given, use realistic typical servings:
+     * Proteins: 3-4 oz (85-115g) 
+     * Vegetables: 1/2 to 1 cup
+     * Grains: 1/2 to 1 cup cooked
+     * Fruits: 1 medium piece or 1/2 to 1 cup
+   - Use standard measurements (cups, tablespoons, ounces, grams)
+   - Avoid vague terms like "small portion" or "large serving"
+
+3. For each food item, provide ACCURATE nutritional values per actual serving size:
+   - Calories (based on actual portion, not per 100g)
    - Carbohydrates (g)
    - Protein (g)
-   - Fat (g)
+   - Fat (g) 
    - Fiber (g)
    - Sugar (g)
    - Sodium (mg)
+
+PORTION ACCURACY EXAMPLES:
+- Chicken breast (4 oz/115g) = ~165 calories
+- Apple (1 medium/180g) = ~95 calories
+- Brown rice (1/2 cup cooked/100g) = ~110 calories
+- Broccoli (1 cup/90g) = ~25 calories
+- Large egg (1 whole/50g) = ~70 calories
+
 4. Confidence level for each identification (0.0 to 1.0)
 
 Format your response as JSON:
@@ -290,7 +321,7 @@ Format your response as JSON:
   "foods": [
     {
       "name": "specific food name",
-      "portion": "description of portion size",
+      "portion": "realistic serving with measurements",
       "confidence": 0.95,
       "nutrition": {
         "calories": 250,
@@ -305,8 +336,7 @@ Format your response as JSON:
   ]
 }
 
-If the description includes quantities (like "2 eggs" or "1 cup rice"), use those. Otherwise, estimate typical serving sizes.
-Be accurate and specific. If you're unsure about a food item, lower the confidence score accordingly.`;
+CRITICAL: Provide nutrition values for the ACTUAL portion identified, not per 100g. Honor user-specified quantities when provided.`;
 
     const requestBody = {
       contents: [
