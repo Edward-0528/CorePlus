@@ -9,9 +9,9 @@ class GeminiService {
     if (this.apiKey && this.apiKey !== 'demo_key') {
       // Validate API key security
       securityService.validateGeminiKey(this.apiKey);
-      console.log('🤖 Initializing Gemini 1.5 Flash 8B (most cost-effective model)');
+      console.log('🤖 Initializing Gemini 1.5 Flash (supported model)');
       this.genAI = new GoogleGenerativeAI(this.apiKey);
-      this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" });
+      this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     }
   }
 
@@ -20,7 +20,7 @@ class GeminiService {
     try {
       // Security checks
       securityService.checkRateLimit('gemini');
-      securityService.monitorModelUsage('gemini-1.5-flash-8b', 'recipe-search');
+      securityService.monitorModelUsage('gemini-1.5-flash', 'recipe-search');
       
       if (!this.model) {
         throw new Error('Gemini API not configured');

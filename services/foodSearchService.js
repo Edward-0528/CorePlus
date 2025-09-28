@@ -33,7 +33,7 @@ class FoodSearchService {
     if (!this.model) {
       try {
         this.model = this.genAI.getGenerativeModel({ 
-          model: "gemini-1.5-flash-8b",
+          model: "gemini-1.5-flash",
           generationConfig: {
             temperature: 0.1,
             topK: 1,
@@ -41,7 +41,7 @@ class FoodSearchService {
             maxOutputTokens: 800, // Reduced from 1000 to save costs
           },
         });
-        console.log('🤖 Gemini model initialized for food search with gemini-1.5-flash-8b (cost-optimized)');
+        console.log('🤖 Gemini model initialized for food search with gemini-1.5-flash (supported model)');
         console.log('💰 Using most cost-effective model with reduced token limits');
       } catch (error) {
         console.error('❌ Failed to initialize Gemini model:', error);

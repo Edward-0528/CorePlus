@@ -28,10 +28,10 @@ class WorkoutPlanService {
     
     if (!this.model) {
       try {
-            console.log('🤖 Using Gemini 1.5 Flash 8B (cost-optimized) for workout planning');
+            console.log('🤖 Using Gemini 1.5 Flash (supported model) for workout planning');
     
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash-8b",
+      model: "gemini-1.5-flash",
       generationConfig: {
         temperature: 0.3,
         topK: 10,

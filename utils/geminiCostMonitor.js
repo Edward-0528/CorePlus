@@ -5,7 +5,7 @@ class GeminiCostMonitor {
   constructor() {
     // Approximate pricing for Gemini models (as of 2024)
     this.pricing = {
-      'gemini-1.5-flash-8b': {
+      'gemini-1.5-flash': {
         inputTokens: 0.0375 / 1000000,   // $0.0375 per million input tokens
         outputTokens: 0.15 / 1000000,    // $0.15 per million output tokens
       },
@@ -30,7 +30,7 @@ class GeminiCostMonitor {
 
   // Log API usage for cost tracking
   logApiCall(modelName, inputTokens = 0, outputTokens = 0, service = 'unknown') {
-    const pricing = this.pricing[modelName] || this.pricing['gemini-1.5-flash-8b'];
+    const pricing = this.pricing[modelName] || this.pricing['gemini-1.5-flash'];
     const callCost = (inputTokens * pricing.inputTokens) + (outputTokens * pricing.outputTokens);
     
     this.usage.totalCalls++;
@@ -81,7 +81,7 @@ class GeminiCostMonitor {
       console.log(`  Output: $${outputCost.toFixed(4)}`);
     });
     
-    console.log('\n✅ Current optimization: All services use gemini-1.5-flash-8b (cheapest option)');
+    console.log('\n✅ Current optimization: All services use gemini-1.5-flash (supported model)');
   }
 
   // Reset usage tracking

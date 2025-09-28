@@ -65,7 +65,7 @@ class ApiKeySecurityService {
       this.logSuspiciousActivity('Expensive model usage detected', {
         model: modelName,
         service: service,
-        expectedModels: ['gemini-1.5-flash-8b', 'gemini-1.5-flash']
+        expectedModels: ['gemini-1.5-flash', 'gemini-1.5-pro']
       });
       
       // You could throw an error to block expensive model usage
