@@ -146,16 +146,13 @@ function AppContent() {
         
         // Initialize RevenueCat and user subscription service for this user
         try {
-          console.log('🔗 Initializing RevenueCat for user:', session.user.id);
           await revenueCatService.setUserID(session.user.id);
           
           // Initialize user subscription service for proper syncing
           const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
           await userSubscriptionService.initializeForUser(session.user);
-          console.log('✅ User subscription service initialized');
           
         } catch (rcError) {
-          console.warn('⚠️ RevenueCat/Subscription service setup failed:', rcError);
           // Don't fail the login process if RevenueCat fails
         }
         
@@ -176,7 +173,11 @@ function AppContent() {
         console.log('🧹 User signed out - clearing user data');
         
         // Clear RevenueCat user data
-        await revenueCatService.logout();
+        try {
+          await revenueCatService.logout();
+        } catch (error) {
+          // Continue logout process even if RevenueCat fails
+        }
         
         // Clear caches to prevent data bleeding between users
         try {
@@ -220,7 +221,6 @@ function AppContent() {
       console.log('📱 App state changed to:', nextAppState);
       
       if (nextAppState === 'active') {
-        console.log('📱 App became active - refreshing subscription status');
         // App came back to foreground (potentially from purchase flow)
         // Refresh subscription status after a brief delay
         setTimeout(async () => {
@@ -232,7 +232,7 @@ function AppContent() {
               await userSubscriptionService.syncSubscriptionStatus();
             }
           } catch (error) {
-            console.warn('⚠️ Failed to refresh subscription after app resume:', error);
+            // Silent failure - don't log subscription refresh errors
           }
         }, 1000); // 1 second delay to allow app to stabilize
       }
@@ -263,34 +263,15 @@ function AppContent() {
     }, 30000); // 30 second timeout
     
     try {
-      // Initialize RevenueCat first with error handling
+      // Initialize RevenueCat silently (no longer debugging)
       try {
-        console.log('💰 [STEP 1/4] Initializing RevenueCat...');
-        const rcStartTime = Date.now();
-        
-        // Add timeout for RevenueCat initialization
-        const rcPromise = revenueCatService.initialize();
-        const rcTimeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('RevenueCat initialization timeout')), 10000)
-        );
-        
-        await Promise.race([rcPromise, rcTimeoutPromise]);
-        console.log(`💰 ✅ RevenueCat initialized in ${Date.now() - rcStartTime}ms`);
-        // Debug: refresh and log customer info after initialization
-        try {
-          const startupInfo = await revenueCatService.refreshCustomerInfo();
-          console.log('🔍 RevenueCat customerInfo at startup:', startupInfo);
-        } catch (startupErr) {
-          console.warn('⚠️ Failed to refresh RevenueCat customerInfo at startup:', startupErr);
-        }
+        await revenueCatService.initialize();
       } catch (rcError) {
-        console.warn('⚠️ RevenueCat initialization failed:', rcError.message);
-        console.warn('⚠️ Continuing without RevenueCat...');
         // Continue app initialization even if RevenueCat fails
       }
       
       // Use enhanced session initialization
-      console.log('🔐 [STEP 2/4] Checking authentication session...');
+      console.log('🔐 [STEP 1/3] Checking authentication session...');
       const sessionStartTime = Date.now();
       
       // Add timeout for session check
@@ -306,35 +287,20 @@ function AppContent() {
         console.log('✅ User session restored:', sessionResult.restored ? 'from storage' : 'from server');
         console.log('✅ User ID:', sessionResult.user.id);
         
-        console.log('🔐 [STEP 3/4] Setting user state...');
+        console.log('🔐 [STEP 2/3] Setting user state...');
         setUser(sessionResult.user);
         setIsAuthenticated(true);
         setShowLanding(false);
         
-        // Set RevenueCat user ID for tracking with error handling
+        // Set RevenueCat user ID silently
         try {
-          console.log('💰 Setting RevenueCat user ID...');
-          const rcUserPromise = revenueCatService.setUserID(sessionResult.user.id);
-          const rcUserTimeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('RevenueCat setUserID timeout')), 8000)
-          );
-          
-          await Promise.race([rcUserPromise, rcUserTimeoutPromise]);
-          console.log('💰 ✅ RevenueCat user ID set successfully');
-            // Debug: refresh and log customer info immediately after setting user id
-            try {
-              const info = await revenueCatService.refreshCustomerInfo();
-              console.log('🔍 RevenueCat customerInfo after setUser:', info);
-            } catch (infoErr) {
-              console.warn('⚠️ Failed to refresh RevenueCat customerInfo after setUser:', infoErr);
-            }
+          await revenueCatService.setUserID(sessionResult.user.id);
         } catch (rcError) {
-          console.warn('⚠️ RevenueCat user ID setting failed:', rcError);
           // Continue without blocking the app
         }
         
         // For existing users, check if they have completed onboarding
-        console.log('🎯 [STEP 4/4] Checking onboarding status...');
+        console.log('🎯 [STEP 3/3] Checking onboarding status...');
         const onboardingStartTime = Date.now();
         
         // Add timeout for onboarding check
