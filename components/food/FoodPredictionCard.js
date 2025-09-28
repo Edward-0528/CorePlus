@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, Animated, Dimensions, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { spacing, fonts } from '../utils/responsive';
+import { spacing, fonts } from '../../utils/responsive';
 
 const { height: screenHeight } = Dimensions.get('window');
 

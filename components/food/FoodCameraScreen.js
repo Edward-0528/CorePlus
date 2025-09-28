@@ -5,7 +5,7 @@ import * as MediaLibrary from 'expo-media-library';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { spacing, fonts } from '../utils/responsive';
+import { spacing, fonts } from '../../utils/responsive';
 
 // Define colors directly to match the minimal design
 const AppColors = {

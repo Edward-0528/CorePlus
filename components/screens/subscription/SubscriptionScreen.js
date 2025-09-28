@@ -10,7 +10,7 @@ import {
   AppState
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { revenueCatService } from '../services/revenueCatService';
+import { revenueCatService } from '../../../services/revenueCatService';
 
 const AppColors = {
   primary: '#4A90E2',

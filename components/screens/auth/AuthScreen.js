@@ -438,7 +438,7 @@ const AuthScreen = memo(({
       {/* Single Video Background - No Flash! */}
       <Video
         ref={videoRef}
-        source={require('../assets/workout.mp4')}
+        source={require('../../../assets/workout.mp4')}
         style={styles.videoBackground}
         shouldPlay
         isLooping
@@ -450,7 +450,7 @@ const AuthScreen = memo(({
         onLoad={handleVideoLoad}
         onError={(error) => console.log('Auth video error:', error)}
         usePoster={false}
-        posterSource={require('../assets/Athleticman.png')}
+        posterSource={require('../../../assets/Athleticman.png')}
         posterStyle={styles.videoBackground}
       />
       

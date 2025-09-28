@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
-import MinimalisticDeleteModal from './MinimalisticDeleteModal';
+import MinimalisticDeleteModal from '../modals/MinimalisticDeleteModal';
 
 const SimpleSwipeToDelete = ({ children, onDelete, enabled = true, mealName = null }) => {
   const translateX = useRef(new Animated.Value(0)).current;

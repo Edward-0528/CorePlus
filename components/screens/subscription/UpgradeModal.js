@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSubscription } from '../contexts/SubscriptionContext';
-import { useFeatureAccess } from '../hooks/useFeatureAccess';
+import { useSubscription } from '../../../contexts/SubscriptionContext';
+import { useFeatureAccess } from '../../../hooks/useFeatureAccess';
 
 const { width, height } = Dimensions.get('window');
 
