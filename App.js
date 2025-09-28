@@ -88,15 +88,51 @@ function AppContent() {
     setActiveTab
   } = useAppContext();
 
+  // Loading state monitor - logs every 5 seconds during loading
+  useEffect(() => {
+    let loadingMonitor;
+    
+    if (authLoading || loading) {
+      console.log('⏱️ Loading state monitor started');
+      loadingMonitor = setInterval(() => {
+        console.log('⏱️ Still loading...', {
+          authLoading,
+          loading,
+          isAuthenticated,
+          user: user?.id || 'none',
+          showOnboarding,
+          showLanding,
+          showLogin,
+          showSignUp,
+          duration: Date.now() - (window.loadingStartTime || Date.now())
+        });
+      }, 5000); // Log every 5 seconds
+    } else {
+      if (loadingMonitor) {
+        console.log('⏱️ Loading state monitor stopped - loading complete');
+        clearInterval(loadingMonitor);
+      }
+    }
+
+    return () => {
+      if (loadingMonitor) {
+        clearInterval(loadingMonitor);
+      }
+    };
+  }, [authLoading, loading, isAuthenticated, user, showOnboarding, showLanding]);
+
   // Check authentication state on app load
   useEffect(() => {
+    window.loadingStartTime = Date.now(); // Track loading start time
     checkAuthState();
     
     // Listen for auth state changes
     const { data: { subscription } } = authService.onAuthStateChange(async (event, session) => {
-      console.log('🔐 Auth state change:', event, session?.user?.id);
+      console.log('🔐 🔄 Auth state change detected:', event, session?.user?.id);
+      console.log('🔐 🔄 Current loading state:', { authLoading, loading });
       
       if (session?.user) {
+        console.log('🔐 ✅ User signed in via auth state change');
         // User signed in - save session data
         console.log('👤 User signed in, saving session');
         console.log('👤 Session user ID:', session.user.id);
@@ -209,15 +245,37 @@ function AppContent() {
   const checkAuthState = async () => {
     const authStartTime = Date.now();
     console.log('🔄 Starting authentication check...');
+    console.log('🔄 Current state:', {
+      isAuthenticated,
+      user: user?.id || 'none',
+      showOnboarding,
+      authLoading,
+      loading
+    });
     setAuthLoading(true);
+    
+    // Add overall timeout to prevent infinite loading
+    const authTimeout = setTimeout(() => {
+      console.error('⏰ AUTHENTICATION TIMEOUT - Force completing auth after 30 seconds');
+      setAuthLoading(false);
+      setShowLanding(true);
+      setIsAuthenticated(false);
+    }, 30000); // 30 second timeout
     
     try {
       // Initialize RevenueCat first with error handling
       try {
-        console.log('💰 Initializing RevenueCat...');
+        console.log('💰 [STEP 1/4] Initializing RevenueCat...');
         const rcStartTime = Date.now();
-        await revenueCatService.initialize();
-        console.log(`💰 RevenueCat initialized in ${Date.now() - rcStartTime}ms`);
+        
+        // Add timeout for RevenueCat initialization
+        const rcPromise = revenueCatService.initialize();
+        const rcTimeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('RevenueCat initialization timeout')), 10000)
+        );
+        
+        await Promise.race([rcPromise, rcTimeoutPromise]);
+        console.log(`💰 ✅ RevenueCat initialized in ${Date.now() - rcStartTime}ms`);
         // Debug: refresh and log customer info after initialization
         try {
           const startupInfo = await revenueCatService.refreshCustomerInfo();
@@ -226,19 +284,29 @@ function AppContent() {
           console.warn('⚠️ Failed to refresh RevenueCat customerInfo at startup:', startupErr);
         }
       } catch (rcError) {
-        console.warn('⚠️ RevenueCat initialization failed:', rcError);
+        console.warn('⚠️ RevenueCat initialization failed:', rcError.message);
+        console.warn('⚠️ Continuing without RevenueCat...');
         // Continue app initialization even if RevenueCat fails
       }
       
       // Use enhanced session initialization
-      console.log('🔐 Checking authentication session...');
+      console.log('🔐 [STEP 2/4] Checking authentication session...');
       const sessionStartTime = Date.now();
-      const sessionResult = await authService.initializeSession();
-      console.log(`🔐 Session check completed in ${Date.now() - sessionStartTime}ms`);
+      
+      // Add timeout for session check
+      const sessionPromise = authService.initializeSession();
+      const sessionTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Session initialization timeout')), 15000)
+      );
+      
+      const sessionResult = await Promise.race([sessionPromise, sessionTimeoutPromise]);
+      console.log(`🔐 ✅ Session check completed in ${Date.now() - sessionStartTime}ms`);
       
       if (sessionResult.success && sessionResult.user) {
         console.log('✅ User session restored:', sessionResult.restored ? 'from storage' : 'from server');
+        console.log('✅ User ID:', sessionResult.user.id);
         
+        console.log('🔐 [STEP 3/4] Setting user state...');
         setUser(sessionResult.user);
         setIsAuthenticated(true);
         setShowLanding(false);
@@ -246,8 +314,13 @@ function AppContent() {
         // Set RevenueCat user ID for tracking with error handling
         try {
           console.log('💰 Setting RevenueCat user ID...');
-          await revenueCatService.setUserID(sessionResult.user.id);
-          console.log('💰 RevenueCat user ID set successfully');
+          const rcUserPromise = revenueCatService.setUserID(sessionResult.user.id);
+          const rcUserTimeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('RevenueCat setUserID timeout')), 8000)
+          );
+          
+          await Promise.race([rcUserPromise, rcUserTimeoutPromise]);
+          console.log('💰 ✅ RevenueCat user ID set successfully');
             // Debug: refresh and log customer info immediately after setting user id
             try {
               const info = await revenueCatService.refreshCustomerInfo();
@@ -261,11 +334,25 @@ function AppContent() {
         }
         
         // For existing users, check if they have completed onboarding
-        console.log('🎯 Checking onboarding status...');
+        console.log('🎯 [STEP 4/4] Checking onboarding status...');
         const onboardingStartTime = Date.now();
-        const needsOnboarding = await checkIfUserNeedsOnboarding(sessionResult.user.id);
-        console.log(`🎯 Onboarding check completed in ${Date.now() - onboardingStartTime}ms`);
-        setShowOnboarding(needsOnboarding);
+        
+        // Add timeout for onboarding check
+        const onboardingPromise = checkIfUserNeedsOnboarding(sessionResult.user.id);
+        const onboardingTimeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Onboarding check timeout')), 10000)
+        );
+        
+        try {
+          const needsOnboarding = await Promise.race([onboardingPromise, onboardingTimeoutPromise]);
+          console.log(`🎯 ✅ Onboarding check completed in ${Date.now() - onboardingStartTime}ms`);
+          console.log(`🎯 Needs onboarding:`, needsOnboarding);
+          setShowOnboarding(needsOnboarding);
+        } catch (onboardingError) {
+          console.error('❌ Onboarding check failed:', onboardingError.message);
+          console.log('🎯 Defaulting to no onboarding needed');
+          setShowOnboarding(false); // Default to false if check fails
+        }
       } else {
         // No user found, show landing
         console.log('🚫 No user session found, showing landing screen');
@@ -284,8 +371,15 @@ function AppContent() {
       setShowLanding(true);
       setIsAuthenticated(false);
     } finally {
+      clearTimeout(authTimeout); // Clear the timeout if we complete normally
       setAuthLoading(false);
-      console.log(`✅ Total authentication check took ${Date.now() - authStartTime}ms`);
+      console.log(`✅ AUTHENTICATION COMPLETE - Total time: ${Date.now() - authStartTime}ms`);
+      console.log('✅ Final state:', {
+        isAuthenticated,
+        user: user?.id || 'none',
+        showOnboarding,
+        showLanding
+      });
     }
   };
 
@@ -837,6 +931,27 @@ function AppContent() {
     }
   };
 
+  // Force exit handler for stuck loading
+  const handleForceExit = () => {
+    console.log('🚨 FORCE EXIT - User manually exited loading screen');
+    console.log('🚨 Current state:', {
+      authLoading,
+      loading,
+      isAuthenticated,
+      user: user?.id || 'none',
+      showOnboarding,
+      showLanding
+    });
+    
+    // Force reset to landing screen
+    setAuthLoading(false);
+    setLoading(false);
+    setShowLanding(true);
+    setIsAuthenticated(false);
+    setUser(null);
+    setShowOnboarding(false);
+  };
+
   // Single loading screen for all loading states
   if (authLoading || loading) {
     const message = authLoading 
@@ -844,7 +959,7 @@ function AppContent() {
       : isAuthenticated 
         ? 'Setting up your personalized experience...' 
         : 'Logging you in...';
-    return <LoadingScreen styles={styles} message={message} />;
+    return <LoadingScreen styles={styles} message={message} onForceExit={handleForceExit} />;
   }
 
   // Simple page transitions without animation

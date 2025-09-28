@@ -285,18 +285,26 @@ export const authService = {
   // Initialize session on app startup
   initializeSession: async () => {
     const startTime = Date.now();
-    console.log('🔄 Initializing session...');
+    console.log('🔄 [AUTH] Starting session initialization...');
+    console.log('🔄 [AUTH] Supabase client status:', supabase?.supabaseUrl ? 'initialized' : 'not initialized');
     
     try {
       // Add timeout wrapper for session retrieval
+      console.log('📡 [AUTH] Calling supabase.auth.getSession()...');
       const sessionPromise = supabase.auth.getSession();
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Session timeout after 10s')), 10000)
       );
       
-      console.log('📡 Checking Supabase session...');
+      const sessionStartTime = Date.now();
       const { data: { session }, error } = await Promise.race([sessionPromise, timeoutPromise]);
-      console.log(`⏱️ Session check took ${Date.now() - startTime}ms`);
+      console.log(`⏱️ [AUTH] getSession() took ${Date.now() - sessionStartTime}ms`);
+      console.log('📡 [AUTH] Session result:', {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        userId: session?.user?.id,
+        error: error?.message
+      });
       
       if (error) {
         console.error('❌ Session retrieval error:', error);
