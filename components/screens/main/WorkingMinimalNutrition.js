@@ -136,14 +136,6 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
     return filtered;
   };
 
-  // Calculate nutrition stats from real data
-  const nutritionStats = [
-    { value: dailyCalories.toString(), label: 'Calories', color: AppColors.nutrition },
-    { value: `${Math.round(dailyMacros.protein)}g`, label: 'Protein', color: AppColors.primary },
-    { value: `${Math.round(dailyMacros.carbs)}g`, label: 'Carbs', color: AppColors.workout },
-    { value: `${Math.round(dailyMacros.fat)}g`, label: 'Fat', color: AppColors.account },
-  ];
-
   const quickActions = [
     { icon: 'camera-outline', title: 'Scan Food', color: AppColors.nutrition },
     { icon: 'restaurant-outline', title: 'Log Meal', color: AppColors.primary },
@@ -565,20 +557,6 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
               {tab.label}
             </Text>
           </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderNutritionStats = () => (
-    <View style={[minimalStyles.section, { marginTop: 0 }]}>
-      <View style={minimalStyles.statsContainer}>
-        {nutritionStats.map((stat, index) => (
-          <View key={index} style={minimalStyles.statItem}>
-            <Text style={[minimalStyles.statValue, { color: stat.color }]}>{stat.value}</Text>
-            <Text style={minimalStyles.statLabel}>{stat.label}</Text>
-            {index < nutritionStats.length - 1 && <View style={minimalStyles.statDivider} />}
-          </View>
         ))}
       </View>
     </View>
@@ -1030,7 +1008,6 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       case 'today':
         return (
           <>
-            {renderNutritionStats()}
             {renderCalorieProgress()}
             {/* Debug component removed */}
             {renderTodaysMeals()}
@@ -1196,36 +1173,6 @@ const minimalStyles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     fontWeight: '500',
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: AppColors.border,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    position: 'relative',
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  statLabel: {
-    marginTop: 4,
-    textAlign: 'center',
-    fontSize: 12,
-    color: AppColors.textSecondary,
-  },
-  statDivider: {
-    position: 'absolute',
-    right: 0,
-    top: '20%',
-    bottom: '20%',
-    width: 1,
-    backgroundColor: AppColors.border,
   },
   actionsRow: {
     flexDirection: 'row',
