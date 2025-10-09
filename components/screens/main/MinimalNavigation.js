@@ -5,14 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Define colors directly
 const AppColors = {
-  primary: '#4A90E2',
+  primary: '#6B8E23',
   white: '#FFFFFF',
   border: '#E9ECEF',
   textPrimary: '#212529',
   textSecondary: '#6C757D',
   textLight: '#ADB5BD',
   backgroundSecondary: '#F8F9FA',
-  nutrition: '#50E3C2',
+  nutrition: '#8FBC8F',
   workout: '#FF6B6B',
   account: '#FFC107',
   success: '#28A745',

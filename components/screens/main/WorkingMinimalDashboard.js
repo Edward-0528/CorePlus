@@ -11,19 +11,24 @@ import { useAppContext } from '../../../contexts/AppContext';
 // Utils
 import { getLocalDateString } from '../../../utils/dateUtils';
 
+// Services
+import { userStatsService } from '../../../services/userStatsService';
+
 // Components
-import TodaysMealsComponent from '../../nutrition/TodaysMealsComponent';
+import WeeklyProgressCard from '../../dashboard/WeeklyProgressCard';
+import FoodCameraScreen from '../../food/FoodCameraScreen';
+import FoodSearchModal from '../../food/FoodSearchModal';
 
 // Define colors directly
 const AppColors = {
-  primary: '#4A90E2',
+  primary: '#6B8E23',
   white: '#FFFFFF',
   border: '#E9ECEF',
   textPrimary: '#212529',
   textSecondary: '#6C757D',
   textLight: '#ADB5BD',
   backgroundSecondary: '#F8F9FA',
-  nutrition: '#50E3C2',
+  nutrition: '#8FBC8F',
   workout: '#FF6B6B',
   account: '#FFC107',
   success: '#28A745',
@@ -47,11 +52,47 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   const [tempGoal, setTempGoal] = useState('2000');
   const [waterIntake, setWaterIntake] = useState(0); // New state for water tracking
   const [currentDate, setCurrentDate] = useState(getLocalDateString()); // Track current date for resets
+  
+  // User statistics state
+  const [daysActive, setDaysActive] = useState(0);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [totalMeals, setTotalMeals] = useState(0);
+  
+  // Quick Actions state
+  const [showQuickActions, setShowQuickActions] = useState(false);
+  const [showFoodCamera, setShowFoodCamera] = useState(false);
+  const [showFoodSearchModal, setShowFoodSearchModal] = useState(false);
 
   // Load water intake from storage on component mount
   useEffect(() => {
     loadWaterIntake();
+    loadUserStats();
   }, []);
+
+  // Load user statistics
+  const loadUserStats = async () => {
+    try {
+      const result = await userStatsService.getUserStats();
+      if (result.success) {
+        const stats = result.stats;
+        setDaysActive(stats.daysActive);
+        setCurrentStreak(stats.currentStreak);
+        setTotalMeals(stats.totalMeals);
+      } else {
+        console.error('Failed to load user stats:', result.error);
+        // Set default values on error
+        setDaysActive(0);
+        setCurrentStreak(0);
+        setTotalMeals(0);
+      }
+    } catch (error) {
+      console.error('Error loading user stats:', error);
+      // Set default values on error
+      setDaysActive(0);
+      setCurrentStreak(0);
+      setTotalMeals(0);
+    }
+  };
 
   // Check for date changes and reset water intake at local midnight
   useEffect(() => {
@@ -190,6 +231,36 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
     { value: calculateBMI(), label: 'BMI', color: getBMIColor() },
   ];
 
+  // Quick Actions for meal logging
+  const quickActions = [
+    { icon: 'camera-outline', title: 'Scan Food', color: AppColors.nutrition },
+    { icon: 'restaurant-outline', title: 'Log Meal', color: AppColors.primary },
+    { icon: 'water-outline', title: 'Water', color: AppColors.primary },
+  ];
+
+  // Handle quick action selections
+  const handleQuickAction = (action) => {
+    console.log(`🎯 Quick action clicked: ${action.title}`);
+    setShowQuickActions(false);
+    
+    switch (action.title) {
+      case 'Scan Food':
+        console.log('📸 Opening food camera...');
+        setShowFoodCamera(true);
+        break;
+      case 'Log Meal':
+        console.log('📝 Opening manual meal entry...');
+        setShowFoodSearchModal(true);
+        break;
+      case 'Water':
+        console.log('💧 Adding water...');
+        handleWaterIncrement();
+        break;
+      default:
+        console.log('Unknown action:', action.title);
+    }
+  };
+
   const recentMeals = foodEntries.slice(0, 3).map(entry => ({
     name: entry.description || 'Food Item',
     calories: entry.calories || 0,
@@ -198,6 +269,12 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    try {
+      await loadUserStats();
+      await loadWaterIntake();
+    } catch (error) {
+      console.error('Error refreshing dashboard:', error);
+    }
     setTimeout(() => setRefreshing(false), 1000);
   };
 
@@ -243,14 +320,14 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   };
 
   const renderHeader = () => (
-    <View style={minimalStyles.header}>
-      <View style={minimalStyles.headerContent}>
-        <View>
-          <Text style={minimalStyles.greeting}>{getGreeting()}</Text>
-          <Text style={minimalStyles.userName}>
+    <View style={enhancedStyles.header}>
+      <View style={enhancedStyles.headerContent}>
+        <View style={enhancedStyles.greetingSection}>
+          <Text style={enhancedStyles.greeting}>{getGreeting()}</Text>
+          <Text style={enhancedStyles.userName}>
             {user?.user_metadata?.first_name || 'User'}
           </Text>
-          <Text style={minimalStyles.subtitle}>
+          <Text style={enhancedStyles.dateText}>
             {new Date().toLocaleDateString('en-US', { 
               weekday: 'long', 
               month: 'long', 
@@ -258,191 +335,152 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
             })}
           </Text>
         </View>
-        <TouchableOpacity style={minimalStyles.avatarContainer}>
-          <View style={minimalStyles.avatar}>
-            <Text style={minimalStyles.avatarText}>
-              {user?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}
+        <View style={enhancedStyles.streakSection}>
+          <View style={enhancedStyles.streakBadge}>
+            <Ionicons name="flame" size={16} color="#FF6B35" />
+            <Text style={enhancedStyles.streakText}>{currentStreak} day streak</Text>
+          </View>
+          <TouchableOpacity style={enhancedStyles.avatarContainer}>
+            <View style={enhancedStyles.avatar}>
+              <Text style={enhancedStyles.avatarText}>
+                {user?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderPrimaryCalorieProgress = () => (
+    <View style={enhancedStyles.primarySection}>
+      <View style={enhancedStyles.calorieProgressContainer}>
+        <View style={enhancedStyles.circularProgress}>
+          <View style={enhancedStyles.progressCircle}>
+            <Text style={enhancedStyles.calorieNumber}>{dailyCalories}</Text>
+            <Text style={enhancedStyles.calorieUnit}>calories</Text>
+            <Text style={enhancedStyles.goalText}>of {calorieGoal}</Text>
+          </View>
+        </View>
+        <View style={enhancedStyles.progressStats}>
+          <View style={enhancedStyles.statRow}>
+            <Text style={enhancedStyles.statLabel}>Remaining</Text>
+            <Text style={enhancedStyles.statValue}>
+              {Math.max(0, calorieGoal - dailyCalories)} cal
             </Text>
           </View>
-        </TouchableOpacity>
-      </View>
-      <View style={minimalStyles.separator} />
-    </View>
-  );
-
-  const renderCalorieProgress = () => (
-    <View style={minimalStyles.section}>
-      <View style={minimalStyles.sectionHeader}>
-        <Text style={minimalStyles.sectionTitle}>Daily Calories</Text>
-        <TouchableOpacity onPress={handleSetGoal}>
-          <Text style={minimalStyles.sectionAction}>Set Goal</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={minimalStyles.sectionLine} />
-      
-      <View style={minimalStyles.card}>
-        <View style={minimalStyles.cardRow}>
-          <Text style={minimalStyles.cardValue}>{dailyCalories}</Text>
-          <Text style={minimalStyles.cardUnit}>/ {calorieGoal} cal</Text>
-        </View>
-        <View style={minimalStyles.progressBar}>
-          <View style={[minimalStyles.progressFill, { width: `${Math.min(calorieProgress, 100)}%` }]} />
-        </View>
-        <Text style={minimalStyles.cardSubtext}>
-          {calorieGoal - dailyCalories} calories remaining
-        </Text>
-      </View>
-    </View>
-  );
-
-  const renderTodayStats = () => (
-    <View style={minimalStyles.section}>
-      <View style={minimalStyles.statsContainer}>
-        {todayStats.map((stat, index) => (
-          <View key={index} style={minimalStyles.statItem}>
-            {stat.tappable ? (
-              <TouchableOpacity 
-                onPress={stat.onPress} 
-                style={minimalStyles.tappableStat}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={[minimalStyles.statValue, { color: stat.color }]}>{stat.value}</Text>
-                <Text style={minimalStyles.statLabel}>{stat.label}</Text>
-              </TouchableOpacity>
-            ) : (
-              <>
-                <Text style={[minimalStyles.statValue, { color: stat.color }]}>{stat.value}</Text>
-                <Text style={minimalStyles.statLabel}>{stat.label}</Text>
-              </>
-            )}
-            {index < todayStats.length - 1 && <View style={minimalStyles.statDivider} />}
+          <View style={enhancedStyles.statRow}>
+            <Text style={enhancedStyles.statLabel}>Progress</Text>
+            <Text style={enhancedStyles.statValue}>{Math.round(calorieProgress)}%</Text>
           </View>
-        ))}
+          <TouchableOpacity onPress={handleSetGoal} style={enhancedStyles.goalButton}>
+            <Text style={enhancedStyles.goalButtonText}>Adjust Goal</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 
-  const renderRecentActivity = () => {
-    // Dashboard-specific styles for TodaysMealsComponent
-    const dashboardMealStyles = {
-      section: {
-        backgroundColor: '#F8F9FA',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 16,
-      },
-      sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12,
-      },
-      sectionTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#1A1A1A',
-      },
-      sectionAction: {
-        fontSize: 14,
-        color: '#4A90E2',
-        fontWeight: '500',
-      },
-      sectionLine: {
-        height: 1,
-        backgroundColor: '#E9ECEF',
-        marginBottom: 16,
-      },
-      card: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 8,
-        padding: 0,
-      },
-      emptyState: {
-        alignItems: 'center',
-        paddingVertical: 24,
-      },
-      emptyStateText: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#6C757D',
-        marginTop: 8,
-      },
-      emptyStateSubtext: {
-        fontSize: 12,
-        color: '#ADB5BD',
-        marginTop: 4,
-        textAlign: 'center',
-      },
-      mealRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-      },
-      mealInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-      },
-      mealDetails: {
-        marginLeft: 12,
-        flex: 1,
-      },
-      mealName: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#1A1A1A',
-      },
-      mealTime: {
-        fontSize: 12,
-        color: '#6C757D',
-        marginTop: 2,
-      },
-      mealCalories: {
-        alignItems: 'flex-end',
-      },
-      mealValue: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#1A1A1A',
-      },
-      mealUnit: {
-        fontSize: 12,
-        color: '#6C757D',
-      },
-      mealDivider: {
-        height: 1,
-        backgroundColor: '#F1F3F4',
-        marginHorizontal: 16,
-      },
-      moreRowButton: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-      },
-      moreRowText: {
-        fontSize: 13,
-        color: '#6C757D',
-        marginRight: 4,
-      },
-    };
+  const renderQuickActions = () => (
+    <View style={enhancedStyles.section}>
+      <Text style={enhancedStyles.sectionTitle}>Quick Actions</Text>
+      <View style={enhancedStyles.quickActionsContainer}>
+        <TouchableOpacity 
+          style={enhancedStyles.actionButton}
+          onPress={() => setShowFoodSearchModal(true)}
+        >
+          <View style={[enhancedStyles.actionIcon, { backgroundColor: '#8FBC8F' }]}>
+            <Ionicons name="search" size={24} color="#FFFFFF" />
+          </View>
+          <Text style={enhancedStyles.actionLabel}>Add Food</Text>
+        </TouchableOpacity>
 
+        <TouchableOpacity 
+          style={enhancedStyles.actionButton}
+          onPress={() => setShowFoodCamera(true)}
+        >
+          <View style={[enhancedStyles.actionIcon, { backgroundColor: '#556B2F' }]}>
+            <Ionicons name="camera" size={24} color="#FFFFFF" />
+          </View>
+          <Text style={enhancedStyles.actionLabel}>Scan Food</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={enhancedStyles.actionButton}
+          onPress={() => {
+            setNutritionSubTab('meals');
+            setActiveTab('nutrition');
+          }}
+        >
+          <View style={[enhancedStyles.actionIcon, { backgroundColor: '#6B8E23' }]}>
+            <Ionicons name="restaurant" size={24} color="#FFFFFF" />
+          </View>
+          <Text style={enhancedStyles.actionLabel}>View Meals</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={enhancedStyles.actionButton}
+          onPress={() => addWater()}
+        >
+          <View style={[enhancedStyles.actionIcon, { backgroundColor: '#36C5F0' }]}>
+            <Ionicons name="water" size={24} color="#FFFFFF" />
+          </View>
+          <Text style={enhancedStyles.actionLabel}>Add Water</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderUserStatistics = () => (
+    <View style={enhancedStyles.section}>
+      <Text style={enhancedStyles.sectionTitle}>Your Progress</Text>
+      <View style={enhancedStyles.statsGrid}>
+        <View style={enhancedStyles.statCard}>
+          <View style={[enhancedStyles.statIconContainer, { backgroundColor: '#E8F5E8' }]}>
+            <Ionicons name="calendar" size={20} color="#28A745" />
+          </View>
+          <Text style={enhancedStyles.statNumber}>{daysActive}</Text>
+          <Text style={enhancedStyles.statLabel}>Days Active</Text>
+        </View>
+        
+        <View style={enhancedStyles.statCard}>
+          <View style={[enhancedStyles.statIconContainer, { backgroundColor: '#FFF2E8' }]}>
+            <Ionicons name="flame" size={20} color="#FF6B35" />
+          </View>
+          <Text style={enhancedStyles.statNumber}>{currentStreak}</Text>
+          <Text style={enhancedStyles.statLabel}>Day Streak</Text>
+        </View>
+        
+        <View style={enhancedStyles.statCard}>
+          <View style={[enhancedStyles.statIconContainer, { backgroundColor: '#E8F4FD' }]}>
+            <Ionicons name="restaurant" size={20} color="#4A90E2" />
+          </View>
+          <Text style={enhancedStyles.statNumber}>{totalMeals}</Text>
+          <Text style={enhancedStyles.statLabel}>Total Meals</Text>
+        </View>
+        
+        <View style={enhancedStyles.statCard}>
+          <View style={[enhancedStyles.statIconContainer, { backgroundColor: '#F0F8FF' }]}>
+            <Ionicons name="water" size={20} color="#36C5F0" />
+          </View>
+          <Text style={enhancedStyles.statNumber}>{waterIntake}</Text>
+          <Text style={enhancedStyles.statLabel}>Glasses Today</Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderWeeklyProgress = () => {
     return (
-      <TodaysMealsComponent
-        styles={dashboardMealStyles}
-        maxMealsToShow={3}
-        showViewAll={true}
-        onViewAllPress={() => {
-          setNutritionSubTab('meals');
-          setActiveTab('nutrition');
-        }}
-        emptyStateMessage="No meals logged today"
-        emptyStateSubtext="Log your first meal to get started"
-      />
+      <View style={minimalStyles.section}>
+        <WeeklyProgressCard 
+          calorieGoal={calorieGoal}
+          onPress={() => {
+            setNutritionSubTab('meals');
+            setActiveTab('nutrition');
+          }}
+        />
+      </View>
     );
   };
 
@@ -462,9 +500,10 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
           />
         }
       >
-        {renderCalorieProgress()}
-        {renderTodayStats()}
-        {renderRecentActivity()}
+        {renderPrimaryCalorieProgress()}
+        {renderQuickActions()}
+        {renderWeeklyProgress()}
+        {renderUserStatistics()}
       </ScrollView>
 
       {/* Calorie Goal Setting Modal */}
@@ -517,6 +556,71 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Quick Actions Modal */}
+      <Modal
+        visible={showQuickActions}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowQuickActions(false)}
+      >
+        <View style={popupStyles.overlay}>
+          <View style={popupStyles.container}>
+            <View style={popupStyles.header}>
+              <Text style={popupStyles.title}>Quick Actions</Text>
+              <TouchableOpacity 
+                onPress={() => setShowQuickActions(false)} 
+                style={popupStyles.closeButton}
+              >
+                <Ionicons name="close-outline" size={20} color={AppColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={popupStyles.content}>
+              {quickActions.map((action, index) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={[
+                    popupStyles.actionItem,
+                    index < quickActions.length - 1 && popupStyles.actionItemBorder
+                  ]}
+                  onPress={() => handleQuickAction(action)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name={action.icon} size={20} color={action.color} />
+                  <Text style={popupStyles.actionText}>{action.title}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Food Camera Modal */}
+      {showFoodCamera && (
+        <FoodCameraScreen
+          visible={showFoodCamera}
+          onClose={() => setShowFoodCamera(false)}
+          onFoodAnalyzed={(predictions, imageUri, isLoading, errorMessage) => {
+            // Handle food analysis results - you can implement this similar to WorkingMinimalNutrition
+            console.log('Food analyzed:', predictions);
+            setShowFoodCamera(false);
+          }}
+        />
+      )}
+
+      {/* Food Search Modal */}
+      {showFoodSearchModal && (
+        <FoodSearchModal
+          visible={showFoodSearchModal}
+          onClose={() => setShowFoodSearchModal(false)}
+          onFoodSelected={(food) => {
+            // Handle manual food entry - you can implement this similar to WorkingMinimalNutrition
+            console.log('Food selected:', food);
+            setShowFoodSearchModal(false);
+          }}
+        />
+      )}
     </View>
   );
 };
@@ -872,6 +976,307 @@ const modalStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: AppColors.white,
+  },
+});
+
+// Popup styles for quick actions
+const popupStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  container: {
+    backgroundColor: AppColors.white,
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 320,
+    shadowColor: AppColors.textPrimary,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: AppColors.textPrimary,
+  },
+  closeButton: {
+    padding: 4,
+    borderRadius: 12,
+  },
+  content: {
+    paddingVertical: 8,
+  },
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  actionItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
+  },
+  actionText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+    color: AppColors.textPrimary,
+    marginLeft: 12,
+  },
+});
+
+const enhancedStyles = StyleSheet.create({
+  // Header Styles
+  header: {
+    backgroundColor: AppColors.white,
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: AppColors.border,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  greetingSection: {
+    flex: 1,
+  },
+  greeting: {
+    fontSize: 16,
+    color: AppColors.textSecondary,
+    marginBottom: 2,
+  },
+  userName: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: AppColors.textPrimary,
+    marginBottom: 4,
+  },
+  dateText: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+  },
+  streakSection: {
+    alignItems: 'flex-end',
+  },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF2E8',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 12,
+  },
+  streakText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FF6B35',
+    marginLeft: 4,
+  },
+  avatarContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: AppColors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: AppColors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: AppColors.white,
+  },
+
+  // Primary Calorie Progress
+  primarySection: {
+    margin: 20,
+    backgroundColor: AppColors.white,
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  calorieProgressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  circularProgress: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  progressCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 8,
+    borderColor: AppColors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFF',
+  },
+  calorieNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: AppColors.textPrimary,
+  },
+  calorieUnit: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    marginTop: -2,
+  },
+  goalText: {
+    fontSize: 10,
+    color: AppColors.textLight,
+    marginTop: 2,
+  },
+  progressStats: {
+    flex: 1,
+    paddingLeft: 24,
+  },
+  statRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: AppColors.textSecondary,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: AppColors.textPrimary,
+  },
+  goalButton: {
+    backgroundColor: AppColors.backgroundSecondary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+  },
+  goalButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: AppColors.primary,
+  },
+
+  // Section Styles
+  section: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: AppColors.textPrimary,
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionAction: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.primary,
+  },
+
+  // Quick Actions
+  quickActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  actionButton: {
+    flex: 1,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  actionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+  },
+
+  // User Statistics
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  statCard: {
+    width: '48%',
+    backgroundColor: AppColors.white,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: AppColors.textPrimary,
+    marginBottom: 4,
   },
 });
 

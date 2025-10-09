@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollView, RefreshControl, Alert, StyleSheet, Switch } from 'react-native';
 import { View, Modal, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFeatureAccess } from '../../../hooks/useFeatureAccess';
 import { AppColors, validateColor } from '../../../constants/AppColors';
 import UpgradeModal from '../subscription/UpgradeModal';
+import { userStatsService } from '../../../services/userStatsService';
 
 
 const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
@@ -13,22 +14,72 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const [biometrics, setBiometrics] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [userStats, setUserStats] = useState({
+    daysActive: 0,
+    totalMeals: 0,
+    daysSinceJoining: 0,
+    currentStreak: 0
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
 
   
   // Use our new subscription system
   const { subscriptionInfo } = useFeatureAccess();
   const isPremium = subscriptionInfo?.tier === 'pro';
 
-  const onRefresh = React.useCallback(() => {
+  // Load user statistics
+  const loadUserStats = async () => {
+    try {
+      setStatsLoading(true);
+      const result = await userStatsService.getUserStats();
+      
+      if (result.success) {
+        setUserStats(result.stats);
+        console.log('📊 Loaded user stats:', result.stats);
+      } else {
+        console.error('Failed to load user stats:', result.error);
+      }
+    } catch (error) {
+      console.error('Error loading user stats:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  // Load stats on component mount and when user changes
+  useEffect(() => {
+    if (user) {
+      loadUserStats();
+    }
+  }, [user]);
+
+  const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 2000);
+    await loadUserStats();
+    setRefreshing(false);
   }, []);
 
-  const userStats = [
-    { value: '24', label: 'Days Active', color: AppColors.success },
-    { value: '45', label: 'Workouts', color: AppColors.workout },
-    { value: '127', label: 'Meals Logged', color: AppColors.nutrition },
-    { value: '8.5', label: 'Avg Rating', color: AppColors.warning },
+  const userStatsDisplay = [
+    { 
+      value: statsLoading ? '...' : userStats.daysActive.toString(), 
+      label: 'Days Active', 
+      color: AppColors.success 
+    },
+    { 
+      value: statsLoading ? '...' : userStats.currentStreak.toString(), 
+      label: 'Current Streak', 
+      color: AppColors.workout 
+    },
+    { 
+      value: statsLoading ? '...' : userStats.totalMeals.toString(), 
+      label: 'Meals Logged', 
+      color: AppColors.nutrition 
+    },
+    { 
+      value: statsLoading ? '...' : userStats.daysSinceJoining.toString(), 
+      label: 'Days Since Joining', 
+      color: AppColors.warning 
+    },
   ];
 
   const menuItems = [
@@ -144,7 +195,7 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const renderUserStats = () => (
     <View style={minimalStyles.section}>
       <View style={minimalStyles.statsContainer}>
-        {userStats.map((stat, index) => (
+        {userStatsDisplay.map((stat, index) => (
           <View key={index} style={minimalStyles.statItem}>
             <Text style={[minimalStyles.statValue, { color: stat.color }]}>{stat.value}</Text>
             <Text style={minimalStyles.statLabel}>{stat.label}</Text>

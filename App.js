@@ -25,6 +25,7 @@ import AuthScreen from './components/screens/auth/AuthScreen';
 import OnboardingScreen from './components/screens/onboarding/OnboardingScreen';
 import WorkingMinimalDashboard from './components/screens/main/WorkingMinimalDashboard';
 import WorkingMinimalNutrition from './components/screens/main/WorkingMinimalNutrition';
+import EnhancedNutrition from './components/EnhancedNutrition';
 import WorkingMinimalAccount from './components/screens/main/WorkingMinimalAccount';
 import MinimalNavigation from './components/screens/main/MinimalNavigation';
 import LoadingScreen from './components/screens/main/LoadingScreen';
@@ -88,13 +89,17 @@ function AppContent() {
     setActiveTab
   } = useAppContext();
 
-  // Loading state monitor - logs every 5 seconds during loading
+  // Loading state monitor - logs every 5 seconds during loading with emergency timeout
   useEffect(() => {
     let loadingMonitor;
+    let emergencyTimeout;
     
     if (authLoading || loading) {
       console.log('⏱️ Loading state monitor started');
+      const startTime = Date.now();
+      
       loadingMonitor = setInterval(() => {
+        const duration = Date.now() - startTime;
         console.log('⏱️ Still loading...', {
           authLoading,
           loading,
@@ -104,9 +109,24 @@ function AppContent() {
           showLanding,
           showLogin,
           showSignUp,
-          duration: Date.now() - (window.loadingStartTime || Date.now())
+          duration
         });
-      }, 5000); // Log every 5 seconds
+        
+        // Emergency timeout after 2 minutes of loading
+        if (duration > 120000 && isAuthenticated && !authLoading) {
+          console.warn('🚨 EMERGENCY: Loading stuck for >2min, forcing completion');
+          setLoading(false);
+          clearInterval(loadingMonitor);
+        }
+      }, 5000);
+      
+      // Additional emergency timeout after 3 minutes total
+      emergencyTimeout = setTimeout(() => {
+        console.error('🚨 CRITICAL: App stuck loading for >3min, forcing reset');
+        setLoading(false);
+        setAuthLoading(false);
+      }, 180000);
+      
     } else {
       if (loadingMonitor) {
         console.log('⏱️ Loading state monitor stopped - loading complete');
@@ -117,6 +137,9 @@ function AppContent() {
     return () => {
       if (loadingMonitor) {
         clearInterval(loadingMonitor);
+      }
+      if (emergencyTimeout) {
+        clearTimeout(emergencyTimeout);
       }
     };
   }, [authLoading, loading, isAuthenticated, user, showOnboarding, showLanding]);
@@ -255,12 +278,23 @@ function AppContent() {
     setAuthLoading(true);
     
     // Add overall timeout to prevent infinite loading
+    let authTimeoutCleared = false;
     const authTimeout = setTimeout(() => {
-      console.error('⏰ AUTHENTICATION TIMEOUT - Force completing auth after 30 seconds');
+      if (authTimeoutCleared) return; // Don't execute if already cleared
+      
+      console.error('⏰ AUTHENTICATION TIMEOUT - Force completing auth after 45 seconds');
+      console.log('⏰ Current auth state at timeout:', { isAuthenticated, user: user?.id || 'none' });
+      
       setAuthLoading(false);
-      setShowLanding(true);
-      setIsAuthenticated(false);
-    }, 30000); // 30 second timeout
+      // Only show landing if we're still not authenticated
+      if (!isAuthenticated) {
+        console.log('⏰ No authentication found, showing landing screen');
+        setShowLanding(true);
+        setIsAuthenticated(false);
+      } else {
+        console.log('⏰ User is authenticated, keeping current state');
+      }
+    }, 45000); // Increased to 45 seconds
     
     try {
       // Initialize RevenueCat silently (no longer debugging)
@@ -274,10 +308,10 @@ function AppContent() {
       console.log('🔐 [STEP 1/3] Checking authentication session...');
       const sessionStartTime = Date.now();
       
-      // Add timeout for session check
+      // Add timeout for session check (increased for better reliability)
       const sessionPromise = authService.initializeSession();
       const sessionTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Session initialization timeout')), 15000)
+        setTimeout(() => reject(new Error('Session initialization timeout')), 25000)
       );
       
       const sessionResult = await Promise.race([sessionPromise, sessionTimeoutPromise]);
@@ -303,10 +337,10 @@ function AppContent() {
         console.log('🎯 [STEP 3/3] Checking onboarding status...');
         const onboardingStartTime = Date.now();
         
-        // Add timeout for onboarding check
+        // Add timeout for onboarding check (increased to 30s)
         const onboardingPromise = checkIfUserNeedsOnboarding(sessionResult.user.id);
         const onboardingTimeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Onboarding check timeout')), 10000)
+          setTimeout(() => reject(new Error('Onboarding check timeout')), 30000)
         );
         
         try {
@@ -337,14 +371,17 @@ function AppContent() {
       setShowLanding(true);
       setIsAuthenticated(false);
     } finally {
+      authTimeoutCleared = true; // Mark as cleared
       clearTimeout(authTimeout); // Clear the timeout if we complete normally
       setAuthLoading(false);
+      setLoading(false); // ✅ Clear main loading state after authentication completes
       console.log(`✅ AUTHENTICATION COMPLETE - Total time: ${Date.now() - authStartTime}ms`);
       console.log('✅ Final state:', {
         isAuthenticated,
         user: user?.id || 'none',
         showOnboarding,
-        showLanding
+        showLanding,
+        loading: false
       });
     }
   };
@@ -649,28 +686,37 @@ function AppContent() {
     }
 
     setLoading(true);
-    const result = await authService.signIn(formData.email, formData.password);
-    
-    if (result.success) {
-      // Auth state listener will handle RevenueCat user ID setting
-      console.log('🔗 Auth state listener will handle RevenueCat initialization for:', result.data?.user?.id);
+    try {
+      const result = await authService.signIn(formData.email, formData.password);
       
-      // Ask user if they want to enable biometric login
-      await promptBiometricSetup(formData.email, formData.password);
-      
-      // Clear form data
-      setFormData({
-        phone: '',
-        email: '',
-        password: '',
-        firstName: '',
-        lastName: '',
-        gender: ''
-      });
-      // Auth state listener will handle the rest
-    } else {
+      if (result.success) {
+        console.log('✅ Login successful for:', result.data?.user?.id);
+        
+        // Ask user if they want to enable biometric login
+        await promptBiometricSetup(formData.email, formData.password);
+        
+        // Clear form data
+        setFormData({
+          phone: '',
+          email: '',
+          password: '',
+          firstName: '',
+          lastName: '',
+          gender: ''
+        });
+        
+        // Auth state listener will handle the rest, but clear loading here too
+        // in case there's a delay in the auth state listener
+        setLoading(false);
+        console.log('🔗 Auth state listener will handle RevenueCat initialization for:', result.data?.user?.id);
+      } else {
+        setLoading(false);
+        Alert.alert('Error', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Login error:', error);
       setLoading(false);
-      Alert.alert('Error', result.error);
+      Alert.alert('Error', 'Login failed. Please try again.');
     }
   };
 
@@ -792,11 +838,26 @@ function AppContent() {
 
   // Determine current route key for transitions
   const route = useMemo(() => {
+    console.log('🔍 Route determination:', {
+      showLanding,
+      showLogin,
+      showSignUp,
+      showOnboarding,
+      isAuthenticated,
+      hasUser: !!user,
+      authLoading,
+      loading
+    });
+    
     if (showLanding) return 'Landing';
     if (showLogin) return 'Login';
     if (showSignUp) return 'SignUp';
     if (showOnboarding) return 'Onboarding';
-    if (isAuthenticated && user && !showOnboarding && !authLoading && !loading) return 'Authenticated';
+    if (isAuthenticated && user && !showOnboarding && !authLoading && !loading) {
+      console.log('✅ Route: Authenticated');
+      return 'Authenticated';
+    }
+    console.log('⏳ Route: None (showing loading)');
     return 'None';
   }, [showLanding, showLogin, showSignUp, showOnboarding, isAuthenticated, user, authLoading, loading]);
 
@@ -825,7 +886,7 @@ function AppContent() {
       case 'home':
         return <WorkingMinimalDashboard user={user} onLogout={handleLogout} loading={loading} styles={styles} />;
       case 'nutrition':
-        return <WorkingMinimalNutrition user={user} loading={loading} styles={styles} />;
+        return <EnhancedNutrition user={user} loading={loading} styles={styles} />;
       case 'account':
         return <WorkingMinimalAccount user={user} onLogout={handleLogout} loading={loading} styles={styles} />;
       default:

@@ -289,11 +289,11 @@ export const authService = {
     console.log('🔄 [AUTH] Supabase client status:', supabase?.supabaseUrl ? 'initialized' : 'not initialized');
     
     try {
-      // Add timeout wrapper for session retrieval
+      // Add timeout wrapper for session retrieval (increased to 30s for better reliability)
       console.log('📡 [AUTH] Calling supabase.auth.getSession()...');
       const sessionPromise = supabase.auth.getSession();
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Session timeout after 10s')), 10000)
+        setTimeout(() => reject(new Error('Session timeout after 30s')), 30000)
       );
       
       const sessionStartTime = Date.now();

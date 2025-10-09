@@ -216,14 +216,15 @@ export const useMealManager = () => {
     
     // Load if not available
     await loadMealHistory([date]);
-    return mealHistory[date] || [];
+    const result = mealHistory[date] || [];
+    return result;
   }, [mealHistory, todaysMeals, loadMealHistory]);
 
   // Get nutrition totals for a specific date
   const getNutritionTotalsForDate = useCallback(async (date) => {
     const meals = await getMealsForDate(date);
     
-    return {
+    const totals = {
       calories: meals.reduce((sum, meal) => sum + (meal.calories || 0), 0),
       carbs: meals.reduce((sum, meal) => sum + (meal.carbs || 0), 0),
       protein: meals.reduce((sum, meal) => sum + (meal.protein || 0), 0),
@@ -233,6 +234,8 @@ export const useMealManager = () => {
       sodium: meals.reduce((sum, meal) => sum + (meal.sodium || 0), 0),
       mealCount: meals.length
     };
+    
+    return totals;
   }, [getMealsForDate]);
 
   // Get weekly nutrition summary (lazy loaded)

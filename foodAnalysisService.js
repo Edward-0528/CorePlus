@@ -104,6 +104,83 @@ const NUTRITION_DATABASE = {
   'wine': { calories: 85, carbs: 2.6, protein: 0.1, fat: 0, portion: 150 },
 };
 
+// Enhanced fast food and restaurant database for accurate nutrition facts
+const FAST_FOOD_DATABASE = {
+  // McDonald's
+  'mcdonalds 10 piece chicken nuggets': { calories: 420, carbs: 25, protein: 23, fat: 25, portion: '10 pieces', fiber: 2, sugar: 0, sodium: 540 },
+  'mcdonalds 6 piece chicken nuggets': { calories: 250, carbs: 15, protein: 14, fat: 15, portion: '6 pieces', fiber: 1, sugar: 0, sodium: 325 },
+  'mcdonalds 4 piece chicken nuggets': { calories: 170, carbs: 10, protein: 9, fat: 10, portion: '4 pieces', fiber: 1, sugar: 0, sodium: 220 },
+  'mcdonalds big mac': { calories: 550, carbs: 45, protein: 25, fat: 31, portion: '1 sandwich', fiber: 3, sugar: 9, sodium: 1010 },
+  'mcdonalds quarter pounder': { calories: 520, carbs: 42, protein: 26, fat: 26, portion: '1 sandwich', fiber: 3, sugar: 10, sodium: 1040 },
+  'mcdonalds medium fries': { calories: 320, carbs: 43, protein: 4, fat: 15, portion: 'medium (115g)', fiber: 4, sugar: 0, sodium: 260 },
+  'mcdonalds large fries': { calories: 510, carbs: 66, protein: 6, fat: 24, portion: 'large (154g)', fiber: 6, sugar: 0, sodium: 400 },
+  'mcdonalds small fries': { calories: 230, carbs: 30, protein: 3, fat: 11, portion: 'small (71g)', fiber: 3, sugar: 0, sodium: 160 },
+  'mcdonalds coca cola medium': { calories: 210, carbs: 58, protein: 0, fat: 0, portion: 'medium (21 fl oz)', fiber: 0, sugar: 58, sodium: 10 },
+  'mcdonalds coca cola large': { calories: 290, carbs: 77, protein: 0, fat: 0, portion: 'large (30 fl oz)', fiber: 0, sugar: 77, sodium: 15 },
+  'mcdonalds apple pie': { calories: 230, carbs: 32, protein: 4, fat: 10, portion: '1 pie', fiber: 4, sugar: 13, sodium: 100 },
+  'mcdonalds mcflurry oreo': { calories: 510, carbs: 82, protein: 13, fat: 17, portion: 'regular size', fiber: 1, sugar: 64, sodium: 280 },
+  
+  // Burger King
+  'burger king whopper': { calories: 657, carbs: 49, protein: 28, fat: 40, portion: '1 sandwich', fiber: 2, sugar: 11, sodium: 980 },
+  'burger king chicken nuggets 10 piece': { calories: 430, carbs: 20, protein: 21, fat: 29, portion: '10 pieces', fiber: 2, sugar: 0, sodium: 900 },
+  'burger king chicken nuggets 8 piece': { calories: 344, carbs: 16, protein: 17, fat: 23, portion: '8 pieces', fiber: 2, sugar: 0, sodium: 720 },
+  'burger king medium fries': { calories: 320, carbs: 41, protein: 4, fat: 16, portion: 'medium', fiber: 4, sugar: 0, sodium: 480 },
+  
+  // KFC
+  'kfc original recipe chicken breast': { calories: 320, carbs: 8, protein: 29, fat: 19, portion: '1 piece', fiber: 1, sugar: 0, sodium: 540 },
+  'kfc original recipe chicken thigh': { calories: 250, carbs: 6, protein: 18, fat: 17, portion: '1 piece', fiber: 0, sugar: 0, sodium: 380 },
+  'kfc popcorn chicken': { calories: 620, carbs: 30, protein: 30, fat: 40, portion: 'large', fiber: 3, sugar: 0, sodium: 1440 },
+  'kfc coleslaw': { calories: 170, carbs: 13, protein: 1, fat: 13, portion: '1 serving', fiber: 3, sugar: 10, sodium: 270 },
+  'kfc mashed potatoes with gravy': { calories: 120, carbs: 17, protein: 1, fat: 4.5, portion: '1 serving', fiber: 1, sugar: 1, sodium: 380 },
+  
+  // Taco Bell
+  'taco bell crunchy taco': { calories: 170, carbs: 13, protein: 8, fat: 10, portion: '1 taco', fiber: 3, sugar: 1, sodium: 310 },
+  'taco bell soft taco': { calories: 180, carbs: 18, protein: 9, fat: 8, portion: '1 taco', fiber: 2, sugar: 2, sodium: 500 },
+  'taco bell burrito supreme': { calories: 390, carbs: 38, protein: 14, fat: 19, portion: '1 burrito', fiber: 6, sugar: 4, sodium: 1090 },
+  'taco bell quesadilla cheese': { calories: 450, carbs: 37, protein: 19, fat: 25, portion: '1 quesadilla', fiber: 3, sugar: 4, sodium: 1000 },
+  'taco bell nachos bellgrande': { calories: 740, carbs: 80, protein: 19, fat: 38, portion: '1 serving', fiber: 12, sugar: 5, sodium: 1200 },
+  
+  // Subway
+  'subway footlong turkey breast': { calories: 560, carbs: 92, protein: 37, fat: 8, portion: '12 inch sub', fiber: 5, sugar: 16, sodium: 1260 },
+  'subway 6 inch turkey breast': { calories: 280, carbs: 46, protein: 18, fat: 4, portion: '6 inch sub', fiber: 3, sugar: 8, sodium: 630 },
+  'subway footlong italian bmt': { calories: 810, carbs: 94, protein: 36, fat: 32, portion: '12 inch sub', fiber: 5, sugar: 16, sodium: 2340 },
+  'subway chocolate chip cookie': { calories: 200, carbs: 30, protein: 2, fat: 8, portion: '1 cookie', fiber: 1, sugar: 18, sodium: 160 },
+  
+  // Pizza Hut
+  'pizza hut personal pan pepperoni': { calories: 150, carbs: 15, protein: 6, fat: 7, portion: '1 slice', fiber: 1, sugar: 2, sodium: 340 },
+  'pizza hut medium cheese pizza': { calories: 220, carbs: 26, protein: 10, fat: 8, portion: '1 slice', fiber: 1, sugar: 3, sodium: 490 },
+  'pizza hut stuffed crust pepperoni': { calories: 360, carbs: 36, protein: 15, fat: 17, portion: '1 slice', fiber: 2, sugar: 5, sodium: 900 },
+  
+  // Domino's
+  'dominos medium hand tossed cheese': { calories: 200, carbs: 25, protein: 8, fat: 7, portion: '1 slice', fiber: 1, sugar: 2, sodium: 370 },
+  'dominos medium hand tossed pepperoni': { calories: 210, carbs: 25, protein: 9, fat: 8, portion: '1 slice', fiber: 1, sugar: 2, sodium: 430 },
+  
+  // Chipotle
+  'chipotle chicken burrito bowl': { calories: 630, carbs: 40, protein: 45, fat: 24, portion: '1 bowl with rice', fiber: 6, sugar: 1, sodium: 1070 },
+  'chipotle chicken burrito': { calories: 840, carbs: 77, protein: 47, fat: 27, portion: '1 burrito with rice', fiber: 9, sugar: 3, sodium: 1390 },
+  'chipotle guacamole': { calories: 230, carbs: 8, protein: 3, fat: 22, portion: '1 serving (4 oz)', fiber: 6, sugar: 1, sodium: 370 },
+  
+  // Starbucks
+  'starbucks grande latte': { calories: 190, carbs: 18, protein: 13, fat: 7, portion: '16 fl oz', fiber: 0, sugar: 17, sodium: 150 },
+  'starbucks venti frappuccino': { calories: 420, carbs: 65, protein: 5, fat: 16, portion: '24 fl oz', fiber: 0, sugar: 62, sodium: 250 },
+  'starbucks blueberry muffin': { calories: 380, carbs: 54, protein: 6, fat: 16, portion: '1 muffin', fiber: 2, sugar: 26, sodium: 420 },
+  
+  // Five Guys
+  'five guys hamburger': { calories: 700, carbs: 40, protein: 43, fat: 43, portion: '1 burger', fiber: 2, sugar: 8, sodium: 430 },
+  'five guys cheeseburger': { calories: 840, carbs: 40, protein: 47, fat: 55, portion: '1 burger', fiber: 2, sugar: 8, sodium: 1040 },
+  'five guys regular fries': { calories: 620, carbs: 78, protein: 8, fat: 30, portion: 'regular', fiber: 6, sugar: 2, sodium: 245 },
+  
+  // In-N-Out
+  'in n out hamburger': { calories: 390, carbs: 41, protein: 16, fat: 19, portion: '1 burger', fiber: 3, sugar: 10, sodium: 650 },
+  'in n out cheeseburger': { calories: 480, carbs: 41, protein: 22, fat: 27, portion: '1 burger', fiber: 3, sugar: 10, sodium: 1000 },
+  'in n out double double': { calories: 670, carbs: 41, protein: 37, fat: 41, portion: '1 burger', fiber: 3, sugar: 10, sodium: 1440 },
+  'in n out animal style fries': { calories: 750, carbs: 41, protein: 18, fat: 54, portion: '1 serving', fiber: 2, sugar: 7, sodium: 1440 },
+  
+  // Combo meals (common additions)
+  'combo meal upgrade medium': { calories: 530, carbs: 101, protein: 4, fat: 15, portion: 'medium fries + medium drink', fiber: 4, sugar: 58, sodium: 270 },
+  'combo meal upgrade large': { calories: 800, carbs: 143, protein: 6, fat: 24, portion: 'large fries + large drink', fiber: 6, sugar: 77, sodium: 415 }
+};
+
 export const foodAnalysisService = {
   // Analyze food image using Google Gemini AI
   async analyzeFoodImage(imageUri) {
@@ -142,9 +219,21 @@ export const foodAnalysisService = {
   // Analyze food from text description using AI
   async analyzeFoodText(textDescription) {
     try {
-      console.log('🔍 Starting text-based food analysis with Gemini for:', textDescription);
+      console.log('🔍 Starting text-based food analysis for:', textDescription);
       
-      // Call Gemini API for intelligent food analysis from text
+      // First check our fast food database for exact matches
+      const fastFoodMatch = this.checkFastFoodDatabase(textDescription);
+      if (fastFoodMatch.length > 0) {
+        console.log('✅ Found exact fast food match, skipping AI call');
+        return {
+          success: true,
+          predictions: fastFoodMatch,
+          source: 'fast-food-database'
+        };
+      }
+      
+      // If no exact match, use Gemini AI for intelligent analysis
+      console.log('🔍 No fast food match found, using Gemini AI...');
       const geminiResponse = await this.callGeminiText(textDescription);
       
       // Extract food items from Gemini response
@@ -169,6 +258,126 @@ export const foodAnalysisService = {
         predictions: []
       };
     }
+  },
+
+  // Check fast food database for exact matches (saves API calls and improves accuracy)
+  checkFastFoodDatabase(textDescription) {
+    const normalizedInput = textDescription.toLowerCase().trim();
+    console.log('🍔 Checking fast food database for:', normalizedInput);
+    
+    // Create search variations
+    const searchVariations = [
+      normalizedInput,
+      normalizedInput.replace(/\s+/g, ' '), // normalize spaces
+      normalizedInput.replace(/mcdonalds?|mcd|mc d/g, 'mcdonalds'),
+      normalizedInput.replace(/burger king|bk/g, 'burger king'),
+      normalizedInput.replace(/kentucky fried|kfc/g, 'kfc'),
+      normalizedInput.replace(/taco bell|tb/g, 'taco bell'),
+    ];
+    
+    // Check for combo meals first (more complex matches)
+    const comboPatterns = [
+      /(\d+\s*piece.*nugget.*combo)|(\d+\s*piece.*nugget.*meal)/,
+      /(big mac.*combo)|(big mac.*meal)/,
+      /(whopper.*combo)|(whopper.*meal)/,
+      /(quarter pounder.*combo)|(quarter pounder.*meal)/
+    ];
+    
+    for (const pattern of comboPatterns) {
+      if (pattern.test(normalizedInput)) {
+        return this.handleComboMeal(normalizedInput);
+      }
+    }
+    
+    // Check for exact fast food matches
+    for (const [key, nutrition] of Object.entries(FAST_FOOD_DATABASE)) {
+      for (const searchTerm of searchVariations) {
+        if (this.isStrongMatch(searchTerm, key)) {
+          console.log('✅ Found fast food match:', key);
+          return [{
+            name: this.formatFoodName(key),
+            portion: nutrition.portion,
+            calories: nutrition.calories,
+            carbs: nutrition.carbs,
+            protein: nutrition.protein,
+            fat: nutrition.fat,
+            fiber: nutrition.fiber || 0,
+            sugar: nutrition.sugar || 0,
+            sodium: nutrition.sodium || 0,
+            confidence: 0.95,
+            category: 'fast-food',
+            description: `${nutrition.portion} • Fast food restaurant item`
+          }];
+        }
+      }
+    }
+    
+    return []; // No matches found
+  },
+
+  // Handle combo meals by breaking them into components
+  handleComboMeal(input) {
+    console.log('🍟 Handling combo meal:', input);
+    const results = [];
+    
+    // McDonald's 10-piece nugget combo example
+    if (input.includes('10') && input.includes('nugget') && input.includes('mcdonalds')) {
+      results.push(
+        this.createFoodItem('mcdonalds 10 piece chicken nuggets', FAST_FOOD_DATABASE['mcdonalds 10 piece chicken nuggets']),
+        this.createFoodItem('mcdonalds medium fries', FAST_FOOD_DATABASE['mcdonalds medium fries']),
+        this.createFoodItem('mcdonalds coca cola medium', FAST_FOOD_DATABASE['mcdonalds coca cola medium'])
+      );
+    }
+    // Add more combo meal patterns as needed
+    
+    return results;
+  },
+
+  // Check if search term strongly matches database key
+  isStrongMatch(searchTerm, dbKey) {
+    // Remove extra spaces and normalize
+    const normalizedSearch = searchTerm.replace(/\s+/g, ' ').trim();
+    const normalizedKey = dbKey.replace(/\s+/g, ' ').trim();
+    
+    // Exact match
+    if (normalizedSearch === normalizedKey) return true;
+    
+    // Key contains all important words from search
+    const searchWords = normalizedSearch.split(' ').filter(word => word.length > 2);
+    const keyWords = normalizedKey.split(' ');
+    
+    return searchWords.every(word => 
+      keyWords.some(keyWord => keyWord.includes(word) || word.includes(keyWord))
+    );
+  },
+
+  // Create standardized food item from database entry
+  createFoodItem(name, nutrition) {
+    return {
+      name: this.formatFoodName(name),
+      portion: nutrition.portion,
+      calories: nutrition.calories,
+      carbs: nutrition.carbs,
+      protein: nutrition.protein,
+      fat: nutrition.fat,
+      fiber: nutrition.fiber || 0,
+      sugar: nutrition.sugar || 0,
+      sodium: nutrition.sodium || 0,
+      confidence: 0.95,
+      category: 'fast-food',
+      description: `${nutrition.portion} • Restaurant item`
+    };
+  },
+
+  // Format food names for display
+  formatFoodName(dbKey) {
+    return dbKey
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+      .replace(/Mcdonalds/g, "McDonald's")
+      .replace(/Kfc/g, "KFC")
+      .replace(/Bk/g, "Burger King");
   },
 
   // Convert image URI to base64
@@ -284,59 +493,94 @@ CRITICAL: Provide nutrition values for the ACTUAL portion identified, not per 10
 
   // Call Gemini API for text-based food analysis
   async callGeminiText(textDescription) {
-    const prompt = `Analyze this food description and provide detailed nutritional information following USDA standards: "${textDescription}"
+    const prompt = `Analyze this food description and provide detailed nutritional information: "${textDescription}"
 
-Please identify:
-1. The specific food items mentioned (be as specific as possible - e.g., "grilled chicken breast" not just "chicken")
-2. REALISTIC portion sizes based on standard measurements and typical servings:
-   - If quantities are mentioned (like "2 eggs" or "1 cup rice"), use those EXACTLY
-   - If no quantities given, use realistic typical servings:
-     * Proteins: 3-4 oz (85-115g) 
-     * Vegetables: 1/2 to 1 cup
-     * Grains: 1/2 to 1 cup cooked
-     * Fruits: 1 medium piece or 1/2 to 1 cup
-   - Use standard measurements (cups, tablespoons, ounces, grams)
-   - Avoid vague terms like "small portion" or "large serving"
+PRIORITY INSTRUCTIONS:
+1. For RESTAURANT/FAST FOOD items, use EXACT official nutrition data:
+   - McDonald's 10-piece chicken nuggets = 420 calories, 25g carbs, 23g protein, 25g fat
+   - McDonald's Big Mac = 550 calories, 45g carbs, 25g protein, 31g fat
+   - McDonald's medium fries = 320 calories, 43g carbs, 4g protein, 15g fat
+   - Burger King Whopper = 657 calories, 49g carbs, 28g protein, 40g fat
+   - Subway 6-inch turkey = 280 calories, 46g carbs, 18g protein, 4g fat
+   - Pizza Hut medium cheese slice = 220 calories, 26g carbs, 10g protein, 8g fat
+   - Taco Bell Crunchy Taco = 170 calories, 13g carbs, 8g protein, 10g fat
+   - KFC Original Recipe breast = 320 calories, 8g carbs, 29g protein, 19g fat
+   - Chipotle chicken burrito bowl = 630 calories, 40g carbs, 45g protein, 24g fat
 
-3. For each food item, provide ACCURATE nutritional values per actual serving size:
-   - Calories (based on actual portion, not per 100g)
-   - Carbohydrates (g)
-   - Protein (g)
-   - Fat (g) 
-   - Fiber (g)
-   - Sugar (g)
-   - Sodium (mg)
+2. For COMBO MEALS, include ALL items:
+   - "10 piece nugget combo" = nuggets + medium fries + medium drink
+   - Total calories = 420 (nuggets) + 320 (fries) + 210 (medium coke) = 950 calories
 
-PORTION ACCURACY EXAMPLES:
-- Chicken breast (4 oz/115g) = ~165 calories
-- Apple (1 medium/180g) = ~95 calories
-- Brown rice (1/2 cup cooked/100g) = ~110 calories
-- Broccoli (1 cup/90g) = ~25 calories
-- Large egg (1 whole/50g) = ~70 calories
+3. BRAND RECOGNITION - Look for these patterns:
+   - "mcdonalds", "mcdonald's", "mcd", "mc d" → McDonald's
+   - "burger king", "bk", "whopper" → Burger King  
+   - "kfc", "kentucky fried" → KFC
+   - "taco bell", "tb" → Taco Bell
+   - "subway", "sub" → Subway
+   - "pizza hut", "dominos", "papa johns" → Pizza chains
+   - "chipotle", "qdoba", "moe's" → Mexican chains
+   - "starbucks", "dunkin" → Coffee chains
 
-4. Confidence level for each identification (0.0 to 1.0)
+4. PORTION INTELLIGENCE:
+   - If quantities mentioned (like "10 piece", "large fries"), use EXACTLY
+   - For restaurant items, use STANDARD serving sizes
+   - For homemade items, use realistic typical servings
 
-Format your response as JSON:
+5. ACCURACY PRIORITY:
+   - Restaurant/fast food = Use official nutrition data (HIGH priority)
+   - Packaged foods = Use label data when possible
+   - Homemade = Use USDA standard recipes
+
+FAST FOOD EXAMPLES:
+- "10 piece chicken nuggets mcdonalds" = McDonald's 10-piece nuggets (420 cal)
+- "big mac combo" = Big Mac (550) + medium fries (320) + medium drink (210) = 1080 cal
+- "whopper meal" = Whopper (657) + medium fries (320) + medium drink (210) = 1187 cal
+
+Format response as JSON:
 {
   "foods": [
     {
-      "name": "specific food name",
-      "portion": "realistic serving with measurements",
+      "name": "McDonald's 10-piece Chicken McNuggets",
+      "portion": "10 pieces",
       "confidence": 0.95,
       "nutrition": {
-        "calories": 250,
-        "carbs": 30,
-        "protein": 25,
-        "fat": 8,
-        "fiber": 5,
-        "sugar": 3,
-        "sodium": 150
+        "calories": 420,
+        "carbs": 25,
+        "protein": 23,
+        "fat": 25,
+        "fiber": 2,
+        "sugar": 0,
+        "sodium": 540
       }
     }
   ]
 }
 
-CRITICAL: Provide nutrition values for the ACTUAL portion identified, not per 100g. Honor user-specified quantities when provided.`;
+For COMBO MEALS, list each item separately:
+{
+  "foods": [
+    {
+      "name": "McDonald's 10-piece Chicken McNuggets",
+      "portion": "10 pieces",
+      "confidence": 0.95,
+      "nutrition": {...}
+    },
+    {
+      "name": "McDonald's Medium French Fries", 
+      "portion": "medium (115g)",
+      "confidence": 0.95,
+      "nutrition": {...}
+    },
+    {
+      "name": "McDonald's Medium Coca-Cola",
+      "portion": "medium (21 fl oz)", 
+      "confidence": 0.95,
+      "nutrition": {...}
+    }
+  ]
+}
+
+CRITICAL: For fast food, prioritize EXACT official nutrition data over estimates.`;
 
     const requestBody = {
       contents: [

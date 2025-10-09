@@ -12,8 +12,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { revenueCatService } from '../../../services/revenueCatService';
 
+// Define colors directly
 const AppColors = {
-  primary: '#4A90E2',
+  primary: '#6B8E23',
   white: '#FFFFFF',
   border: '#E9ECEF',
   textPrimary: '#212529',
@@ -22,8 +23,8 @@ const AppColors = {
   backgroundSecondary: '#F8F9FA',
   success: '#28A745',
   warning: '#FFC107',
+  danger: '#DC3545',
   premium: '#FFD700',
-  shadow: 'rgba(0, 0, 0, 0.1)'
 };
 
 export default function SubscriptionScreen({ onClose }) {

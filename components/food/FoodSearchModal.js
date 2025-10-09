@@ -14,22 +14,27 @@ import {
   StyleSheet
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { foodSearchService } from '../../services/foodSearchService';
+import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
+
+// Import enhanced food analysis service
+import { foodAnalysisService } from '../../foodAnalysisService';
 
 // Use the same colors as WorkingMinimalNutrition
 const AppColors = {
-  primary: '#4A90E2',
+  primary: '#6B8E23',
   white: '#FFFFFF',
   border: '#E9ECEF',
   textPrimary: '#212529',
   textSecondary: '#6C757D',
   textLight: '#ADB5BD',
   backgroundSecondary: '#F8F9FA',
-  nutrition: '#50E3C2',
+  nutrition: '#8FBC8F',
   workout: '#FF6B6B',
   account: '#FFC107',
   success: '#28A745',
   warning: '#FFC107',
+  primaryLight: '#8FBC8F',
 };
 
 const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
@@ -37,6 +42,26 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [selectedFoods, setSelectedFoods] = useState([]);
+  const [isAddingMeals, setIsAddingMeals] = useState(false);
+
+  // Helper function to fix capitalization issues
+  const fixCapitalization = (text) => {
+    if (!text) return text;
+    
+    // Fix common brand name capitalization issues
+    return text
+      .replace(/'S\b/g, "'s")  // Fix 'S to 's (McDonald'S → McDonald's)
+      .replace(/'T\b/g, "'t")  // Fix 'T to 't (Don'T → Don't)
+      .replace(/\bMCDONALD'S/gi, "McDonald's")  // Specific McDonald's fix
+      .replace(/\bBURGER KING/gi, "Burger King")  // Burger King fix
+      .replace(/\bKFC/gi, "KFC")  // KFC stays uppercase
+      .replace(/\bTACO BELL/gi, "Taco Bell")  // Taco Bell fix
+      .replace(/\bSUBWAY/gi, "Subway")  // Subway fix
+      .replace(/\bWENDY'S/gi, "Wendy's")  // Wendy's fix
+      .replace(/\bPIZZA HUT/gi, "Pizza Hut")  // Pizza Hut fix
+      .replace(/\bDOMINO'S/gi, "Domino's")  // Domino's fix
+  };
 
   const handleSearch = useCallback(async () => {
     if (!searchQuery.trim()) {
@@ -50,15 +75,33 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
     try {
       console.log('🔍 Searching for:', searchQuery);
       
-      // Use suggestions endpoint for multiple options
-      const result = await foodSearchService.searchFoodSuggestions(searchQuery);
+      // Use enhanced food analysis service for better accuracy
+      const result = await foodAnalysisService.analyzeFoodText(searchQuery);
       
-      if (result.success && result.foods && result.foods.length > 0) {
-        setSearchResults(result.foods);
-        console.log('✅ Found', result.foods.length, 'food options');
+      if (result.success && result.predictions && result.predictions.length > 0) {
+        // Convert predictions to the format expected by the modal
+        const foods = result.predictions.map(prediction => ({
+          name: fixCapitalization(prediction.name),
+          calories: prediction.calories,
+          carbs: prediction.carbs,
+          protein: prediction.protein,
+          fat: prediction.fat,
+          fiber: prediction.fiber || 0,
+          sugar: prediction.sugar || 0,
+          sodium: prediction.sodium || 0,
+          confidence: prediction.confidence || 0.8,
+          serving_size: prediction.portion || 'per serving',
+          notes: prediction.description || 'AI analysis',
+          searchQuery: searchQuery,
+          method: 'enhanced-analysis'
+        }));
+        
+        setSearchResults(foods);
+        console.log('✅ Found', foods.length, 'food options using enhanced analysis');
       } else {
-        // Show whatever came back without interruptive alerts
-        setSearchResults(result.foods || []);
+        // Show empty results
+        setSearchResults([]);
+        console.log('❌ No results from enhanced analysis');
       }
 
       setHasSearched(true);
@@ -78,62 +121,101 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
   }, [searchQuery]);
 
   const handleSelectFood = useCallback(async (food) => {
+    // Toggle selection instead of immediately adding
+    const foodIndex = searchResults.findIndex(result => result.name === food.name);
+    const isSelected = selectedFoods.some(selected => selected.name === food.name);
+    
+    if (isSelected) {
+      // Remove from selection
+      setSelectedFoods(current => current.filter(selected => selected.name !== food.name));
+    } else {
+      // Add to selection
+      setSelectedFoods(current => [...current, { ...food, index: foodIndex }]);
+    }
+  }, [searchResults, selectedFoods]);
+
+  const handleAddSelectedMeals = useCallback(async () => {
+    if (selectedFoods.length === 0) {
+      Alert.alert('No Foods Selected', 'Please select at least one food item to add to your meals.');
+      return;
+    }
+
+    setIsAddingMeals(true);
+    
     try {
-      // Format the food data for the meal system
-      const mealData = {
-        name: food.name,
-        calories: food.calories,
-        carbs: food.carbs || 0,
-        protein: food.protein || 0,
-        fat: food.fat || 0,
-        fiber: food.fiber || 0,
-        sugar: food.sugar || 0,
-        sodium: food.sodium || 0,
-        method: 'search',
-        confidence: food.confidence || 0.8,
-        searchQuery: food.searchQuery || searchQuery
-      };
+      // Add each selected food as a separate meal
+      for (const food of selectedFoods) {
+        const mealData = {
+          name: food.name,
+          calories: food.calories,
+          carbs: food.carbs || 0,
+          protein: food.protein || 0,
+          fat: food.fat || 0,
+          fiber: food.fiber || 0,
+          sugar: food.sugar || 0,
+          sodium: food.sodium || 0,
+          method: 'search',
+          confidence: food.confidence || 0.8,
+          searchQuery: food.searchQuery || searchQuery
+        };
 
-      console.log('🍽️ Adding searched food to meals:', mealData);
+        console.log('🍽️ Adding searched food to meals:', mealData);
+        await onAddMeal(mealData);
+      }
 
-      // Add meal using the parent callback
-      await onAddMeal(mealData);
-
-      // Clear search state after successful meal addition
+      // Clear states and close modal after successful addition
       setSearchQuery('');
       setSearchResults([]);
+      setSelectedFoods([]);
       setHasSearched(false);
-
-  // Lightweight feedback without modal interruption
-  onClose();
+      onClose();
 
     } catch (error) {
-      console.error('Error adding searched food:', error);
+      console.error('Error adding searched foods:', error);
       Alert.alert(
         'Error',
-        'Failed to add meal. Please try again.',
+        'Failed to add meals. Please try again.',
         [{ text: 'OK' }]
       );
+    } finally {
+      setIsAddingMeals(false);
     }
-  }, [searchQuery, onAddMeal, onClose]);
+  }, [selectedFoods, searchQuery, onAddMeal, onClose]);
 
   const handleClose = useCallback(() => {
     setSearchQuery('');
     setSearchResults([]);
+    setSelectedFoods([]);
     setHasSearched(false);
     setIsSearching(false);
+    setIsAddingMeals(false);
     onClose();
   }, [onClose]);
 
-  const FoodResultCard = ({ food, onSelect }) => (
+  const FoodResultCard = ({ food, onSelect, isSelected }) => (
     <TouchableOpacity
-      style={styles.card}
+      style={[styles.card, isSelected && styles.cardSelected]}
       onPress={() => onSelect(food)}
       activeOpacity={0.7}
     >
-      {/* Header with name and confidence */}
-      <View style={styles.cardRow}>
-        <Text style={styles.cardLabel}>{food.name}</Text>
+      {/* Main content row */}
+      <View style={styles.cardMainRow}>
+        {/* Selection indicator */}
+        <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+          {isSelected && (
+            <Ionicons name="checkmark" size={14} color={AppColors.white} />
+          )}
+        </View>
+
+        {/* Food info - now takes more space */}
+        <View style={styles.foodInfo}>
+          <Text style={[styles.cardLabel, isSelected && styles.cardLabelSelected]} numberOfLines={2}>
+            {food.name}
+          </Text>
+          <Text style={styles.cardSubtext}>{food.serving_size}</Text>
+        </View>
+
+        {/* Confidence badge */}
         <View style={[styles.confidenceBadge, { 
           backgroundColor: food.confidence > 0.8 ? AppColors.success : food.confidence > 0.6 ? AppColors.warning : AppColors.workout 
         }]}>
@@ -142,14 +224,13 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
           </Text>
         </View>
       </View>
-      
-      {/* Serving size */}
-      <Text style={styles.cardSubtext}>{food.serving_size}</Text>
-      
-      {/* Main nutrition row */}
-      <View style={styles.nutritionContainer}>
+
+      {/* Nutrition row - always show with calories included */}
+      <View style={styles.nutritionRow}>
         <View style={styles.nutritionItem}>
-          <Text style={styles.nutritionValue}>{food.calories}</Text>
+          <Text style={[styles.nutritionValue, isSelected && styles.nutritionValueSelected]}>
+            {food.calories}
+          </Text>
           <Text style={styles.nutritionLabel}>cal</Text>
         </View>
         <View style={styles.nutritionItem}>
@@ -164,31 +245,6 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
           <Text style={styles.nutritionValue}>{food.fat}g</Text>
           <Text style={styles.nutritionLabel}>fat</Text>
         </View>
-      </View>
-
-      {/* Secondary nutrition row */}
-      <View style={styles.nutritionContainer}>
-        <View style={styles.nutritionItem}>
-          <Text style={styles.nutritionValue}>{food.fiber || 0}g</Text>
-          <Text style={styles.nutritionLabel}>fiber</Text>
-        </View>
-        <View style={styles.nutritionItem}>
-          <Text style={styles.nutritionValue}>{food.sugar || 0}g</Text>
-          <Text style={styles.nutritionLabel}>sugar</Text>
-        </View>
-        <View style={styles.nutritionItem}>
-          <Text style={styles.nutritionValue}>{food.sodium || 0}mg</Text>
-          <Text style={styles.nutritionLabel}>sodium</Text>
-        </View>
-        <View style={styles.nutritionItem}>
-          {/* Empty space for alignment */}
-        </View>
-      </View>
-
-      {/* Add button indicator */}
-      <View style={styles.addButton}>
-        <Ionicons name="add-circle" size={20} color={AppColors.nutrition} />
-        <Text style={styles.addButtonText}>Add to Meals</Text>
       </View>
     </TouchableOpacity>
   );
@@ -214,20 +270,13 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
               <Text style={styles.title}>Add Meal Manually</Text>
               <View style={styles.placeholder} />
             </View>
-            <Text style={styles.subtitle}>Search for food and get AI-powered nutrition estimates</Text>
           </View>
           <View style={styles.separator} />
 
           {/* Search Section */}
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Search Food</Text>
-            </View>
-            <View style={styles.sectionLine} />
-            
             <View style={styles.searchContainer}>
               <View style={styles.searchInputContainer}>
-                <Ionicons name="search" size={20} color={AppColors.textSecondary} style={styles.searchIcon} />
                 <TextInput
                   style={styles.searchInput}
                   value={searchQuery}
@@ -238,19 +287,18 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
                   returnKeyType="search"
                   onSubmitEditing={handleSearch}
                 />
+                <TouchableOpacity
+                  style={[styles.searchButton, isSearching && styles.searchButtonDisabled]}
+                  onPress={handleSearch}
+                  disabled={isSearching}
+                >
+                  {isSearching ? (
+                    <ActivityIndicator color={AppColors.primary} size="small" />
+                  ) : (
+                    <Text style={styles.searchButtonText}>Search</Text>
+                  )}
+                </TouchableOpacity>
               </View>
-              
-              <TouchableOpacity
-                style={[styles.searchButton, isSearching && styles.searchButtonDisabled]}
-                onPress={handleSearch}
-                disabled={isSearching}
-              >
-                {isSearching ? (
-                  <ActivityIndicator color={AppColors.white} size="small" />
-                ) : (
-                  <Text style={styles.searchButtonText}>Search</Text>
-                )}
-              </TouchableOpacity>
             </View>
           </View>
 
@@ -273,6 +321,11 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
                   <Text style={styles.sectionTitle}>
                     {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "{searchQuery}"
                   </Text>
+                  {selectedFoods.length > 0 && (
+                    <Text style={styles.selectedCount}>
+                      {selectedFoods.length} selected
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.sectionLine} />
                 
@@ -281,8 +334,31 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
                     key={index}
                     food={food}
                     onSelect={handleSelectFood}
+                    isSelected={selectedFoods.some(selected => selected.name === food.name)}
                   />
                 ))}
+
+                {/* Add Selected Items Button */}
+                {selectedFoods.length > 0 && (
+                  <View style={styles.addSelectedContainer}>
+                    <TouchableOpacity
+                      style={[styles.addSelectedButton, isAddingMeals && styles.addSelectedButtonDisabled]}
+                      onPress={handleAddSelectedMeals}
+                      disabled={isAddingMeals}
+                    >
+                      {isAddingMeals ? (
+                        <ActivityIndicator color={AppColors.white} size="small" />
+                      ) : (
+                        <>
+                          <Ionicons name="restaurant" size={20} color={AppColors.white} />
+                          <Text style={styles.addSelectedButtonText}>
+                            Add {selectedFoods.length} Item{selectedFoods.length !== 1 ? 's' : ''} to Meals
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
 
@@ -377,32 +453,34 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.white,
     borderWidth: 1,
     borderColor: AppColors.border,
-    borderRadius: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderRadius: 25, // Pill shape
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     marginBottom: 12,
-  },
-  searchIcon: {
-    marginRight: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
     color: AppColors.textPrimary,
+    marginRight: 8,
   },
   searchButton: {
-    backgroundColor: AppColors.nutrition,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 4,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: AppColors.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20, // Pill shape
     alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 70,
   },
   searchButtonDisabled: {
     opacity: 0.6,
   },
   searchButtonText: {
-    color: AppColors.white,
-    fontSize: 16,
+    color: AppColors.primary,
+    fontSize: 14,
     fontWeight: '600',
   },
   resultsContainer: {
@@ -415,71 +493,136 @@ const styles = StyleSheet.create({
     backgroundColor: AppColors.white,
     borderWidth: 1,
     borderColor: AppColors.border,
-    borderRadius: 4,
+    borderRadius: 12,
     padding: 16,
-    marginTop: 8,
+    marginTop: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  cardRow: {
+  cardSelected: {
+    borderColor: AppColors.nutrition,
+    borderWidth: 2,
+    backgroundColor: '#f8fffe',
+    shadowColor: AppColors.nutrition,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardMainRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginBottom: 8,
   },
-  cardLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: AppColors.textPrimary,
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: AppColors.border,
+    backgroundColor: AppColors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  checkboxSelected: {
+    backgroundColor: AppColors.nutrition,
+    borderColor: AppColors.nutrition,
+  },
+  foodInfo: {
     flex: 1,
+    marginRight: 12,
+  },
+  cardLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: AppColors.textPrimary,
+    marginBottom: 2,
+  },
+  cardLabelSelected: {
+    color: AppColors.nutrition,
   },
   cardSubtext: {
     fontSize: 12,
     color: AppColors.textSecondary,
-    marginBottom: 12,
   },
   confidenceBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginLeft: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
+    minWidth: 40,
+    alignItems: 'center',
   },
   confidenceText: {
     color: AppColors.white,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
   },
-  nutritionContainer: {
+  nutritionRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
+    justifyContent: 'space-around',
+    marginTop: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: AppColors.border,
   },
   nutritionItem: {
-    flex: 1,
     alignItems: 'center',
+    flex: 1,
   },
   nutritionValue: {
     fontSize: 14,
     fontWeight: '600',
     color: AppColors.textPrimary,
   },
-  nutritionLabel: {
-    fontSize: 11,
-    color: AppColors.textSecondary,
-    marginTop: 2,
+  nutritionValueSelected: {
+    color: AppColors.nutrition,
+    fontSize: 15,
+    fontWeight: '700',
   },
-  addButton: {
+  nutritionLabel: {
+    fontSize: 10,
+    color: AppColors.textSecondary,
+    marginTop: 1,
+  },
+  selectedCount: {
+    fontSize: 12,
+    color: AppColors.white,
+    fontWeight: '600',
+    backgroundColor: AppColors.nutrition,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  addSelectedButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: AppColors.nutrition,
+    borderRadius: 25, // Pill shape to match search button
+    padding: 16,
+    marginTop: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: AppColors.border,
   },
-  addButtonText: {
-    fontSize: 14,
+  addSelectedContainer: {
+    marginHorizontal: -8, // Extend to edges for better visual impact
+    marginTop: 8,
+  },
+  addSelectedButtonDisabled: {
+    opacity: 0.6,
+  },
+  addSelectedButtonText: {
     color: AppColors.nutrition,
-    fontWeight: '500',
-    marginLeft: 6,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   emptyState: {
     flex: 1,

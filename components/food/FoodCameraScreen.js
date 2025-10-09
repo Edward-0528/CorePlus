@@ -8,19 +8,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, fonts } from '../../utils/responsive';
 
 // Define colors directly to match the minimal design
+// Define colors directly
 const AppColors = {
-  primary: '#4A90E2',
+  primary: '#6B8E23',
   white: '#FFFFFF',
   border: '#E9ECEF',
   textPrimary: '#212529',
   textSecondary: '#6C757D',
-  backgroundPrimary: '#FFFFFF',
+  textLight: '#ADB5BD',
   backgroundSecondary: '#F8F9FA',
-  nutrition: '#28A745',
-  workout: '#FF6B6B',
-  account: '#FFC107',
   success: '#28A745',
   warning: '#FFC107',
+  danger: '#DC3545',
 };
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');

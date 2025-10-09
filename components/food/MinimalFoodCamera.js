@@ -6,18 +6,16 @@ import { foodAnalysisService } from '../foodAnalysisService';
 
 // Define colors directly to match the minimal design
 const AppColors = {
-  primary: '#4A90E2',
+  primary: '#6B8E23',
   white: '#FFFFFF',
   border: '#E9ECEF',
   textPrimary: '#212529',
   textSecondary: '#6C757D',
-  backgroundPrimary: '#FFFFFF',
+  textLight: '#ADB5BD',
   backgroundSecondary: '#F8F9FA',
-  nutrition: '#28A745',
-  workout: '#FF6B6B',
-  account: '#FFC107',
   success: '#28A745',
   warning: '#FFC107',
+  danger: '#DC3545',
 };
 
 const MinimalFoodCamera = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {

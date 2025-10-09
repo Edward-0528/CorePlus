@@ -16,14 +16,14 @@ import FoodSearchModal from '../../food/FoodSearchModal';
 
 // Define colors directly
 const AppColors = {
-  primary: '#4A90E2',
+  primary: '#6B8E23',
   white: '#FFFFFF',
   border: '#E9ECEF',
   textPrimary: '#212529',
   textSecondary: '#6C757D',
   textLight: '#ADB5BD',
   backgroundSecondary: '#F8F9FA',
-  nutrition: '#50E3C2',
+  nutrition: '#8FBC8F',
   workout: '#FF6B6B',
   account: '#FFC107',
   success: '#28A745',
@@ -81,8 +81,7 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
 
   const tabs = [
     { id: 'today', label: 'Today' },
-    { id: 'meals', label: 'Meals' },
-    { id: 'recipes', label: 'Recipes' },
+    { id: 'meals', label: 'Previous Meals' },
   ];
 
   const filterOptions = [
@@ -191,30 +190,38 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       <View>
         {/* Filter Header */}
         <View style={minimalStyles.section}>
-          <View style={minimalStyles.compactFilterHeader}>
-            <TouchableOpacity 
-              style={minimalStyles.compactFilterButton}
-              onPress={() => setShowDateFilter(true)}
-            >
-              <Ionicons name="filter-outline" size={16} color={AppColors.nutrition} />
-              <Text style={minimalStyles.filterLabel}>{filterLabel}</Text>
-            </TouchableOpacity>
+          <View style={modernCardStyles.container}>
+            <View style={modernHistoryStyles.filterHeader}>
+              <TouchableOpacity 
+                style={modernHistoryStyles.filterButton}
+                onPress={() => setShowDateFilter(true)}
+              >
+                <Ionicons name="filter-outline" size={16} color="#007AFF" />
+                <Text style={modernHistoryStyles.filterLabel}>{filterLabel}</Text>
+                <Ionicons name="chevron-down-outline" size={16} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={minimalStyles.sectionLine} />
         </View>
 
         {historyDates.length === 0 ? (
-          <View style={minimalStyles.emptyState}>
-            <Ionicons name="restaurant-outline" size={32} color={AppColors.textSecondary} />
-            <Text style={minimalStyles.emptyStateText}>
-              {selectedFilter === 'all' ? 'No meal history found' : `No meals found for ${filterLabel.toLowerCase()}`}
-            </Text>
-            <Text style={minimalStyles.emptyStateSubtext}>
-              {selectedFilter === 'all' 
-                ? 'Start logging meals to build your history'
-                : 'Try selecting a different time period'
-              }
-            </Text>
+          <View style={minimalStyles.section}>
+            <View style={modernCardStyles.container}>
+              <View style={modernMealsStyles.emptyState}>
+                <View style={modernMealsStyles.emptyStateIconContainer}>
+                  <Ionicons name="add-circle" size={40} color="#007AFF" />
+                </View>
+                <Text style={modernMealsStyles.emptyStateText}>
+                  {selectedFilter === 'all' ? 'No meal history found' : `No meals found for ${filterLabel.toLowerCase()}`}
+                </Text>
+                <Text style={modernMealsStyles.emptyStateSubtext}>
+                  {selectedFilter === 'all' 
+                    ? 'Start logging meals to build your history'
+                    : 'Try selecting a different time period'
+                  }
+                </Text>
+              </View>
+            </View>
           </View>
         ) : (
           historyDates.map((date) => {
@@ -223,41 +230,57 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
             
             return (
               <View key={date} style={minimalStyles.section}>
-                <View style={minimalStyles.historyDateHeader}>
-                  <Text style={minimalStyles.historyDate}>{formatDateForDisplay(date)}</Text>
-                  <Text style={minimalStyles.historyTotals}>
+                <View style={modernCardStyles.container}>
+                  <Text style={modernCardStyles.subtitle}>{formatDateForDisplay(date)}</Text>
+                  <Text style={modernHistoryStyles.dayTotals}>
                     {dayTotals.calories} cal • {Math.round(dayTotals.protein)}p • {Math.round(dayTotals.carbs)}c • {Math.round(dayTotals.fat)}f
                   </Text>
-                </View>
-                <View style={minimalStyles.sectionLine} />
-                
-                <View style={minimalStyles.card}>
-                  {dayMeals.map((meal, index) => (
-                    <View key={meal.id}>
-                      <SwipeToDeleteWrapper 
-                        onDelete={() => handleDeleteMeal(meal.id)}
-                        enabled={true}
-                        mealName={meal.name}
-                      >
-                        <View style={minimalStyles.mealRow}>
-                          <View style={minimalStyles.mealInfo}>
-                            <Ionicons name="restaurant-outline" size={16} color={AppColors.nutrition} />
-                            <View style={minimalStyles.mealDetails}>
-                              <Text style={minimalStyles.mealName}>{meal.name}</Text>
-                              <Text style={minimalStyles.mealTime}>
-                                {meal.meal_type || meal.method || 'Meal'} • {meal.time}
+                  
+                  <View style={modernHistoryStyles.mealsContainer}>
+                    {dayMeals.map((meal, index) => (
+                      <View key={meal.id}>
+                        <SwipeToDeleteWrapper 
+                          onDelete={() => handleDeleteMeal(meal.id)}
+                          enabled={true}
+                          mealName={meal.name}
+                        >
+                          <View style={modernMealsStyles.mealCard}>
+                            <View style={modernMealsStyles.mealHeader}>
+                              <Text 
+                                style={modernMealsStyles.mealType}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                              >
+                                {meal.name}
                               </Text>
+                              <View style={modernMealsStyles.calorieInfo}>
+                                <Text style={modernMealsStyles.calorieValue}>{meal.calories}</Text>
+                                <Text style={modernMealsStyles.calorieUnit}>kcal</Text>
+                              </View>
+                            </View>
+                            
+                            <Text style={modernMealsStyles.mealTime}>{meal.time}</Text>
+                            
+                            <View style={modernMealsStyles.macroContainer}>
+                              <View style={modernMealsStyles.macroItem}>
+                                <Text style={modernMealsStyles.macroLabel}>P</Text>
+                                <Text style={modernMealsStyles.macroValue}>{Math.round(meal.protein || 0)}g</Text>
+                              </View>
+                              <View style={[modernMealsStyles.macroItem, { backgroundColor: '#E3F2FD' }]}>
+                                <Text style={[modernMealsStyles.macroLabel, { color: '#1976D2' }]}>C</Text>
+                                <Text style={modernMealsStyles.macroValue}>{Math.round(meal.carbs || 0)}g</Text>
+                              </View>
+                              <View style={[modernMealsStyles.macroItem, { backgroundColor: '#FFF3E0' }]}>
+                                <Text style={[modernMealsStyles.macroLabel, { color: '#F57C00' }]}>F</Text>
+                                <Text style={modernMealsStyles.macroValue}>{Math.round(meal.fat || 0)}g</Text>
+                              </View>
                             </View>
                           </View>
-                          <View style={minimalStyles.mealCalories}>
-                            <Text style={minimalStyles.mealValue}>{meal.calories}</Text>
-                            <Text style={minimalStyles.mealUnit}>cal</Text>
-                          </View>
-                        </View>
-                      </SwipeToDeleteWrapper>
-                      {index < dayMeals.length - 1 && <View style={minimalStyles.mealDivider} />}
-                    </View>
-                  ))}
+                        </SwipeToDeleteWrapper>
+                        {index < dayMeals.length - 1 && <View style={modernMealsStyles.mealDivider} />}
+                      </View>
+                    ))}
+                  </View>
                 </View>
               </View>
             );
@@ -676,332 +699,185 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
 
   const renderCalorieProgress = () => {
     // Default calorie goal - could be made configurable per user
-    const calorieGoal = user?.calorie_goal || 2000;
+    const calorieGoal = user?.calorie_goal || 2400;
     const consumed = dailyCalories;
     const remaining = Math.max(0, calorieGoal - consumed);
     const progressPercentage = Math.min(100, (consumed / calorieGoal) * 100);
 
     return (
       <View style={minimalStyles.section}>
-        <View style={minimalStyles.sectionHeader}>
-          <Text style={minimalStyles.sectionTitle}>Daily Goal</Text>
-        </View>
-        <View style={minimalStyles.sectionLine} />
-        
         <TouchableOpacity 
-          style={minimalStyles.card}
+          style={modernCardStyles.container}
           onPress={() => setIsCalorieCardExpanded(!isCalorieCardExpanded)}
           activeOpacity={0.7}
         >
-          <View style={minimalStyles.cardRow}>
-            <Text style={minimalStyles.cardLabel}>Calories Consumed</Text>
-            <Text style={[minimalStyles.cardValue, { color: AppColors.nutrition }]}>
+          <Text style={modernCardStyles.subtitle}>Calories and macronutrients</Text>
+          
+          <View style={modernCardStyles.mainContent}>
+            <Text style={modernCardStyles.mainValue}>
               {consumed.toLocaleString()} / {calorieGoal.toLocaleString()}
             </Text>
+            <Text style={modernCardStyles.unit}>kcal</Text>
+            <Text style={modernCardStyles.percentage}>{Math.round(progressPercentage)}%</Text>
           </View>
-          <View style={minimalStyles.progressBar}>
-            <View style={[
-              minimalStyles.progressFill, 
-              { 
-                width: `${progressPercentage}%`, 
-                backgroundColor: progressPercentage > 100 ? AppColors.warning : AppColors.nutrition 
-              }
-            ]} />
+
+          {/* Macronutrient Progress Bars */}
+          <View style={modernCardStyles.macroSection}>
+            {/* Protein */}
+            <View style={modernCardStyles.macroItem}>
+              <Text style={modernCardStyles.macroLabel}>Protein</Text>
+              <Text style={modernCardStyles.macroValue}>
+                {Math.round(dailyMacros.protein)}g / {nutritionGoals.protein}g
+              </Text>
+              <View style={modernCardStyles.progressContainer}>
+                <View style={[
+                  modernCardStyles.progressBar,
+                  { 
+                    width: `${Math.min(100, calculateProgress(dailyMacros.protein, nutritionGoals.protein))}%`,
+                    backgroundColor: '#4CAF50'
+                  }
+                ]} />
+              </View>
+            </View>
+
+            {/* Carbs */}
+            <View style={modernCardStyles.macroItem}>
+              <Text style={modernCardStyles.macroLabel}>Carbs</Text>
+              <Text style={modernCardStyles.macroValue}>
+                {Math.round(dailyMacros.carbs)}g / {nutritionGoals.carbs}g
+              </Text>
+              <View style={modernCardStyles.progressContainer}>
+                <View style={[
+                  modernCardStyles.progressBar,
+                  { 
+                    width: `${Math.min(100, calculateProgress(dailyMacros.carbs, nutritionGoals.carbs))}%`,
+                    backgroundColor: '#4CAF50'
+                  }
+                ]} />
+              </View>
+            </View>
+
+            {/* Fat */}
+            <View style={modernCardStyles.macroItem}>
+              <Text style={modernCardStyles.macroLabel}>Fat</Text>
+              <Text style={modernCardStyles.macroValue}>
+                {Math.round(dailyMacros.fat)}g / {nutritionGoals.fat}g
+              </Text>
+              <View style={modernCardStyles.progressContainer}>
+                <View style={[
+                  modernCardStyles.progressBar,
+                  { 
+                    width: `${Math.min(100, calculateProgress(dailyMacros.fat, nutritionGoals.fat))}%`,
+                    backgroundColor: '#4CAF50'
+                  }
+                ]} />
+              </View>
+            </View>
           </View>
-          <Text style={minimalStyles.cardSubtext}>
-            {remaining > 0 ? `${remaining} calories remaining` : `${consumed - calorieGoal} calories over goal`}
-          </Text>
 
           {/* Expanded Nutrition Details */}
           {isCalorieCardExpanded && (
             <View style={minimalStyles.expandedNutrition}>
               <View style={minimalStyles.nutritionDivider} />
               
-              {/* Macronutrients Section */}
-              <View style={{ marginBottom: 20 }}>
-                {/* 3x3 Nutrition Grid */}
-                <View style={{ paddingHorizontal: 4 }}>
-                  {/* Row 1 */}
-                  <View style={{ 
-                    flexDirection: 'row', 
-                    marginBottom: 12
-                  }}>
-                    {/* Protein */}
-                    <View style={{ 
-                      flex: 1, 
-                      marginHorizontal: 2,
-                      minHeight: 75
-                    }}>
-                      <Text style={{ 
-                        fontSize: 11, 
-                        color: calculateProgress(dailyMacros.protein, nutritionGoals.protein) > 100 ? '#DC3545' : '#666', 
-                        fontWeight: '500', 
-                        textAlign: 'center', 
-                        height: 16, 
-                        lineHeight: 16 
-                      }}>Protein</Text>
-                      <Text style={{ 
-                        fontSize: 16, 
-                        fontWeight: 'bold', 
-                        color: calculateProgress(dailyMacros.protein, nutritionGoals.protein) > 100 ? '#DC3545' : '#4A90E2', 
-                        textAlign: 'center', 
-                        height: 20, 
-                        lineHeight: 20, 
-                        marginTop: 4 
-                      }}>
-                        {Math.round(dailyMacros.protein)}g
-                      </Text>
-                      <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ 
-                          width: `${Math.min(100, calculateProgress(dailyMacros.protein, nutritionGoals.protein))}%`, 
-                          height: 3, 
-                          backgroundColor: calculateProgress(dailyMacros.protein, nutritionGoals.protein) > 100 ? '#DC3545' : '#4A90E2', 
-                          borderRadius: 1.5 
-                        }} />
-                      </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>{nutritionGoals.protein}g</Text>
-                    </View>
-
-                    {/* Carbs */}
-                    <View style={{ 
-                      flex: 1, 
-                      marginHorizontal: 2,
-                      minHeight: 75
-                    }}>
-                      <Text style={{ 
-                        fontSize: 11, 
-                        color: calculateProgress(dailyMacros.carbs, nutritionGoals.carbs) > 100 ? '#DC3545' : '#666', 
-                        fontWeight: '500', 
-                        textAlign: 'center', 
-                        height: 16, 
-                        lineHeight: 16 
-                      }}>Carbs</Text>
-                      <Text style={{ 
-                        fontSize: 16, 
-                        fontWeight: 'bold', 
-                        color: calculateProgress(dailyMacros.carbs, nutritionGoals.carbs) > 100 ? '#DC3545' : '#FF6B6B', 
-                        textAlign: 'center', 
-                        height: 20, 
-                        lineHeight: 20, 
-                        marginTop: 4 
-                      }}>
-                        {Math.round(dailyMacros.carbs)}g
-                      </Text>
-                      <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ 
-                          width: `${Math.min(100, calculateProgress(dailyMacros.carbs, nutritionGoals.carbs))}%`, 
-                          height: 3, 
-                          backgroundColor: calculateProgress(dailyMacros.carbs, nutritionGoals.carbs) > 100 ? '#DC3545' : '#FF6B6B', 
-                          borderRadius: 1.5 
-                        }} />
-                      </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>{nutritionGoals.carbs}g</Text>
-                    </View>
-
-                    {/* Fat */}
-                    <View style={{ 
-                      flex: 1, 
-                      marginHorizontal: 2,
-                      minHeight: 75
-                    }}>
-                      <Text style={{ 
-                        fontSize: 11, 
-                        color: calculateProgress(dailyMacros.fat, nutritionGoals.fat) > 100 ? '#DC3545' : '#666', 
-                        fontWeight: '500', 
-                        textAlign: 'center', 
-                        height: 16, 
-                        lineHeight: 16 
-                      }}>Fat</Text>
-                      <Text style={{ 
-                        fontSize: 16, 
-                        fontWeight: 'bold', 
-                        color: calculateProgress(dailyMacros.fat, nutritionGoals.fat) > 100 ? '#DC3545' : '#FFC107', 
-                        textAlign: 'center', 
-                        height: 20, 
-                        lineHeight: 20, 
-                        marginTop: 4 
-                      }}>
-                        {Math.round(dailyMacros.fat)}g
-                      </Text>
-                      <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ 
-                          width: `${Math.min(100, calculateProgress(dailyMacros.fat, nutritionGoals.fat))}%`, 
-                          height: 3, 
-                          backgroundColor: calculateProgress(dailyMacros.fat, nutritionGoals.fat) > 100 ? '#DC3545' : '#FFC107', 
-                          borderRadius: 1.5 
-                        }} />
-                      </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>{nutritionGoals.fat}g</Text>
-                    </View>
+              {/* Micronutrients Section */}
+              <View style={[modernCardStyles.macroSection, { marginTop: 8 }]}>
+                {/* Fiber */}
+                <View style={modernCardStyles.macroItem}>
+                  <Text style={modernCardStyles.macroLabel}>Fiber</Text>
+                  <Text style={modernCardStyles.macroValue}>
+                    {Math.round(dailyMicros.fiber)}g / {nutritionGoals.fiber}g
+                  </Text>
+                  <View style={modernCardStyles.progressContainer}>
+                    <View style={[
+                      modernCardStyles.progressBar,
+                      { 
+                        width: `${Math.min(100, calculateProgress(dailyMicros.fiber, nutritionGoals.fiber))}%`,
+                        backgroundColor: calculateProgress(dailyMicros.fiber, nutritionGoals.fiber) > 100 ? '#DC3545' : '#4CAF50'
+                      }
+                    ]} />
                   </View>
+                </View>
 
-                  {/* Row 2 */}
-                  <View style={{ 
-                    flexDirection: 'row', 
-                    marginBottom: 12
-                  }}>
-                    {/* Fiber */}
-                    <View style={{ 
-                      flex: 1, 
-                      marginHorizontal: 2,
-                      minHeight: 75
-                    }}>
-                      <Text style={{ 
-                        fontSize: 11, 
-                        color: calculateProgress(dailyMicros.fiber, nutritionGoals.fiber) > 100 ? '#DC3545' : '#666', 
-                        fontWeight: '500', 
-                        textAlign: 'center', 
-                        height: 16, 
-                        lineHeight: 16 
-                      }}>Fiber</Text>
-                      <Text style={{ 
-                        fontSize: 16, 
-                        fontWeight: 'bold', 
-                        color: calculateProgress(dailyMicros.fiber, nutritionGoals.fiber) > 100 ? '#DC3545' : '#28A745', 
-                        textAlign: 'center', 
-                        height: 20, 
-                        lineHeight: 20, 
-                        marginTop: 4 
-                      }}>
-                        {Math.round(dailyMicros.fiber)}g
-                      </Text>
-                      <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ 
-                          width: `${Math.min(100, calculateProgress(dailyMicros.fiber, nutritionGoals.fiber))}%`, 
-                          height: 3, 
-                          backgroundColor: calculateProgress(dailyMicros.fiber, nutritionGoals.fiber) > 100 ? '#DC3545' : '#28A745', 
-                          borderRadius: 1.5 
-                        }} />
-                      </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>{nutritionGoals.fiber}g</Text>
-                    </View>
+                {/* Sugar */}
+                <View style={modernCardStyles.macroItem}>
+                  <Text style={modernCardStyles.macroLabel}>Sugar</Text>
+                  <Text style={modernCardStyles.macroValue}>
+                    {Math.round(dailyMicros.sugar)}g / {nutritionGoals.sugar}g
+                  </Text>
+                  <View style={modernCardStyles.progressContainer}>
+                    <View style={[
+                      modernCardStyles.progressBar,
+                      { 
+                        width: `${Math.min(100, calculateProgress(dailyMicros.sugar, nutritionGoals.sugar))}%`,
+                        backgroundColor: calculateProgress(dailyMicros.sugar, nutritionGoals.sugar) > 100 ? '#DC3545' : '#4CAF50'
+                      }
+                    ]} />
+                  </View>
+                </View>
 
-                    {/* Sugar */}
-                    <View style={{ 
-                      flex: 1, 
-                      marginHorizontal: 2,
-                      minHeight: 75
-                    }}>
-                      <Text style={{ 
-                        fontSize: 11, 
-                        color: calculateProgress(dailyMicros.sugar, nutritionGoals.sugar) > 100 ? '#DC3545' : '#666', 
-                        fontWeight: '500', 
-                        textAlign: 'center', 
-                        height: 16, 
-                        lineHeight: 16 
-                      }}>Sugar</Text>
-                      <Text style={{ 
-                        fontSize: 16, 
-                        fontWeight: 'bold', 
-                        color: calculateProgress(dailyMicros.sugar, nutritionGoals.sugar) > 100 ? '#DC3545' : '#FF8C42', 
-                        textAlign: 'center', 
-                        height: 20, 
-                        lineHeight: 20, 
-                        marginTop: 4 
-                      }}>
-                        {Math.round(dailyMicros.sugar)}g
-                      </Text>
-                      <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ 
-                          width: `${Math.min(100, calculateProgress(dailyMicros.sugar, nutritionGoals.sugar))}%`, 
-                          height: 3, 
-                          backgroundColor: calculateProgress(dailyMicros.sugar, nutritionGoals.sugar) > 100 ? '#DC3545' : '#FF8C42', 
-                          borderRadius: 1.5 
-                        }} />
-                      </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>{nutritionGoals.sugar}g</Text>
-                    </View>
-
-                    {/* Sodium */}
-                    <View style={{ 
-                      flex: 1, 
-                      marginHorizontal: 2,
-                      minHeight: 75
-                    }}>
-                      <Text style={{ 
-                        fontSize: 11, 
-                        color: calculateProgress(dailyMicros.sodium, nutritionGoals.sodium) > 100 ? '#DC3545' : '#666', 
-                        fontWeight: '500', 
-                        textAlign: 'center', 
-                        height: 16, 
-                        lineHeight: 16 
-                      }}>Sodium</Text>
-                      <Text style={{ 
-                        fontSize: 16, 
-                        fontWeight: 'bold', 
-                        color: calculateProgress(dailyMicros.sodium, nutritionGoals.sodium) > 100 ? '#DC3545' : '#6C757D', 
-                        textAlign: 'center', 
-                        height: 20, 
-                        lineHeight: 20, 
-                        marginTop: 4 
-                      }}>
-                        {Math.round(dailyMicros.sodium)}mg
-                      </Text>
-                      <View style={{ width: '100%', height: 3, backgroundColor: '#DDDDDD', borderRadius: 1.5, marginTop: 8 }}>
-                        <View style={{ 
-                          width: `${Math.min(100, calculateProgress(dailyMicros.sodium, nutritionGoals.sodium))}%`, 
-                          height: 3, 
-                          backgroundColor: calculateProgress(dailyMicros.sodium, nutritionGoals.sodium) > 100 ? '#DC3545' : '#6C757D', 
-                          borderRadius: 1.5 
-                        }} />
-                      </View>
-                      <Text style={{ fontSize: 9, color: '#999', textAlign: 'center', height: 12, lineHeight: 12, marginTop: 4 }}>{nutritionGoals.sodium}mg</Text>
-                    </View>
+                {/* Sodium */}
+                <View style={modernCardStyles.macroItem}>
+                  <Text style={modernCardStyles.macroLabel}>Sodium</Text>
+                  <Text style={modernCardStyles.macroValue}>
+                    {Math.round(dailyMicros.sodium)}mg / {nutritionGoals.sodium}mg
+                  </Text>
+                  <View style={modernCardStyles.progressContainer}>
+                    <View style={[
+                      modernCardStyles.progressBar,
+                      { 
+                        width: `${Math.min(100, calculateProgress(dailyMicros.sodium, nutritionGoals.sodium))}%`,
+                        backgroundColor: calculateProgress(dailyMicros.sodium, nutritionGoals.sodium) > 100 ? '#DC3545' : '#4CAF50'
+                      }
+                    ]} />
                   </View>
                 </View>
               </View>
 
-              <View style={minimalStyles.expandHint}>
-                <Text style={minimalStyles.expandHintText}>
-                  Tap to {isCalorieCardExpanded ? 'collapse' : 'expand'} details
-                </Text>
-              </View>
             </View>
           )}
 
-          {/* Collapse hint when not expanded */}
-          {!isCalorieCardExpanded && (
-            <View style={minimalStyles.expandHint}>
-              <Text style={minimalStyles.expandHintText}>Tap to view detailed nutrition</Text>
+          {/* Visual Expand/Collapse Indicator */}
+          <View style={modernCardStyles.expandIndicator}>
+            <View style={modernCardStyles.expandLine} />
+            <View style={modernCardStyles.expandIconContainer}>
+              <Ionicons 
+                name={isCalorieCardExpanded ? 'remove' : 'add'} 
+                size={16} 
+                color="#8E8E93" 
+              />
             </View>
-          )}
+            <View style={modernCardStyles.expandLine} />
+          </View>
         </TouchableOpacity>
       </View>
     );
   };
 
   const renderTodaysMeals = () => (
-    <TodaysMealsComponent 
-      styles={minimalStyles}
-      showViewAll={true}
-      onViewAllPress={() => {
-        // Could navigate to full meals view or switch to meals tab
-        console.log('View all meals pressed');
-      }}
-      onMealPress={(meal) => {
-        // Could open meal details modal
-        console.log('Meal pressed:', meal.name);
-      }}
-    />
+    <View style={modernCardStyles.mealsSection}>
+      <View style={modernCardStyles.container}>
+        <TodaysMealsComponent 
+          styles={modernMealsStyles}
+          showViewAll={true}
+          onViewAllPress={() => {
+            // Could navigate to full meals view or switch to meals tab
+            console.log('View all meals pressed');
+          }}
+          onMealPress={(meal) => {
+            // Could open meal details modal
+            console.log('Meal pressed:', meal.name);
+          }}
+          onEmptyStatePress={() => {
+            console.log('🎯 Empty state pressed! Opening quick actions modal...');
+            setShowQuickActions(true);
+          }}
+        />
+      </View>
+    </View>
   );
 
-  const renderRecipeContent = () => {
-    return (
-      <View style={{ flex: 1 }}>
-        <View style={minimalStyles.section}>
-          <View style={minimalStyles.card}>
-            <View style={minimalStyles.emptyState}>
-              <Ionicons name="restaurant-outline" size={48} color={AppColors.nutrition} />
-              <Text style={minimalStyles.emptyStateText}>Coming Soon</Text>
-              <Text style={minimalStyles.emptyStateSubtext}>
-                We're building an amazing recipe collection for you. Check back soon for personalized meal ideas and cooking inspiration!
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    );
-  };
+  
 
   const renderContent = () => {
     switch (nutritionSubTab) {
@@ -1009,14 +885,15 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
         return (
           <>
             {renderCalorieProgress()}
-            {/* Debug component removed */}
+            {/* Today's Meals Section Title */}
+            <View style={modernCardStyles.titleSection}>
+              <Text style={modernCardStyles.sectionTitle}>Today's Meals</Text>
+            </View>
             {renderTodaysMeals()}
           </>
         );
       case 'meals':
         return renderMealHistory();
-      case 'recipes':
-        return renderRecipeContent();
       default:
         return null;
     }
@@ -1027,25 +904,20 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       {renderHeader()}
       {renderTabs()}
       
-      {/* Conditional ScrollView - don't use for recipes tab to avoid VirtualizedList nesting */}
-      {nutritionSubTab === 'recipes' ? (
-        renderContent()
-      ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ flexGrow: 1 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[AppColors.primary]}
-              tintColor={AppColors.primary}
-            />
-          }
-        >
-          {renderContent()}
-        </ScrollView>
-      )}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 30 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[AppColors.primary]}
+            tintColor={AppColors.primary}
+          />
+        }
+      >
+        {renderContent()}
+      </ScrollView>
 
       {/* Quick Actions Popup */}
       {renderQuickActionsPopup()}
@@ -1130,6 +1002,7 @@ const minimalStyles = StyleSheet.create({
   section: {
     paddingHorizontal: 20,
     marginTop: 24,
+    marginBottom: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1277,6 +1150,9 @@ const minimalStyles = StyleSheet.create({
     paddingVertical: 60,
     alignItems: 'center',
   },
+  emptyStateIconContainer: {
+    marginBottom: 16,
+  },
   emptyText: {
     fontSize: 14,
     color: AppColors.textSecondary,
@@ -1352,16 +1228,17 @@ const popupStyles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     color: AppColors.textPrimary,
     marginTop: 12,
     textAlign: 'center',
   },
   emptyStateSubtext: {
     fontSize: 14,
-    color: AppColors.textSecondary,
+    color: AppColors.primary,
     marginTop: 4,
     textAlign: 'center',
+    fontWeight: '500',
   },
   expandedNutrition: {
     marginTop: 16,
@@ -1484,6 +1361,284 @@ const popupStyles = StyleSheet.create({
   },
   selectedFilterItem: {
     backgroundColor: AppColors.nutrition + '10',
+  },
+});
+
+// Modern card styles inspired by the design reference
+const modernCardStyles = StyleSheet.create({
+  container: {
+    backgroundColor: AppColors.white,
+    borderRadius: 20, // Strong rounded corners for friendliness
+    padding: 24,
+    marginTop: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#8E8E93',
+    fontWeight: '400',
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    marginBottom: 0,
+  },
+  titleSection: {
+    paddingHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 0,
+  },
+  mealsSection: {
+    paddingHorizontal: 20,
+    marginTop: 12,
+  },
+  mainContent: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 24,
+  },
+  mainValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    letterSpacing: -0.5,
+  },
+  unit: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    marginLeft: 8,
+    marginBottom: 2,
+  },
+  percentage: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#8E8E93',
+    marginLeft: 'auto',
+  },
+  macroSection: {
+    gap: 16,
+  },
+  macroItem: {
+    // No additional styling needed, using gap for spacing
+  },
+  macroLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1C1C1E',
+    marginBottom: 6,
+  },
+  macroValue: {
+    fontSize: 14,
+    color: '#8E8E93',
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  progressContainer: {
+    height: 6,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: '#4CAF50',
+  },
+  // Visual expand/collapse indicator
+  expandIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 4,
+  },
+  expandLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E5EA',
+  },
+  expandIconContainer: {
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 12,
+  },
+});
+
+// Modern meals styles to match the nutrition card
+const modernMealsStyles = StyleSheet.create({
+  section: {
+    // Remove section styling - handled by parent container
+  },
+  sectionHeader: {
+    // Hide the header - handled by parent
+    display: 'none',
+  },
+  sectionLine: {
+    // Hide the line - handled by parent
+    display: 'none',
+  },
+  card: {
+    // Remove card styling - parent container handles it
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    padding: 0,
+    margin: 0,
+  },
+  emptyState: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyStateIconContainer: {
+    marginBottom: 16,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#007AFF',
+    marginTop: 4,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  mealCard: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  mealHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 0,
+  },
+  mealType: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    flex: 1,
+    marginRight: 12,
+  },
+  calorieInfo: {
+    alignItems: 'flex-end',
+  },
+  calorieValue: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1C1C1E',
+  },
+  calorieUnit: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1C1C1E',
+    marginTop: -2,
+  },
+  calorieLabel: {
+    fontSize: 12,
+    color: '#8E8E93',
+    marginTop: 1,
+  },
+  mealTime: {
+    fontSize: 13,
+    color: '#8E8E93',
+    marginBottom: 4,
+  },
+  mealDescription: {
+    fontSize: 15,
+    color: '#8E8E93',
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  macroContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  macroItem: {
+    backgroundColor: '#E8F5E8',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 48,
+  },
+  macroLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginRight: 2,
+  },
+  macroValue: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#1C1C1E',
+  },
+  mealDivider: {
+    height: 1,
+    backgroundColor: '#F2F2F7',
+    marginVertical: 0,
+    width: '100%',
+  },
+  moreRowButton: {
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreRowText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
+    marginRight: 4,
+  },
+});
+
+// Modern history styles for meal history cards
+const modernHistoryStyles = StyleSheet.create({
+  filterHeader: {
+    marginBottom: 8,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    alignSelf: 'flex-start',
+  },
+  filterLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#007AFF',
+    marginLeft: 8,
+    marginRight: 4,
+  },
+  dayTotals: {
+    fontSize: 14,
+    color: '#8E8E93',
+    fontWeight: '500',
+    marginBottom: 16,
+  },
+  mealsContainer: {
+    marginTop: 8,
   },
 });
 
