@@ -12,6 +12,7 @@ const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 // Test different models to see which ones work (ordered by cost-effectiveness)
 const modelsToTest = [
+  'gemini-2.5-flash',       // Enhanced reasoning (hybrid model)
   'gemini-2.0-flash-exp',   // Most cost-effective (experimental)
   'gemini-2.0-flash',       // Very cost-effective (stable)
   'gemini-pro',             // Standard pricing

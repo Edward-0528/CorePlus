@@ -51,7 +51,6 @@ const BarcodeScannerModal = ({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
       <StatusBar barStyle="light-content" backgroundColor="black" />

@@ -1,38 +1,39 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { searchProductByText } from './barcodeService';
 
-// Get API key from environment variables
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+// Function to get API key dynamically (ensures availability in production)
+const getGeminiApiKey = () => process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
 class FoodSearchService {
   constructor() {
-    // Check if API key is available, but don't crash if missing
-    if (!GEMINI_API_KEY) {
-      console.warn('⚠️ Gemini API key not configured. Food search features will be limited.');
-      this.genAI = null;
-      this.model = null;
-      this.hasApiKey = false;
-    } else {
-      console.log('✅ Gemini API key configured for food search');
-      this.genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-      this.model = null;
-      this.hasApiKey = true;
-    }
-    
+    this.genAI = null;
+    this.model = null;
     this.requestCount = 0;
     this.lastRequestTime = 0;
     this.RATE_LIMIT_DELAY = 1000; // 1 second between requests
   }
 
+  // Check if API key is available dynamically
+  hasApiKey() {
+    return !!getGeminiApiKey();
+  }
+
   async initializeModel() {
-    if (!this.hasApiKey) {
+    if (!this.hasApiKey()) {
       console.log('No Gemini API key available, skipping model initialization');
       return false;
     }
     
+    // Initialize GoogleGenerativeAI if not already done
+    if (!this.genAI) {
+      const apiKey = getGeminiApiKey();
+      console.log('✅ Gemini API key found, initializing GoogleGenerativeAI');
+      this.genAI = new GoogleGenerativeAI(apiKey);
+    }
+    
     if (!this.model) {
       // Try multiple models in order of preference (most cost-effective first)
-      const modelsToTry = ['gemini-2.0-flash-exp', 'gemini-2.0-flash', 'gemini-pro'];
+      const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-pro'];
       
       for (const modelName of modelsToTry) {
         try {
@@ -70,7 +71,7 @@ class FoodSearchService {
   async searchFood(query) {
     try {
       // Check if API key is available
-      if (!this.hasApiKey) {
+      if (!this.hasApiKey()) {
         console.log('🔍 Gemini API not available, returning fallback food data');
         return this.getFallbackFoodData(query);
       }
@@ -275,7 +276,7 @@ Use precise portions and verified nutrition data. Return only JSON.
   async searchFoodSuggestions(query) {
     try {
       // If no API key, fall back to OpenFoodFacts multi-result search
-      if (!this.hasApiKey) {
+      if (!this.hasApiKey()) {
         console.log('🔎 Using OpenFoodFacts fallback for suggestions (no Gemini key)');
         const off = await searchProductByText(query, 10);
         if (off.success && off.products?.length) {

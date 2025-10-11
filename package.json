@@ -1,6 +1,6 @@
 {
   "name": "core-plus",
-  "version": "1.0.33",
+  "version": "1.0.41",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -32,6 +32,7 @@
     "expo": "54.0.8",
     "expo-av": "~16.0.7",
     "expo-camera": "~17.0.8",
+    "expo-file-system": "^19.0.17",
     "expo-font": "~14.0.8",
     "expo-haptics": "~15.0.7",
     "expo-linear-gradient": "~15.0.7",

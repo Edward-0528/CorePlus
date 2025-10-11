@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { ScrollView, RefreshControl, StyleSheet, Animated, Modal, View, Text, Alert, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -13,22 +13,7 @@ import MultiFoodSelectionCard from '../../food/MultiFoodSelectionCard';
 import SwipeToDeleteWrapper from '../../shared/SimpleSwipeToDelete';
 import TodaysMealsComponent from '../../nutrition/TodaysMealsComponent';
 import FoodSearchModal from '../../food/FoodSearchModal';
-
-// Define colors directly
-const AppColors = {
-  primary: '#6B8E23',
-  white: '#FFFFFF',
-  border: '#E9ECEF',
-  textPrimary: '#212529',
-  textSecondary: '#6C757D',
-  textLight: '#ADB5BD',
-  backgroundSecondary: '#F8F9FA',
-  nutrition: '#8FBC8F',
-  workout: '#FF6B6B',
-  account: '#FFC107',
-  success: '#28A745',
-  warning: '#FFC107',
-};
+import { AppColors } from '../../../constants/AppColors';
 
 const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
   const [refreshing, setRefreshing] = useState(false);
@@ -316,8 +301,14 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
     // Photo is handled by the camera component
   };
 
-  const handleFoodAnalysisComplete = async (predictions, imageUri, isLoading, errorMessage) => {
-    console.log('Food analysis complete:', { predictions, imageUri, isLoading, errorMessage });
+  const handleFoodAnalysisComplete = useCallback(async (predictions, imageUri, isLoading, errorMessage) => {
+    console.log('🔥🔥🔥 HANDLER CALLED - START OF FUNCTION');
+    console.log('🔥 handleFoodAnalysisComplete called with:', { 
+      predictions: predictions?.length || 0, 
+      imageUri, 
+      isLoading, 
+      errorMessage 
+    });
     
     if (errorMessage) {
       console.error('❌ Food analysis error:', errorMessage);
@@ -327,11 +318,27 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
 
     if (isLoading) {
       console.log('📋 Food analysis in progress, showing loading screen...');
+      console.log('📋 Setting state: foodPredictions=[], capturedImage=', imageUri);
+      console.log('📋 Setting state: showFoodCamera=false, showMultiSelectionCard=true');
+      
       // Close camera and show loading screen immediately
       setFoodPredictions([]); // Empty predictions for loading state
       setCapturedImage(imageUri);
-      setShowFoodCamera(false);
-      setShowMultiSelectionCard(true); // Show loading in multi-selection card
+      
+      // Use Alert to test if callback is working
+      console.log('🚨 ABOUT TO SHOW ALERT');
+      Alert.alert('TEST', 'Loading callback was called successfully!');
+      console.log('🚨 ALERT SHOULD HAVE APPEARED');
+      
+      // Use setTimeout to ensure state updates are processed in order
+      setTimeout(() => {
+        setShowFoodCamera(false);
+        setTimeout(() => {
+          setShowMultiSelectionCard(true); // Show loading in multi-selection card
+          console.log('📋 State should be updated now - showMultiSelectionCard=true');
+        }, 50);
+      }, 50);
+      
       return;
     }
 
@@ -352,7 +359,7 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       console.log('❌ No food predictions received');
       setShowFoodCamera(false);
     }
-  };
+  }, []);
 
   // Food selection handlers
   const handleFoodSelection = async (selectedFood) => {
@@ -930,7 +937,6 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
         <Modal
           visible={showFoodCamera}
           animationType="slide"
-          presentationStyle="fullScreen"
           onRequestClose={handleCameraClose}
         >
           <FoodCameraScreen

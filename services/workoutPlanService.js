@@ -34,25 +34,25 @@ class WorkoutPlanService {
     try {
       // Try experimental version first (most cost-effective)
       model = genAI.getGenerativeModel({ 
-        model: "gemini-2.0-flash-exp",
+        model: "gemini-2.5-flash",
         generationConfig: {
           temperature: 0.3,
           topK: 10,
           maxOutputTokens: 1500, // Optimized for cost savings
         }
       });
-      console.log('✅ Using gemini-2.0-flash-exp for workout planning');
+      console.log('✅ Using gemini-2.5-flash for workout planning');
     } catch (error) {
       // Fallback to stable version
       model = genAI.getGenerativeModel({ 
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         generationConfig: {
           temperature: 0.3,
           topK: 10,
           maxOutputTokens: 1500,
         }
       });
-      console.log('✅ Using gemini-2.0-flash for workout planning');
+      console.log('✅ Using gemini-2.5-flash for workout planning');
     }
         console.log('🤖 Gemini model initialized for workout planning');
       } catch (error) {

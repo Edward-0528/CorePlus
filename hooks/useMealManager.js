@@ -176,9 +176,9 @@ export const useMealManager = () => {
               }
               
               console.log(`✅ Loaded ${formattedMeals.length} meals for ${date}`);
-              return { date, success: true, count: formattedMeals.length };
+              return { date, success: true, count: formattedMeals.length, meals: formattedMeals };
             }
-            return { date, success: false, error: 'No data' };
+            return { date, success: false, error: 'No data', meals: [] };
           } catch (error) {
             console.error(`Error loading meals for ${date}:`, error);
             return { date, success: false, error: error.message };
@@ -204,21 +204,44 @@ export const useMealManager = () => {
   const getMealsForDate = useCallback(async (date) => {
     const today = getLocalDateString(); // Use local date
     
+    console.log('🍽️ [getMealsForDate] Requesting meals for:', date);
+    
     // If requesting today's meals, return from context
     if (date === today) {
+      console.log('🍽️ [getMealsForDate] Returning today\'s meals:', todaysMeals?.length || 0);
       return todaysMeals;
     }
     
     // Check if we have this date in history
     if (mealHistory[date]) {
+      console.log('🍽️ [getMealsForDate] Returning cached meals for', date, ':', mealHistory[date]?.length || 0);
       return mealHistory[date];
     }
     
-    // Load if not available
-    await loadMealHistory([date]);
-    const result = mealHistory[date] || [];
-    return result;
-  }, [mealHistory, todaysMeals, loadMealHistory]);
+    // Load directly from service if not available
+    console.log('🍽️ [getMealsForDate] Loading meals for', date, 'directly from service');
+    try {
+      const result = await mealService.getMealsByDate(date);
+      
+      if (result.success) {
+        const rawMeals = result.meals || [];
+        const formattedMeals = formatMeals(rawMeals);
+        
+        // Update state with formatted meals for future use
+        setMealHistory(prev => ({ ...prev, [date]: formattedMeals }));
+        setLoadedDates(prev => new Set([...prev, date]));
+        
+        console.log('🍽️ [getMealsForDate] Loaded and cached', formattedMeals.length, 'meals for', date);
+        return formattedMeals;
+      } else {
+        console.log('🍽️ [getMealsForDate] No meals found for', date);
+        return [];
+      }
+    } catch (error) {
+      console.error('🍽️ [getMealsForDate] Error loading meals for', date, ':', error);
+      return [];
+    }
+  }, [mealHistory, todaysMeals, formatMeals]);
 
   // Get nutrition totals for a specific date
   const getNutritionTotalsForDate = useCallback(async (date) => {

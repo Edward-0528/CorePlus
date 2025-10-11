@@ -12,6 +12,18 @@ class RevenueCatService {
     try {
       if (this.isInitialized) return { success: true };
 
+      // Check if running in Expo Go - if so, use browser mode
+      const isExpoGo = __DEV__ && (
+        typeof navigator !== 'undefined' || 
+        process.env.EXPO_PUBLIC_EXPO_GO === 'true'
+      );
+
+      if (isExpoGo) {
+        console.log('Expo Go app detected. Using RevenueCat in Browser Mode.');
+        this.isInitialized = true;
+        return { success: true, mode: 'browser' };
+      }
+
       // Get API keys from environment with fallback and debugging
       const androidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
       const iosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
@@ -25,23 +37,25 @@ class RevenueCatService {
       });
 
       if (!androidKey && !iosKey) {
-        console.error('⚠️ RevenueCat API keys not found in environment - check EAS secrets');
-        return { success: false, error: 'API keys missing' };
+        console.warn('⚠️ RevenueCat API keys not found - running in fallback mode');
+        this.isInitialized = true; // Mark as initialized to prevent blocking
+        return { success: true, mode: 'fallback' };
       }
 
       // Configure RevenueCat with the correct API key for platform
       const apiKey = Platform.OS === 'android' ? androidKey : iosKey;
       if (!apiKey) {
-        console.error(`⚠️ RevenueCat API key not found for ${Platform.OS} - check EAS secrets`);
-        return { success: false, error: `No ${Platform.OS} API key` };
+        console.warn(`⚠️ RevenueCat API key not found for ${Platform.OS} - running in fallback mode`);
+        this.isInitialized = true; // Mark as initialized to prevent blocking
+        return { success: true, mode: 'fallback' };
       }
 
       console.log(`🔧 Configuring RevenueCat for ${Platform.OS}...`);
 
-      // Add timeout for initialization
+      // Add timeout for initialization (shorter to not block auth)
       const initPromise = Purchases.configure({ apiKey });
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('RevenueCat initialization timeout')), 10000)
+        setTimeout(() => reject(new Error('RevenueCat initialization timeout')), 5000)
       );
 
       await Promise.race([initPromise, timeoutPromise]);
@@ -342,46 +356,56 @@ class RevenueCatService {
       console.log(`🔍 [DEBUG] RevenueCat initialized: ${this.isInitialized}`);
       
       if (!this.isInitialized) {
-        console.log('🚧 RevenueCat not initialized - attempting to initialize first');
-        const initResult = await this.initialize();
-        if (!initResult.success) {
-          console.error('❌ Cannot set user ID - RevenueCat initialization failed:', initResult.error);
-          return;
-        }
+        console.warn('🚧 RevenueCat not initialized - skipping user ID setting');
+        return { success: false, reason: 'not_initialized' };
       }
 
       if (!userID) {
         console.warn('No user ID provided');
-        return;
+        return { success: false, reason: 'no_user_id' };
       }
 
       console.log(`👤 Setting RevenueCat user ID: ${userID}`);
       
-      // Get current customer info before login to see if we have anonymous user
-      try {
-        const beforeInfo = await Purchases.getCustomerInfo();
-        console.log('[RC] Before login - Current user ID:', beforeInfo.originalAppUserId);
-      } catch (beforeError) {
-        console.warn('Could not get customer info before login:', beforeError.message);
-      }
+      // Add timeout for RevenueCat operations
+      const setUserPromise = (async () => {
+        // Get current customer info before login to see if we have anonymous user
+        try {
+          const beforeInfo = await Purchases.getCustomerInfo();
+          console.log('[RC] Before login - Current user ID:', beforeInfo.originalAppUserId);
+        } catch (beforeError) {
+          console.warn('Could not get customer info before login:', beforeError.message);
+        }
+        
+        await Purchases.logIn(userID);
+        await this.refreshCustomerInfo();
+        
+        console.log(`✅ User logged in to RevenueCat: ${userID}`);
+        
+        // Log the customer info to verify user appears in dashboard
+        if (this.customerInfo) {
+          console.log('[RC] Customer created/linked:', {
+            originalAppUserId: this.customerInfo.originalAppUserId,
+            allPurchaseDates: Object.keys(this.customerInfo.allPurchaseDates || {}),
+            hasActiveEntitlements: Object.keys(this.customerInfo.entitlements?.active || {}).length > 0
+          });
+        }
+        
+        return { success: true };
+      })();
       
-      await Purchases.logIn(userID);
-      await this.refreshCustomerInfo();
+      // Add timeout to prevent blocking
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('RevenueCat user ID timeout')), 8000)
+      );
       
-      console.log(`✅ User logged in to RevenueCat: ${userID}`);
-      
-      // Log the customer info to verify user appears in dashboard
-      if (this.customerInfo) {
-        console.log('[RC] Customer created/linked:', {
-          originalAppUserId: this.customerInfo.originalAppUserId,
-          allPurchaseDates: Object.keys(this.customerInfo.allPurchaseDates || {}),
-          hasActiveEntitlements: Object.keys(this.customerInfo.entitlements?.active || {}).length > 0
-        });
-      }
+      const result = await Promise.race([setUserPromise, timeoutPromise]);
+      return result;
       
     } catch (error) {
       console.error('❌ RevenueCat user ID setting failed:', error.message);
       console.error('❌ Full error:', error);
+      return { success: false, error: error.message };
     }
   }
 

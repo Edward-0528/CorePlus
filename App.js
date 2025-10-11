@@ -1,6 +1,14 @@
 // Production safety - must be first import
 import './utils/productionSafe';
 
+// Development testing imports
+if (__DEV__) {
+  import('./test_manual_meal_search');
+} else {
+  // Production debugging
+  import('./debug_production_logs');
+}
+
 import 'react-native-reanimated';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Alert, Linking, View, StyleSheet, AppState } from 'react-native';
@@ -282,10 +290,11 @@ function AppContent() {
     const authTimeout = setTimeout(() => {
       if (authTimeoutCleared) return; // Don't execute if already cleared
       
-      console.error('⏰ AUTHENTICATION TIMEOUT - Force completing auth after 45 seconds');
+      console.error('⏰ AUTHENTICATION TIMEOUT - Force completing auth after 60 seconds');
       console.log('⏰ Current auth state at timeout:', { isAuthenticated, user: user?.id || 'none' });
       
       setAuthLoading(false);
+      setLoading(false);
       // Only show landing if we're still not authenticated
       if (!isAuthenticated) {
         console.log('⏰ No authentication found, showing landing screen');
@@ -294,24 +303,17 @@ function AppContent() {
       } else {
         console.log('⏰ User is authenticated, keeping current state');
       }
-    }, 45000); // Increased to 45 seconds
+    }, 60000); // Increased to 60 seconds
     
     try {
-      // Initialize RevenueCat silently (no longer debugging)
-      try {
-        await revenueCatService.initialize();
-      } catch (rcError) {
-        // Continue app initialization even if RevenueCat fails
-      }
-      
-      // Use enhanced session initialization
+      // Use enhanced session initialization FIRST
       console.log('🔐 [STEP 1/3] Checking authentication session...');
       const sessionStartTime = Date.now();
       
       // Add timeout for session check (increased for better reliability)
       const sessionPromise = authService.initializeSession();
       const sessionTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Session initialization timeout')), 25000)
+        setTimeout(() => reject(new Error('Session initialization timeout')), 30000)
       );
       
       const sessionResult = await Promise.race([sessionPromise, sessionTimeoutPromise]);
@@ -326,21 +328,14 @@ function AppContent() {
         setIsAuthenticated(true);
         setShowLanding(false);
         
-        // Set RevenueCat user ID silently
-        try {
-          await revenueCatService.setUserID(sessionResult.user.id);
-        } catch (rcError) {
-          // Continue without blocking the app
-        }
-        
         // For existing users, check if they have completed onboarding
         console.log('🎯 [STEP 3/3] Checking onboarding status...');
         const onboardingStartTime = Date.now();
         
-        // Add timeout for onboarding check (increased to 30s)
+        // Add timeout for onboarding check (increased to 20s)
         const onboardingPromise = checkIfUserNeedsOnboarding(sessionResult.user.id);
         const onboardingTimeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Onboarding check timeout')), 30000)
+          setTimeout(() => reject(new Error('Onboarding check timeout')), 20000)
         );
         
         try {
@@ -353,6 +348,20 @@ function AppContent() {
           console.log('🎯 Defaulting to no onboarding needed');
           setShowOnboarding(false); // Default to false if check fails
         }
+        
+        // Initialize RevenueCat AFTER auth is complete and in background
+        setTimeout(async () => {
+          try {
+            console.log('🔄 Initializing RevenueCat in background...');
+            await revenueCatService.initialize();
+            await revenueCatService.setUserID(sessionResult.user.id);
+            console.log('✅ RevenueCat initialized successfully in background');
+          } catch (rcError) {
+            console.warn('⚠️ RevenueCat initialization failed (non-blocking):', rcError.message);
+            // Continue app functionality even if RevenueCat fails
+          }
+        }, 1000); // 1 second delay to not block auth
+        
       } else {
         // No user found, show landing
         console.log('🚫 No user session found, showing landing screen');

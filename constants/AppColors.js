@@ -2,16 +2,24 @@
 // This file defines all colors used throughout the Core+ app
 
 export const AppColors = {
-  // Primary brand colors
-  primary: '#4A90E2',
-  primaryLight: '#6BA3E6',
-  primaryDark: '#357ABD',
+  // Primary brand colors (keeping the green accent the user likes)
+  primary: '#6B8E23',  // Green accent
+  primaryLight: '#8FBC8F',
+  primaryDark: '#556B2F',
   
   // Semantic colors
   success: '#28A745',
-  warning: '#FFC107',
+  warning: '#FFC107', 
   danger: '#DC3545',
   info: '#17A2B8',
+  
+  // Light variants for backgrounds
+  successLight: '#D4EDDA',
+  warningLight: '#FFF3CD', 
+  dangerLight: '#F8D7DA',
+  
+  // Additional semantic colors
+  amber: '#FF9500',
   
   // Category colors
   nutrition: '#50E3C2',

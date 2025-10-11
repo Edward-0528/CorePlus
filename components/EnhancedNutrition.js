@@ -4,19 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import TodayNutritionView from './nutrition/TodayNutritionView';
 import CalendarMealHistory from './nutrition/CalendarMealHistory';
 import { useDailyCalories } from '../contexts/DailyCaloriesContext';
-
-const AppColors = {
-  primary: '#6B8E23',
-  white: '#FFFFFF',
-  border: '#E9ECEF',
-  textPrimary: '#212529',
-  textSecondary: '#6C757D',
-  textLight: '#ADB5BD',
-  backgroundSecondary: '#F8F9FA',
-  success: '#28A745',
-  danger: '#DC3545',
-  warning: '#FFC107',
-};
+import { AppColors } from '../constants/AppColors';
 
 const EnhancedNutrition = ({ user, onLogout, loading, styles }) => {
   const [activeTab, setActiveTab] = useState('today'); // 'today' or 'history'

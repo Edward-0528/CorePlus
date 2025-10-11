@@ -5,22 +5,7 @@ import { useMealManager } from '../../hooks/useMealManager';
 import { useDailyCalories } from '../../contexts/DailyCaloriesContext';
 import { getLocalDateString, getLocalDateStringFromDate } from '../../utils/dateUtils';
 import DayDetailModal from './DayDetailModal';
-
-const AppColors = {
-  primary: '#6B8E23',
-  white: '#FFFFFF',
-  border: '#E9ECEF',
-  textPrimary: '#212529',
-  textSecondary: '#6C757D',
-  textLight: '#ADB5BD',
-  backgroundSecondary: '#F8F9FA',
-  success: '#28A745',
-  danger: '#DC3545',
-  warning: '#FFC107',
-  successLight: '#D4EDDA',
-  dangerLight: '#F8D7DA',
-  warningLight: '#FFF3CD',
-};
+import { AppColors } from '../../constants/AppColors';
 
 const CalendarMealHistory = ({ calorieGoal = 2000 }) => {
   const { getNutritionTotalsForDate } = useMealManager();
@@ -49,6 +34,13 @@ const CalendarMealHistory = ({ calorieGoal = 2000 }) => {
       const month = currentDate.getMonth();
       const today = getLocalDateString();
       
+      console.log('📅 [Calendar] Loading month data:', {
+        year,
+        month: month + 1, // month is 0-indexed
+        monthName: currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+        today
+      });
+      
       // Get all days in the month
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       const monthData = {};
@@ -64,19 +56,31 @@ const CalendarMealHistory = ({ calorieGoal = 2000 }) => {
         const dateStr = getLocalDateStringFromDate(date);
         
         let calories = 0;
+        let totalsData = { calories: 0, mealCount: 0 };
+        
         if (dateStr === today) {
           // Today's calories from context
           calories = dailyCalories;
         } else if (date <= new Date()) {
           // Historical data for past days only
-          const totals = await getNutritionTotalsForDate(dateStr);
-          calories = totals.calories;
+          totalsData = await getNutritionTotalsForDate(dateStr);
+          calories = totalsData.calories;
+          
+          // Debug logging for the specific date you mentioned (reduce logging for performance)
+          if (dateStr === '2025-09-27') {
+            console.log('📅 [Calendar Debug] Found data for 2025-09-27:', {
+              dateStr,
+              calories,
+              mealCount: totalsData.mealCount
+            });
+          }
         }
 
-        const hasData = calories > 0 || dateStr === today;
+        // Consider data to exist if we have calories OR if we have meal count
+        const hasData = calories > 0 || totalsData.mealCount > 0 || dateStr === today;
         const isOnTarget = hasData && calories >= (calorieGoal * 0.85) && calories <= (calorieGoal * 1.15);
         const isOverGoal = hasData && calories > (calorieGoal * 1.15);
-        const isUnderGoal = hasData && calories < (calorieGoal * 0.85);
+        const isUnderGoal = hasData && calories < (calorieGoal * 1.15) && calories > 0; // Under goal = green
 
         monthData[day] = {
           date: dateStr,
@@ -86,8 +90,21 @@ const CalendarMealHistory = ({ calorieGoal = 2000 }) => {
           isOverGoal,
           isUnderGoal,
           isToday: dateStr === today,
-          isFuture: date > new Date()
+          isFuture: date > new Date(),
+          mealCount: totalsData.mealCount || 0
         };
+
+        // Debug logging for all days with data (reduce for performance)
+        if (hasData && calories > 0 && dateStr === '2025-09-27') {
+          console.log('📅 [Calendar] September 27 data:', {
+            day,
+            dateStr,
+            calories,
+            isOnTarget,
+            isOverGoal,
+            isUnderGoal
+          });
+        }
 
         if (hasData) {
           totalCalories += calories;
@@ -130,10 +147,27 @@ const CalendarMealHistory = ({ calorieGoal = 2000 }) => {
     setCurrentDate(newDate);
   };
 
-  const handleDayPress = (day) => {
-    if (calendarData[day] && calendarData[day].hasData) {
-      setSelectedDay(calendarData[day]);
+  const handleDayPress = async (day) => {
+    const dayData = calendarData[day];
+    console.log('📅 [Calendar] Day pressed:', {
+      day,
+      dayData,
+      hasData: dayData?.hasData,
+      calories: dayData?.calories
+    });
+    
+    if (dayData && (dayData.hasData || dayData.calories > 0)) {
+      // Pre-load meal data to make modal faster
+      try {
+        await getNutritionTotalsForDate(dayData.date);
+      } catch (error) {
+        console.log('📅 [Calendar] Pre-load failed, continuing anyway:', error);
+      }
+      
+      setSelectedDay(dayData);
       setShowDayDetail(true);
+    } else {
+      console.log('📅 [Calendar] Day not clickable - no data');
     }
   };
 
@@ -207,23 +241,18 @@ const CalendarMealHistory = ({ calorieGoal = 2000 }) => {
     // Add days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const dayData = calendarData[day];
+      const isClickable = dayData?.hasData || (dayData && dayData.calories >= 0);
+      
       calendarDays.push(
         <TouchableOpacity
           key={day}
           style={[styles.calendarDay, getDayStyle(dayData)]}
           onPress={() => handleDayPress(day)}
-          disabled={!dayData?.hasData}
+          disabled={!isClickable}
         >
           <Text style={[styles.dayNumber, getDayTextStyle(dayData)]}>
             {day}
           </Text>
-          {dayData?.hasData && (
-            <View style={styles.calorieIndicator}>
-              <Text style={styles.calorieText}>
-                {dayData.calories > 999 ? `${Math.round(dayData.calories/1000)}k` : dayData.calories}
-              </Text>
-            </View>
-          )}
         </TouchableOpacity>
       );
     }
@@ -232,7 +261,18 @@ const CalendarMealHistory = ({ calorieGoal = 2000 }) => {
   };
 
   const getDayStyle = (dayData) => {
-    if (!dayData) return {};
+    if (!dayData) return styles.noDataDay;
+    
+    // Debug logging for September 27th only (reduce for performance)
+    if (dayData.date === '2025-09-27') {
+      console.log('📅 [Calendar Style] September 27th styling:', {
+        hasData: dayData.hasData,
+        calories: dayData.calories,
+        isOnTarget: dayData.isOnTarget,
+        isOverGoal: dayData.isOverGoal,
+        isUnderGoal: dayData.isUnderGoal
+      });
+    }
     
     if (dayData.isToday) {
       return styles.todayDay;
@@ -245,10 +285,11 @@ const CalendarMealHistory = ({ calorieGoal = 2000 }) => {
     } else if (dayData.isOverGoal) {
       return styles.overGoalDay;
     } else if (dayData.isUnderGoal) {
-      return styles.underGoalDay;
+      return styles.underGoalDay; // This will be green
     }
     
-    return {};
+    // Default for days with data but not categorized
+    return styles.underGoalDay; // Default to green for any data
   };
 
   const getDayTextStyle = (dayData) => {
@@ -292,7 +333,7 @@ const CalendarMealHistory = ({ calorieGoal = 2000 }) => {
               <Text style={styles.legendText}>Over Goal</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: AppColors.warning }]} />
+              <View style={[styles.legendDot, { backgroundColor: AppColors.success }]} />
               <Text style={styles.legendText}>Under Goal</Text>
             </View>
             <View style={styles.legendItem}>
@@ -411,9 +452,9 @@ const styles = StyleSheet.create({
     borderColor: AppColors.danger,
   },
   underGoalDay: {
-    backgroundColor: AppColors.warningLight,
+    backgroundColor: AppColors.successLight,
     borderWidth: 2,
-    borderColor: AppColors.warning,
+    borderColor: AppColors.success,
   },
   noDataDay: {
     backgroundColor: AppColors.backgroundSecondary,
@@ -433,16 +474,6 @@ const styles = StyleSheet.create({
   },
   inactiveText: {
     color: AppColors.textLight,
-  },
-  calorieIndicator: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-  },
-  calorieText: {
-    fontSize: 8,
-    fontWeight: 'bold',
-    color: AppColors.textSecondary,
   },
   legend: {
     margin: 20,

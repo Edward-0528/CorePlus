@@ -9,14 +9,14 @@ class GeminiService {
     if (this.apiKey && this.apiKey !== 'demo_key') {
       // Validate API key security
       securityService.validateGeminiKey(this.apiKey);
-      console.log('🤖 Initializing Gemini 2.0 Flash (most cost-effective model)');
+      console.log('🤖 Initializing Gemini 2.5 Flash (advanced reasoning model)');
       this.genAI = new GoogleGenerativeAI(this.apiKey);
-      // Try the experimental version first, fallback to stable
+      // Use Gemini 2.5 Flash for enhanced reasoning capabilities
       try {
-        this.model = this.genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
-        console.log('✅ Using gemini-2.0-flash-exp (experimental, most cost-effective)');
+        this.model = this.genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        console.log('✅ Using gemini-2.5-flash (hybrid reasoning, enhanced accuracy)');
       } catch (error) {
-        console.log('⚠️ Experimental model unavailable, using gemini-2.0-flash');
+        console.log('⚠️ Gemini 2.5 Flash unavailable, falling back to 2.0 Flash');
         this.model = this.genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       }
     }
@@ -27,7 +27,7 @@ class GeminiService {
     try {
       // Security checks
       securityService.checkRateLimit('gemini');
-      securityService.monitorModelUsage('gemini-2.0-flash-exp', 'recipe-search');
+      securityService.monitorModelUsage('gemini-2.5-flash', 'recipe-search');
       
       if (!this.model) {
         throw new Error('Gemini API not configured');

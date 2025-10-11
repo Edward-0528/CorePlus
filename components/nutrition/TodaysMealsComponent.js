@@ -3,23 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDailyCalories } from '../../contexts/DailyCaloriesContext';
 import SwipeToDeleteWrapper from '../shared/SimpleSwipeToDelete';
-
-// Define colors directly
-const AppColors = {
-  primary: '#6B8E23',
-  white: '#FFFFFF',
-  border: '#E9ECEF',
-  textPrimary: '#212529',
-  textSecondary: '#6C757D',
-  textLight: '#ADB5BD',
-  backgroundSecondary: '#F8F9FA',
-  nutrition: '#8FBC8F',
-  workout: '#FF6B6B',
-  account: '#FFC107',
-  success: '#28A745',
-  warning: '#FFC107',
-  danger: '#DC3545',
-};
+import { AppColors } from '../../constants/AppColors';
 
 const TodaysMealsComponent = ({ 
   showViewAll = true, 

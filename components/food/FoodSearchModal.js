@@ -74,46 +74,96 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
 
     try {
       console.log('🔍 Searching for:', searchQuery);
+      console.log('🔧 Environment check:', {
+        isDev: __DEV__,
+        hasApiKey: !!process.env.EXPO_PUBLIC_GEMINI_API_KEY,
+        platform: require('react-native').Platform.OS
+      });
       
       // Use enhanced food analysis service for better accuracy
       const result = await foodAnalysisService.analyzeFoodText(searchQuery);
+      console.log('📊 Food analysis result:', {
+        success: result.success,
+        predictionsCount: result.predictions?.length || 0,
+        source: result.source,
+        error: result.error
+      });
       
       if (result.success && result.predictions && result.predictions.length > 0) {
         // Convert predictions to the format expected by the modal
         const foods = result.predictions.map(prediction => ({
           name: fixCapitalization(prediction.name),
           calories: prediction.calories,
-          carbs: prediction.carbs,
-          protein: prediction.protein,
-          fat: prediction.fat,
+          carbs: prediction.carbs || 0,
+          protein: prediction.protein || 0,
+          fat: prediction.fat || 0,
           fiber: prediction.fiber || 0,
           sugar: prediction.sugar || 0,
           sodium: prediction.sodium || 0,
-          confidence: prediction.confidence || 0.8,
+          confidence: prediction.confidence || 0.7,
           serving_size: prediction.portion || 'per serving',
-          notes: prediction.description || 'AI analysis',
-          searchQuery: searchQuery,
-          method: 'enhanced-analysis'
+          method: 'analysis'
         }));
         
         setSearchResults(foods);
         console.log('✅ Found', foods.length, 'food options using enhanced analysis');
       } else {
-        // Show empty results
-        setSearchResults([]);
-        console.log('❌ No results from enhanced analysis');
+        // If enhanced analysis fails, try fallback search
+        console.warn('⚠️ Enhanced analysis failed, trying fallback search...');
+        try {
+          const fallbackResult = await foodSearchService.searchFoodSuggestions(searchQuery);
+          if (fallbackResult.success && fallbackResult.foods?.length > 0) {
+            setSearchResults(fallbackResult.foods);
+            console.log('✅ Found', fallbackResult.foods.length, 'food options using fallback service');
+          } else {
+            setSearchResults([]);
+            console.log('❌ No results from fallback search either');
+          }
+        } catch (fallbackError) {
+          console.error('❌ Fallback search also failed:', fallbackError.message);
+          setSearchResults([]);
+        }
       }
 
       setHasSearched(true);
 
     } catch (error) {
-      console.error('Search error:', error);
-      Alert.alert(
-        'Search Error',
-        'Failed to search for food. Please try again.',
-        [{ text: 'OK' }]
-      );
-      setSearchResults([]);
+      console.error('❌ Search error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
+        searchQuery: searchQuery
+      });
+      
+      // Try one more time with a very basic fallback
+      try {
+        console.log('🔄 Attempting basic fallback for:', searchQuery);
+        const basicFallback = [{
+          name: `${searchQuery} (estimated)`,
+          calories: 200,
+          carbs: 20,
+          protein: 10,
+          fat: 8,
+          fiber: 2,
+          sugar: 5,
+          sodium: 100,
+          confidence: 0.5,
+          serving_size: 'estimated portion',
+          method: 'fallback'
+        }];
+        setSearchResults(basicFallback);
+        console.log('✅ Using basic fallback result');
+      } catch (fallbackError) {
+        console.error('❌ Even basic fallback failed:', fallbackError);
+        setSearchResults([]);
+        Alert.alert(
+          'Search Error',
+          __DEV__ ? 
+            `Failed to search for food: ${error.message}` : 
+            'Failed to search for food. Please check your internet connection and try again.',
+          [{ text: 'OK' }]
+        );
+      }
       setHasSearched(true);
     } finally {
       setIsSearching(false);

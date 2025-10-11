@@ -1081,7 +1081,6 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
         <Modal
           visible={showFoodCamera}
           animationType="slide"
-          presentationStyle="fullScreen"
           onRequestClose={handleCameraClose}
         >
           <FoodCameraScreen

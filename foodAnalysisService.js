@@ -1,14 +1,28 @@
 // Food Analysis Service using Google Gemini AI for enhanced food identification and nutritional estimation
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
-// Validate API key
-if (!GEMINI_API_KEY) {
-  throw new Error(
-    'Missing Gemini API key. Please check your .env file and ensure EXPO_PUBLIC_GEMINI_API_KEY is set.'
-  );
-}
+import * as FileSystem from 'expo-file-system';
 
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`;
+// Get API key directly from environment (more reliable in production)
+const getGeminiApiKey = () => process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+
+// Function to construct API URL dynamically (ensures API key is available)
+const getGeminiApiUrl = () => {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('Gemini API key not available');
+  }
+  return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+};
+
+// Validate API key availability (but don't fail at module load)
+const validateApiKey = () => {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    console.error('Missing Gemini API key for food analysis. Search functionality may be limited.');
+    return false;
+  }
+  return true;
+};
 
 // Enhanced nutrition database with realistic serving sizes and accurate nutrition values
 const NUTRITION_DATABASE = {
@@ -221,6 +235,14 @@ export const foodAnalysisService = {
     try {
       console.log('🔍 Starting text-based food analysis for:', textDescription);
       
+      const apiKey = getGeminiApiKey();
+      console.log('🔧 API Key status:', {
+        hasKey: !!apiKey,
+        keyLength: apiKey ? apiKey.length : 0,
+        platform: require('react-native').Platform.OS,
+        isDev: __DEV__
+      });
+      
       // First check our fast food database for exact matches
       const fastFoodMatch = this.checkFastFoodDatabase(textDescription);
       if (fastFoodMatch.length > 0) {
@@ -229,6 +251,17 @@ export const foodAnalysisService = {
           success: true,
           predictions: fastFoodMatch,
           source: 'fast-food-database'
+        };
+      }
+      
+      // Check if API key is available before making AI call
+      if (!apiKey) {
+        console.warn('⚠️ Gemini API key not available, using basic fallback');
+        const basicPrediction = this.createBasicFoodPrediction(textDescription);
+        return {
+          success: true,
+          predictions: [basicPrediction],
+          source: 'basic-fallback'
         };
       }
       
@@ -252,12 +285,63 @@ export const foodAnalysisService = {
       
     } catch (error) {
       console.error('❌ Text food analysis failed:', error);
-      return {
-        success: false,
-        error: error.message,
-        predictions: []
-      };
+      console.error('❌ Full error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      
+      // Try to provide a basic fallback even when everything fails
+      try {
+        console.log('🔄 Attempting emergency fallback for:', textDescription);
+        const emergencyFallback = this.createBasicFoodPrediction(textDescription);
+        return {
+          success: true,
+          predictions: [emergencyFallback],
+          source: 'emergency-fallback',
+          originalError: error.message
+        };
+      } catch (fallbackError) {
+        console.error('❌ Even emergency fallback failed:', fallbackError);
+        return {
+          success: false,
+          error: error.message,
+          predictions: []
+        };
+      }
     }
+  },
+
+  // Create a basic food prediction when AI is not available
+  createBasicFoodPrediction(textDescription) {
+    const name = textDescription.charAt(0).toUpperCase() + textDescription.slice(1).toLowerCase();
+    
+    // Provide reasonable defaults based on common food types
+    let calories = 200, carbs = 20, protein = 10, fat = 8;
+    
+    // Adjust based on food type keywords
+    if (/chicken|fish|meat|beef|pork|turkey/i.test(textDescription)) {
+      calories = 250; carbs = 0; protein = 30; fat = 12;
+    } else if (/fruit|apple|banana|orange/i.test(textDescription)) {
+      calories = 80; carbs = 20; protein = 1; fat = 0;
+    } else if (/vegetable|salad|broccoli|carrot/i.test(textDescription)) {
+      calories = 25; carbs = 5; protein = 2; fat = 0;
+    } else if (/pasta|rice|bread|pizza/i.test(textDescription)) {
+      calories = 350; carbs = 60; protein = 12; fat = 8;
+    }
+    
+    return {
+      name: `${name} (estimated)`,
+      calories: calories,
+      carbs: carbs,
+      protein: protein,
+      fat: fat,
+      fiber: 2,
+      sugar: 3,
+      sodium: 100,
+      confidence: 0.5,
+      portion: 'estimated serving'
+    };
   },
 
   // Check fast food database for exact matches (saves API calls and improves accuracy)
@@ -383,18 +467,36 @@ export const foodAnalysisService = {
   // Convert image URI to base64
   async convertImageToBase64(imageUri) {
     try {
-      const response = await fetch(imageUri);
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = reader.result.split(',')[1]; // Remove data:image/jpeg;base64, prefix
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      console.log('🔄 Converting image to base64:', imageUri);
+      
+      // Method 1: Try expo-file-system first
+      try {
+        const base64 = await FileSystem.readAsStringAsync(imageUri, {
+          encoding: 'base64',
+        });
+        
+        console.log('✅ Base64 conversion successful with FileSystem, length:', base64.length);
+        return base64;
+      } catch (fsError) {
+        console.warn('FileSystem base64 failed, trying fetch method:', fsError.message);
+        
+        // Method 2: Fallback to fetch + manual base64 conversion
+        const response = await fetch(imageUri);
+        const arrayBuffer = await response.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        
+        // Convert to base64 manually
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        
+        const base64 = btoa(binary);
+        console.log('✅ Base64 conversion successful with fetch, length:', base64.length);
+        return base64;
+      }
     } catch (error) {
+      console.error('Base64 conversion error:', error);
       throw new Error(`Failed to convert image to base64: ${error.message}`);
     }
   },
@@ -475,7 +577,8 @@ CRITICAL: Provide nutrition values for the ACTUAL portion identified, not per 10
       },
     };
 
-    const response = await fetch(GEMINI_API_URL, {
+    const apiUrl = getGeminiApiUrl();
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -493,6 +596,13 @@ CRITICAL: Provide nutrition values for the ACTUAL portion identified, not per 10
 
   // Call Gemini API for text-based food analysis
   async callGeminiText(textDescription) {
+    // Check if API key is available dynamically
+    const apiKey = getGeminiApiKey();
+    if (!apiKey) {
+      console.error('❌ Gemini API key not available for text analysis');
+      throw new Error('API key not configured. Please check your environment variables.');
+    }
+
     const prompt = `Analyze this food description and provide detailed nutritional information: "${textDescription}"
 
 PRIORITY INSTRUCTIONS:
@@ -600,20 +710,31 @@ CRITICAL: For fast food, prioritize EXACT official nutrition data over estimates
       },
     };
 
-    const response = await fetch(GEMINI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
-    });
+    try {
+      console.log('🔍 Making Gemini API request for text analysis...');
+      const apiUrl = getGeminiApiUrl();
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Gemini API error: ${JSON.stringify(errorData)}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Gemini API error response:', response.status, errorText);
+        throw new Error(`Gemini API error (${response.status}): ${errorText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Gemini API response received successfully');
+      return result;
+      
+    } catch (networkError) {
+      console.error('❌ Network error calling Gemini API:', networkError.message);
+      throw new Error(`Network error: ${networkError.message}. Check your internet connection.`);
     }
-
-    return response.json();
   },
 
   // Extract food items from Gemini API response

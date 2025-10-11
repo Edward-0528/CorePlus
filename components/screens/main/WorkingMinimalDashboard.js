@@ -42,7 +42,9 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
     foodEntries = [],
     todaysMeals = [],
     deleteMeal,
-    mealsLoading
+    mealsLoading,
+    addMeal,
+    refreshMealsFromServer
   } = useDailyCalories();
   const { isPremium } = useSubscription();
   const { setActiveTab, setNutritionSubTab } = useAppContext();
@@ -319,6 +321,34 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
     setShowGoalModal(false);
   };
 
+  // Handle adding meal from food search
+  const handleFoodSearchMeal = async (mealData) => {
+    try {
+      console.log('📝 Adding meal from search in dashboard:', mealData);
+      
+      const result = await addMeal({
+        name: mealData.name,
+        calories: mealData.calories,
+        protein: mealData.protein,
+        carbs: mealData.carbs,
+        fat: mealData.fat,
+        fiber: mealData.fiber || 0,
+        sugar: mealData.sugar || 0,
+        sodium: mealData.sodium || 0,
+        method: 'search',
+        confidence: mealData.confidence || 0.8
+      });
+
+      if (result.success) {
+        console.log('✅ Search meal added successfully from dashboard');
+        await refreshMealsFromServer();
+        setShowFoodSearchModal(false);
+      }
+    } catch (error) {
+      console.error('❌ Error adding search meal from dashboard:', error);
+    }
+  };
+
   const renderHeader = () => (
     <View style={enhancedStyles.header}>
       <View style={enhancedStyles.headerContent}>
@@ -336,10 +366,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
           </Text>
         </View>
         <View style={enhancedStyles.streakSection}>
-          <View style={enhancedStyles.streakBadge}>
-            <Ionicons name="flame" size={16} color="#FF6B35" />
-            <Text style={enhancedStyles.streakText}>{currentStreak} day streak</Text>
-          </View>
+          {/* Streak badge removed per user request */}
           <TouchableOpacity style={enhancedStyles.avatarContainer}>
             <View style={enhancedStyles.avatar}>
               <Text style={enhancedStyles.avatarText}>
@@ -598,15 +625,23 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
 
       {/* Food Camera Modal */}
       {showFoodCamera && (
-        <FoodCameraScreen
+        <Modal
           visible={showFoodCamera}
-          onClose={() => setShowFoodCamera(false)}
-          onFoodAnalyzed={(predictions, imageUri, isLoading, errorMessage) => {
-            // Handle food analysis results - you can implement this similar to WorkingMinimalNutrition
-            console.log('Food analyzed:', predictions);
-            setShowFoodCamera(false);
-          }}
-        />
+          animationType="slide"
+          onRequestClose={() => setShowFoodCamera(false)}
+        >
+          <FoodCameraScreen
+            onPhotoTaken={(imageUri) => {
+              console.log('Photo taken:', imageUri);
+            }}
+            onClose={() => setShowFoodCamera(false)}
+            onAnalysisComplete={(predictions) => {
+              // Handle food analysis results - you can implement this similar to WorkingMinimalNutrition
+              console.log('Food analyzed:', predictions);
+              setShowFoodCamera(false);
+            }}
+          />
+        </Modal>
       )}
 
       {/* Food Search Modal */}
@@ -614,11 +649,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
         <FoodSearchModal
           visible={showFoodSearchModal}
           onClose={() => setShowFoodSearchModal(false)}
-          onFoodSelected={(food) => {
-            // Handle manual food entry - you can implement this similar to WorkingMinimalNutrition
-            console.log('Food selected:', food);
-            setShowFoodSearchModal(false);
-          }}
+          onAddMeal={handleFoodSearchMeal}
         />
       )}
     </View>
@@ -1047,7 +1078,7 @@ const enhancedStyles = StyleSheet.create({
   header: {
     backgroundColor: AppColors.white,
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 16, // Reduced from 60 to 16 since SafeAreaView handles status bar spacing
     paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border,
@@ -1055,15 +1086,17 @@ const enhancedStyles = StyleSheet.create({
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'flex-start', // Keep flex-start for proper layout
   },
   greetingSection: {
     flex: 1,
+    justifyContent: 'flex-start',
   },
   greeting: {
     fontSize: 16,
     color: AppColors.textSecondary,
     marginBottom: 2,
+    marginTop: 0, // Ensure no extra top margin
   },
   userName: {
     fontSize: 28,
@@ -1076,22 +1109,8 @@ const enhancedStyles = StyleSheet.create({
     color: AppColors.textSecondary,
   },
   streakSection: {
-    alignItems: 'flex-end',
-  },
-  streakBadge: {
-    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF2E8',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    marginBottom: 12,
-  },
-  streakText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FF6B35',
-    marginLeft: 4,
+    marginTop: 14, // Fine-tuned to align avatar center with user name center
   },
   avatarContainer: {
     width: 48,

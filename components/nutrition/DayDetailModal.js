@@ -10,27 +10,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useMealManager } from '../../hooks/useMealManager';
-
-const AppColors = {
-  primary: '#6B8E23',
-  white: '#FFFFFF',
-  border: '#E9ECEF',
-  textPrimary: '#212529',
-  textSecondary: '#6C757D',
-  textLight: '#ADB5BD',
-  backgroundSecondary: '#F8F9FA',
-  success: '#28A745',
-  danger: '#DC3545',
-  warning: '#FFC107',
-  successLight: '#D4EDDA',
-  dangerLight: '#F8D7DA',
-  warningLight: '#FFF3CD',
-};
+import { AppColors } from '../../constants/AppColors';
 
 const DayDetailModal = ({ visible, onClose, dayData, calorieGoal = 2000 }) => {
   const { getMealsForDate } = useMealManager();
   const [meals, setMeals] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [mealsCache, setMealsCache] = useState({}); // Add caching
   const [nutrition, setNutrition] = useState({
     calories: 0,
     carbs: 0,
@@ -45,11 +31,47 @@ const DayDetailModal = ({ visible, onClose, dayData, calorieGoal = 2000 }) => {
   }, [visible, dayData]);
 
   const loadDayDetails = async () => {
-    if (!dayData?.date) return;
+    if (!dayData?.date) {
+      console.log('📅 [DayDetail] No dayData or date:', dayData);
+      return;
+    }
+    
+    const dateKey = dayData.date;
+    
+    // Check cache first for instant loading
+    if (mealsCache[dateKey]) {
+      console.log('📅 [DayDetail] Loading from cache for:', dateKey);
+      const cachedMeals = mealsCache[dateKey];
+      setMeals(cachedMeals);
+      
+      // Calculate nutrition totals instantly from cache
+      const totals = cachedMeals.reduce((acc, meal) => ({
+        calories: acc.calories + (meal.calories || 0),
+        carbs: acc.carbs + (meal.carbs || 0),
+        protein: acc.protein + (meal.protein || 0),
+        fat: acc.fat + (meal.fat || 0)
+      }), { calories: 0, carbs: 0, protein: 0, fat: 0 });
+      
+      setNutrition(totals);
+      return; // Skip loading state for cached data
+    }
     
     setLoading(true);
     try {
+      console.log('📅 [DayDetail] Loading meals from server for date:', dayData.date);
       const dayMeals = await getMealsForDate(dayData.date);
+      console.log('📅 [DayDetail] Loaded meals:', {
+        date: dayData.date,
+        mealCount: dayMeals?.length || 0,
+        meals: dayMeals
+      });
+      
+      // Cache the results for future fast loading
+      setMealsCache(prev => ({
+        ...prev,
+        [dateKey]: dayMeals || []
+      }));
+      
       setMeals(dayMeals);
       
       // Calculate nutrition totals
@@ -60,9 +82,10 @@ const DayDetailModal = ({ visible, onClose, dayData, calorieGoal = 2000 }) => {
         fat: acc.fat + (meal.fat || 0)
       }), { calories: 0, carbs: 0, protein: 0, fat: 0 });
       
+      console.log('📅 [DayDetail] Calculated totals:', totals);
       setNutrition(totals);
     } catch (error) {
-      console.error('Error loading day details:', error);
+      console.error('❌ [DayDetail] Error loading day details:', error);
     } finally {
       setLoading(false);
     }

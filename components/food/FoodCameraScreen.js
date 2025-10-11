@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, fonts } from '../../utils/responsive';
+import { foodAnalysisService } from '../../foodAnalysisService';
 
 // Define colors directly to match the minimal design
 // Define colors directly
@@ -33,6 +34,14 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
   const [captureButtonScale] = useState(new Animated.Value(1));
   const [focusFrameOpacity] = useState(new Animated.Value(0.6));
   const cameraRef = useRef(null);
+  
+  // Use refs to maintain callback references
+  const callbacksRef = useRef({ onPhotoTaken, onClose, onAnalysisComplete });
+  
+  // Update refs when callbacks change
+  useEffect(() => {
+    callbacksRef.current = { onPhotoTaken, onClose, onAnalysisComplete };
+  }, [onPhotoTaken, onClose, onAnalysisComplete]);
 
   useEffect(() => {
     // Animate focus frame pulsing
@@ -234,42 +243,64 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
         await MediaLibrary.saveToLibraryAsync(photo.uri);
         
         // Notify parent component with photo immediately
-        if (onPhotoTaken) {
-          onPhotoTaken(photo.uri);
+        if (callbacksRef.current.onPhotoTaken) {
+          console.log('📱 Calling onPhotoTaken callback');
+          callbacksRef.current.onPhotoTaken(photo.uri);
+        } else {
+          console.log('❌ onPhotoTaken callback is null');
         }
 
         // Immediately transition to selection screen with loading state
-        if (onAnalysisComplete) {
-          onAnalysisComplete([], photo.uri, true); // Empty predictions, loading = true
+        console.log('📱 About to call onAnalysisComplete with loading=true');
+        if (callbacksRef.current.onAnalysisComplete) {
+          console.log('📱 Calling onAnalysisComplete with loading state');
+          callbacksRef.current.onAnalysisComplete([], photo.uri, true); // Empty predictions, loading = true
+          console.log('📱 onAnalysisComplete loading call completed');
+        } else {
+          console.log('❌ onAnalysisComplete callback is null');
         }
         
         // Close camera immediately to show loading screen
-        if (onClose) {
-          onClose();
+        console.log('📱 About to close camera');
+        if (callbacksRef.current.onClose) {
+          console.log('📱 Calling onClose');
+          callbacksRef.current.onClose();
+          console.log('📱 onClose call completed');
+        } else {
+          console.log('❌ onClose callback is null');
         }
         
         // Reset analyzing state immediately since we're transitioning away
         setIsAnalyzing(false);
 
-        // Import and use food analysis service
-        const { foodAnalysisService } = await import('../foodAnalysisService');
-        
-        // Analyze the photo in background
-        const analysisResult = await foodAnalysisService.analyzeFoodImage(photo.uri);
-        
-        console.log('🔍 Analysis result:', analysisResult);
-        
-        if (analysisResult.success && analysisResult.predictions.length > 0) {
-          // Update with actual analysis results
-          if (onAnalysisComplete) {
-            onAnalysisComplete(analysisResult.predictions, photo.uri, false);
+        // Start background analysis - use setTimeout to ensure camera is closed first
+        setTimeout(async () => {
+          try {
+            console.log('🔄 Starting background food analysis for:', photo.uri);
+            const analysisResult = await foodAnalysisService.analyzeFoodImage(photo.uri);
+            
+            console.log('🔍 Background analysis result:', analysisResult);
+            
+            if (analysisResult.success && analysisResult.predictions.length > 0) {
+              console.log('✅ Analysis successful, predictions:', analysisResult.predictions.length);
+              // Update with actual analysis results using refs
+              if (callbacksRef.current.onAnalysisComplete) {
+                callbacksRef.current.onAnalysisComplete(analysisResult.predictions, photo.uri, false);
+              }
+            } else {
+              console.log('⚠️ Analysis returned no predictions');
+              // Analysis failed, update with error state using refs
+              if (callbacksRef.current.onAnalysisComplete) {
+                callbacksRef.current.onAnalysisComplete([], photo.uri, false, 'Could not identify the food. Please try again or add manually.');
+              }
+            }
+          } catch (analysisError) {
+            console.error('❌ Background food analysis failed:', analysisError);
+            if (callbacksRef.current.onAnalysisComplete) {
+              callbacksRef.current.onAnalysisComplete([], photo.uri, false, `Analysis failed: ${analysisError.message}`);
+            }
           }
-        } else {
-          // Analysis failed, update with error state
-          if (onAnalysisComplete) {
-            onAnalysisComplete([], photo.uri, false, 'Could not identify the food. Please try again or add manually.');
-          }
-        }
+        }, 100); // Small delay to ensure camera modal is fully closed
 
       } catch (error) {
         setIsAnalyzing(false);
@@ -395,6 +426,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 99999,
+    elevation: 99999,
   },
   permissionContent: {
     alignItems: 'center',
@@ -406,7 +444,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 100000,
+    zIndex: 100000,
   },
   permissionTitle: {
     fontSize: 18,
