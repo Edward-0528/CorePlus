@@ -34,6 +34,7 @@ const AppColors = {
   account: '#FFC107',
   success: '#28A745',
   warning: '#FFC107',
+  danger: '#DC3545',
 };
 
 const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
@@ -381,34 +382,40 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
     </View>
   );
 
-  const renderPrimaryCalorieProgress = () => (
-    <View style={enhancedStyles.primarySection}>
-      <View style={enhancedStyles.calorieProgressContainer}>
-        <View style={enhancedStyles.circularProgress}>
-          <View style={enhancedStyles.progressCircle}>
-            <Text style={enhancedStyles.calorieNumber}>{dailyCalories}</Text>
-            <Text style={enhancedStyles.calorieUnit}>calories</Text>
-            <Text style={enhancedStyles.goalText}>of {calorieGoal}</Text>
+  const renderPrimaryCalorieProgress = () => {
+    // Determine if user is over their calorie goal
+    const isOverGoal = dailyCalories > calorieGoal;
+    const ringColor = isOverGoal ? AppColors.danger : AppColors.primary;
+    
+    return (
+      <View style={enhancedStyles.primarySection}>
+        <View style={enhancedStyles.calorieProgressContainer}>
+          <View style={enhancedStyles.circularProgress}>
+            <View style={[enhancedStyles.progressCircle, { borderColor: ringColor }]}>
+              <Text style={enhancedStyles.calorieNumber}>{dailyCalories}</Text>
+              <Text style={enhancedStyles.calorieUnit}>calories</Text>
+              <Text style={enhancedStyles.goalText}>of {calorieGoal}</Text>
+            </View>
           </View>
-        </View>
-        <View style={enhancedStyles.progressStats}>
-          <View style={enhancedStyles.statRow}>
-            <Text style={enhancedStyles.statLabel}>Remaining</Text>
-            <Text style={enhancedStyles.statValue}>
-              {Math.max(0, calorieGoal - dailyCalories)} cal
-            </Text>
+          <View style={enhancedStyles.progressStats}>
+            <View style={enhancedStyles.statRow}>
+              <Text style={enhancedStyles.statLabel}>Remaining</Text>
+              <Text style={enhancedStyles.statValue}>
+                {Math.max(0, calorieGoal - dailyCalories)} cal
+              </Text>
+            </View>
+            <View style={enhancedStyles.statRow}>
+              <Text style={enhancedStyles.statLabel}>Progress</Text>
+              <Text style={enhancedStyles.statValue}>{Math.round(calorieProgress)}%</Text>
+            </View>
+            <TouchableOpacity onPress={handleSetGoal} style={enhancedStyles.goalButton}>
+              <Text style={enhancedStyles.goalButtonText}>Adjust Goal</Text>
+            </TouchableOpacity>
           </View>
-          <View style={enhancedStyles.statRow}>
-            <Text style={enhancedStyles.statLabel}>Progress</Text>
-            <Text style={enhancedStyles.statValue}>{Math.round(calorieProgress)}%</Text>
-          </View>
-          <TouchableOpacity onPress={handleSetGoal} style={enhancedStyles.goalButton}>
-            <Text style={enhancedStyles.goalButtonText}>Adjust Goal</Text>
-          </TouchableOpacity>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderQuickActions = () => (
     <View style={enhancedStyles.section}>
@@ -1161,7 +1168,6 @@ const enhancedStyles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     borderWidth: 8,
-    borderColor: AppColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F8FAFF',
