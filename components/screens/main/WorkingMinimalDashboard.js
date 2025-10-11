@@ -35,7 +35,6 @@ const AppColors = {
   success: '#28A745',
   warning: '#FFC107',
   danger: '#DC3545',
-  gold: '#B8860B', // Darker gold (Dark Goldenrod) for better contrast
   black: '#000000',
 };
 
@@ -376,11 +375,12 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
             enhancedStyles.avatarContainer, 
             { 
               borderWidth: 3,
-              borderColor: isPremium ? AppColors.gold : AppColors.black // Gold for premium, black for free
+              borderColor: isPremium ? AppColors.primary : AppColors.black, // Olive for premium, black for free
+              backgroundColor: AppColors.white, // White background
             }
           ]}>
-            <View style={enhancedStyles.avatar}>
-              <Text style={enhancedStyles.avatarText}>
+            <View style={[enhancedStyles.avatar, { backgroundColor: AppColors.white }]}>
+              <Text style={[enhancedStyles.avatarText, { color: AppColors.primary }]}>
                 {user?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}
               </Text>
             </View>

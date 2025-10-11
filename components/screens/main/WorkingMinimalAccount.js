@@ -177,12 +177,13 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
           minimalStyles.avatarContainer,
           {
             borderWidth: 3,
-            borderColor: isPremium ? '#B8860B' : '#000000', // Darker gold for better contrast
+            borderColor: isPremium ? '#6B8E23' : '#000000', // Olive for premium, black for free
             borderRadius: 33, // Slightly larger to accommodate border
+            backgroundColor: '#FFFFFF', // White background
           }
         ]}>
-          <View style={minimalStyles.avatar}>
-            <Text style={minimalStyles.avatarText}>
+          <View style={[minimalStyles.avatar, { backgroundColor: '#FFFFFF' }]}>
+            <Text style={[minimalStyles.avatarText, { color: '#6B8E23' }]}>
               {user?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}
             </Text>
           </View>
