@@ -33,6 +33,7 @@ const WeeklyProgressCard = ({ onPress, calorieGoal = 2000 }) => {
         if (i === 0) {
           // Today's calories from context
           calories = dailyCalories;
+          console.log('📊 WeeklyProgressCard - Today calories:', calories, 'Goal:', calorieGoal, 'Percentage:', Math.round((calories / calorieGoal) * 100) + '%');
         } else {
           // Historical calories
           const totals = await getNutritionTotalsForDate(dateStr);
@@ -42,6 +43,10 @@ const WeeklyProgressCard = ({ onPress, calorieGoal = 2000 }) => {
         const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0);
         const isOnGoal = calories >= (calorieGoal * 0.85) && calories <= calorieGoal; // At or slightly under goal
         const isOverGoal = calories > calorieGoal; // Any amount over goal
+        
+        if (i === 0) {
+          console.log('📊 WeeklyProgressCard - Today status: isOnGoal:', isOnGoal, 'isOverGoal:', isOverGoal);
+        }
         
         last7Days.push({
           date: dateStr,
@@ -88,7 +93,11 @@ const WeeklyProgressCard = ({ onPress, calorieGoal = 2000 }) => {
 
   const getBarColor = (day) => {
     if (day.calories === 0) return AppColors.border;
-    if (day.isOverGoal) return AppColors.danger; // Red for over goal
+    if (day.isOverGoal) {
+      console.log('📊 WeeklyProgressCard - Bar color RED for day:', day.dayName, 'calories:', day.calories, 'isOverGoal:', day.isOverGoal);
+      return AppColors.danger; // Red for over goal
+    }
+    console.log('📊 WeeklyProgressCard - Bar color GREEN for day:', day.dayName, 'calories:', day.calories, 'isOverGoal:', day.isOverGoal);
     return AppColors.success; // Green for under goal and on goal
   };
 
