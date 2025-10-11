@@ -325,22 +325,75 @@ export const authService = {
         return { success: true, user: session.user, session };
       }
 
-      // Check if we have stored session data
+      // Check if we have stored session data and try to refresh
       console.log('📱 Checking for stored session...');
       const hasStoredSession = await this.hasValidStoredSession();
       if (hasStoredSession) {
-        console.log('📱 Stored session found, checking validity...');
+        console.log('📱 Stored session found, attempting refresh...');
         const storedUser = await this.getStoredUserData();
         
-        // Try to refresh the session
-        const { data: { user } } = await this.getCurrentUser();
-        if (user) {
-          console.log('✅ Session refreshed successfully');
-          return { success: true, user, restored: true };
-        } else {
-          console.log('❌ Stored session invalid, clearing...');
-          await AsyncStorage.multiRemove([SESSION_KEYS.USER_DATA, SESSION_KEYS.AUTH_STATE]);
+        // Try multiple refresh attempts for token expiry issues
+        let refreshAttempts = 0;
+        const maxRefreshAttempts = 2;
+        
+        while (refreshAttempts < maxRefreshAttempts) {
+          try {
+            console.log(`🔄 Refresh attempt ${refreshAttempts + 1}/${maxRefreshAttempts}...`);
+            
+            // Try to refresh the session with timeout
+            const refreshPromise = supabase.auth.refreshSession();
+            const refreshTimeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Refresh timeout')), 15000)
+            );
+            
+            const { data, error } = await Promise.race([refreshPromise, refreshTimeoutPromise]);
+            
+            if (data?.session?.user) {
+              console.log('✅ Session refreshed successfully on attempt', refreshAttempts + 1);
+              // Update stored session data with fresh tokens
+              await AsyncStorage.setItem(SESSION_KEYS.USER_DATA, JSON.stringify(data.session.user));
+              return { success: true, user: data.session.user, restored: true, refreshed: true };
+            } else if (error) {
+              console.log(`❌ Refresh attempt ${refreshAttempts + 1} failed:`, error.message);
+              if (error.message.includes('expired') || error.message.includes('invalid')) {
+                refreshAttempts++;
+                if (refreshAttempts < maxRefreshAttempts) {
+                  await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+                }
+              } else {
+                break; // Non-retryable error
+              }
+            } else {
+              refreshAttempts++;
+            }
+          } catch (refreshError) {
+            console.log(`❌ Refresh attempt ${refreshAttempts + 1} failed with error:`, refreshError.message);
+            refreshAttempts++;
+            if (refreshAttempts < maxRefreshAttempts && (
+              refreshError.message.includes('timeout') || 
+              refreshError.message.includes('network') ||
+              refreshError.message.includes('expired')
+            )) {
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait before retry
+            } else {
+              break;
+            }
+          }
         }
+        
+        // If all refresh attempts failed, try getCurrentUser as fallback
+        try {
+          const { data: { user } } = await this.getCurrentUser();
+          if (user) {
+            console.log('✅ Fallback getCurrentUser() succeeded');
+            return { success: true, user, restored: true };
+          }
+        } catch (fallbackError) {
+          console.log('❌ Fallback getCurrentUser() also failed:', fallbackError.message);
+        }
+        
+        console.log('❌ All refresh attempts failed, clearing stored session...');
+        await AsyncStorage.multiRemove([SESSION_KEYS.USER_DATA, SESSION_KEYS.AUTH_STATE]);
       }
 
       console.log('🚫 No valid session found');

@@ -308,20 +308,64 @@ function AppContent() {
     }, 60000); // Increased to 60 seconds
     
     try {
-      // Use enhanced session initialization FIRST
+      // Enhanced session initialization with automatic retry for expired tokens
       console.log('🔐 [STEP 1/3] Checking authentication session...');
       const sessionStartTime = Date.now();
       
-      // Add timeout for session check (increased for better reliability)
-      const sessionPromise = authService.initializeSession();
-      const sessionTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Session initialization timeout')), 30000)
-      );
+      let sessionResult = null;
+      let retryCount = 0;
+      const maxRetries = 2; // Allow up to 2 retries
       
-      const sessionResult = await Promise.race([sessionPromise, sessionTimeoutPromise]);
-      console.log(`🔐 ✅ Session check completed in ${Date.now() - sessionStartTime}ms`);
+      while (retryCount <= maxRetries && !sessionResult?.success) {
+        if (retryCount > 0) {
+          console.log(`🔄 Authentication retry attempt ${retryCount}/${maxRetries} (expired token handling)...`);
+          // Wait 3 seconds before retry as requested
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+        
+        try {
+          // Add timeout for each session attempt
+          const sessionPromise = authService.initializeSession();
+          const sessionTimeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Session initialization timeout')), 25000)
+          );
+          
+          sessionResult = await Promise.race([sessionPromise, sessionTimeoutPromise]);
+          
+          if (sessionResult.success && sessionResult.user) {
+            console.log(`✅ Session restored successfully on attempt ${retryCount + 1}`);
+            break;
+          } else if (sessionResult.error && (
+            sessionResult.error.includes('expired') || 
+            sessionResult.error.includes('invalid') ||
+            sessionResult.error.includes('token')
+          )) {
+            console.log('🔄 Token expired/invalid, attempting automatic retry...');
+            retryCount++;
+            sessionResult = null; // Reset to trigger retry
+          } else {
+            // Non-expiry error, don't retry
+            break;
+          }
+        } catch (sessionError) {
+          console.log(`❌ Session attempt ${retryCount + 1} failed:`, sessionError.message);
+          if (sessionError.message.includes('timeout') || 
+              sessionError.message.includes('expired') ||
+              sessionError.message.includes('network') ||
+              sessionError.message.includes('failed to fetch')) {
+            retryCount++;
+            sessionResult = null; // Reset to trigger retry
+          } else {
+            // Non-retryable error, don't retry
+            sessionResult = { success: false, error: sessionError.message };
+            break;
+          }
+        }
+      }
       
-      if (sessionResult.success && sessionResult.user) {
+      console.log(`🔐 ✅ Session check completed in ${Date.now() - sessionStartTime}ms after ${retryCount + 1} attempts`);
+      
+      if (sessionResult?.success && sessionResult.user) {
         console.log('✅ User session restored:', sessionResult.restored ? 'from storage' : 'from server');
         console.log('✅ User ID:', sessionResult.user.id);
         
@@ -365,8 +409,8 @@ function AppContent() {
         }, 1000); // 1 second delay to not block auth
         
       } else {
-        // No user found, show landing
-        console.log('🚫 No user session found, showing landing screen');
+        // No user found after all retry attempts, show landing
+        console.log('🚫 No user session found after retries, showing landing screen');
         setShowLanding(true);
         setShowOnboarding(false);
         setIsAuthenticated(false);
