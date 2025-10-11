@@ -35,7 +35,7 @@ const AppColors = {
   success: '#28A745',
   warning: '#FFC107',
   danger: '#DC3545',
-  gold: '#FFD700',
+  gold: '#B8860B', // Darker gold (Dark Goldenrod) for better contrast
   black: '#000000',
 };
 

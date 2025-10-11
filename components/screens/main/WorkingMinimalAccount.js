@@ -177,7 +177,7 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
           minimalStyles.avatarContainer,
           {
             borderWidth: 3,
-            borderColor: isPremium ? '#FFD700' : '#000000', // Gold for premium, black for free
+            borderColor: isPremium ? '#B8860B' : '#000000', // Darker gold for better contrast
             borderRadius: 33, // Slightly larger to accommodate border
           }
         ]}>
