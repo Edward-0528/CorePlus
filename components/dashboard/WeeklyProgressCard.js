@@ -88,9 +88,8 @@ const WeeklyProgressCard = ({ onPress, calorieGoal = 2000 }) => {
 
   const getBarColor = (day) => {
     if (day.calories === 0) return AppColors.border;
-    if (day.isOverGoal) return AppColors.amber;
-    if (day.isOnGoal) return AppColors.success;
-    return AppColors.primary; // Under goal
+    if (day.isOverGoal) return AppColors.danger; // Red for over goal
+    return AppColors.success; // Green for under goal and on goal
   };
 
   const getBarHeight = (percentage) => {
@@ -115,7 +114,7 @@ const WeeklyProgressCard = ({ onPress, calorieGoal = 2000 }) => {
       <View style={styles.header}>
         <Text style={styles.title}>Last 7 days</Text>
         <Text style={styles.subtitle}>
-          Under-goal days in primary, over-goal in amber
+          Green for under goal, red for over goal
         </Text>
       </View>
       
