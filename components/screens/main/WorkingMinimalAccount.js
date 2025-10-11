@@ -173,7 +173,14 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const renderUserProfile = () => (
     <View style={minimalStyles.section}>
       <View style={minimalStyles.profileCard}>
-        <View style={minimalStyles.avatarContainer}>
+        <View style={[
+          minimalStyles.avatarContainer,
+          {
+            borderWidth: 3,
+            borderColor: isPremium ? '#FFD700' : '#000000', // Gold for premium, black for free
+            borderRadius: 33, // Slightly larger to accommodate border
+          }
+        ]}>
           <View style={minimalStyles.avatar}>
             <Text style={minimalStyles.avatarText}>
               {user?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}

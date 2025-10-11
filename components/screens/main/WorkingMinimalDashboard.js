@@ -35,6 +35,8 @@ const AppColors = {
   success: '#28A745',
   warning: '#FFC107',
   danger: '#DC3545',
+  gold: '#FFD700',
+  black: '#000000',
 };
 
 const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
@@ -370,7 +372,13 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
         </View>
         <View style={enhancedStyles.streakSection}>
           {/* Streak badge removed per user request */}
-          <TouchableOpacity style={enhancedStyles.avatarContainer}>
+          <TouchableOpacity style={[
+            enhancedStyles.avatarContainer, 
+            { 
+              borderWidth: 3,
+              borderColor: isPremium ? AppColors.gold : AppColors.black // Gold for premium, black for free
+            }
+          ]}>
             <View style={enhancedStyles.avatar}>
               <Text style={enhancedStyles.avatarText}>
                 {user?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}
