@@ -6,13 +6,13 @@ import { useFeatureAccess } from '../../../hooks/useFeatureAccess';
 import { AppColors, validateColor } from '../../../constants/AppColors';
 import UpgradeModal from '../subscription/UpgradeModal';
 import { userStatsService } from '../../../services/userStatsService';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 
 const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [biometrics, setBiometrics] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [userStats, setUserStats] = useState({
     daysActive: 0,
@@ -22,6 +22,8 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   });
   const [statsLoading, setStatsLoading] = useState(true);
 
+  // Use theme context for dark mode
+  const { isDarkMode, toggleTheme, colors } = useTheme();
   
   // Use our new subscription system
   const { subscriptionInfo } = useFeatureAccess();
@@ -130,8 +132,8 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
           title: 'Dark Mode', 
           subtitle: 'Change app appearance',
           toggle: true,
-          value: darkMode,
-          onToggle: setDarkMode
+          value: isDarkMode,
+          onToggle: toggleTheme
         },
       ]
     },
@@ -209,11 +211,11 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const renderMenuSection = (section) => (
     <View key={section.section} style={minimalStyles.section}>
       <View style={minimalStyles.sectionHeader}>
-        <Text style={minimalStyles.sectionTitle}>{section.section}</Text>
+        <Text style={[minimalStyles.sectionTitle, dynamicStyles.sectionTitle]}>{section.section}</Text>
       </View>
       <View style={minimalStyles.sectionLine} />
       
-      <View style={minimalStyles.card}>
+      <View style={[minimalStyles.card, dynamicStyles.card]}>
         {section.items.map((item, index) => (
           <View key={index}>
             <TouchableOpacity 
@@ -232,11 +234,12 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
                 <View style={minimalStyles.menuItemText}>
                   <Text style={[
                     minimalStyles.menuItemTitle,
+                    dynamicStyles.menuItemTitle,
                     item.premium && isPremium && { color: AppColors.warning }
                   ]}>
                     {item.title}
                   </Text>
-                  <Text style={minimalStyles.menuItemSubtitle}>{item.subtitle}</Text>
+                  <Text style={[minimalStyles.menuItemSubtitle, dynamicStyles.menuItemSubtitle]}>{item.subtitle}</Text>
                 </View>
                 {item.premium && isPremium && (
                   <View style={minimalStyles.premiumBadge}>
@@ -271,8 +274,63 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
     </View>
   );
 
+  // Create dynamic styles based on current theme
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.backgroundSecondary,
+    },
+    headerSection: {
+      backgroundColor: colors.white,
+      paddingHorizontal: 20,
+      paddingVertical: 24,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    content: {
+      flex: 1,
+      backgroundColor: colors.backgroundSecondary,
+    },
+    section: {
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    card: {
+      backgroundColor: colors.white,
+      marginHorizontal: 20,
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    menuItemTitle: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: colors.textPrimary,
+      marginBottom: 2,
+    },
+    menuItemSubtitle: {
+      fontSize: 14,
+      color: colors.textSecondary,
+    },
+    userName: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: colors.textPrimary,
+      marginBottom: 4,
+    },
+    userEmail: {
+      fontSize: 16,
+      color: colors.textSecondary,
+    },
+  });
+
   return (
-    <View style={minimalStyles.container}>
+    <View style={[minimalStyles.container, dynamicStyles.container]}>
       {renderHeader()}
       
       <ScrollView

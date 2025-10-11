@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDailyCalories } from '../../../contexts/DailyCaloriesContext';
 import { useSubscription } from '../../../contexts/SubscriptionContext';
 import { useAppContext } from '../../../contexts/AppContext';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 // Utils
 import { getLocalDateString } from '../../../utils/dateUtils';
@@ -48,6 +49,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   } = useDailyCalories();
   const { isPremium } = useSubscription();
   const { setActiveTab, setNutritionSubTab } = useAppContext();
+  const { isDarkMode, colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [calorieGoal, setCalorieGoal] = useState(2000);
@@ -350,14 +352,14 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   };
 
   const renderHeader = () => (
-    <View style={enhancedStyles.header}>
+    <View style={[enhancedStyles.header, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
       <View style={enhancedStyles.headerContent}>
         <View style={enhancedStyles.greetingSection}>
-          <Text style={enhancedStyles.greeting}>{getGreeting()}</Text>
-          <Text style={enhancedStyles.userName}>
+          <Text style={[enhancedStyles.greeting, { color: colors.textSecondary }]}>{getGreeting()}</Text>
+          <Text style={[enhancedStyles.userName, { color: colors.textPrimary }]}>
             {user?.user_metadata?.first_name || 'User'}
           </Text>
-          <Text style={enhancedStyles.dateText}>
+          <Text style={[enhancedStyles.dateText, { color: colors.textSecondary }]}>
             {new Date().toLocaleDateString('en-US', { 
               weekday: 'long', 
               month: 'long', 
@@ -512,7 +514,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   };
 
   return (
-    <View style={minimalStyles.container}>
+    <View style={[minimalStyles.container, { backgroundColor: colors.backgroundSecondary }]}>
       {renderHeader()}
       
       <ScrollView

@@ -24,6 +24,7 @@ import { AppProvider, useAppContext } from './contexts/AppContext';
 import { DailyCaloriesProvider } from './contexts/DailyCaloriesContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { WorkoutSessionProvider } from './contexts/WorkoutSessionContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 
 // Design System
 import { configureDesignSystem } from './components/design/Theme';
@@ -48,6 +49,7 @@ const GENDER_OPTIONS = [
 ];
 
 function AppContent() {
+  const { isDarkMode, colors } = useTheme();
   const {
     showLanding,
     showLogin,
@@ -880,14 +882,14 @@ function AppContent() {
     return ['top', 'bottom', 'left', 'right'];
   }
 
-  // Determine status bar style based on route
+  // Determine status bar style based on route and theme
   function getStatusBarStyle() {
     // For landing screen with video background, use light style
     if (route === 'Landing') {
       return 'light';
     }
-    // For all other screens with light backgrounds, use dark style
-    return 'dark';
+    // Use theme-appropriate status bar style
+    return isDarkMode ? 'light' : 'dark';
   }
 
   const renderAuthenticatedScreen = () => {
@@ -1014,15 +1016,17 @@ export default function App() {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <AppProvider>
-            <SubscriptionProvider>
-              <DailyCaloriesProvider>
-                <WorkoutSessionProvider>
-                  <AppContent />
-                </WorkoutSessionProvider>
-              </DailyCaloriesProvider>
-            </SubscriptionProvider>
-          </AppProvider>
+          <ThemeProvider>
+            <AppProvider>
+              <SubscriptionProvider>
+                <DailyCaloriesProvider>
+                  <WorkoutSessionProvider>
+                    <AppContent />
+                  </WorkoutSessionProvider>
+                </DailyCaloriesProvider>
+              </SubscriptionProvider>
+            </AppProvider>
+          </ThemeProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>
