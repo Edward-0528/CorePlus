@@ -40,8 +40,8 @@ const WeeklyProgressCard = ({ onPress, calorieGoal = 2000 }) => {
         }
         
         const dayName = date.toLocaleDateString('en-US', { weekday: 'short' }).charAt(0);
-        const isOnGoal = calories >= (calorieGoal * 0.85) && calories <= (calorieGoal * 1.15); // 15% tolerance
-        const isOverGoal = calories > (calorieGoal * 1.15);
+        const isOnGoal = calories >= (calorieGoal * 0.85) && calories <= calorieGoal; // At or slightly under goal
+        const isOverGoal = calories > calorieGoal; // Any amount over goal
         
         last7Days.push({
           date: dateStr,
