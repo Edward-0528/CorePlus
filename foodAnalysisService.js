@@ -19,7 +19,7 @@ const getGeminiApiUrl = () => {
     throw new Error('Gemini API key not available');
   }
   
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
   console.log('✅ getGeminiApiUrl: URL constructed successfully, length:', url.length);
   return url;
 };
@@ -593,29 +593,8 @@ export const foodAnalysisService = {
       throw new Error('Gemini API key not available for image analysis');
     }
 
-    const prompt = `Identify foods in this image and provide nutrition info. Be specific (e.g., "grilled chicken breast" not "chicken").
-
-Return JSON format:
-{
-  "foods": [
-    {
-      "name": "specific food name",
-      "portion": "realistic serving size (3 oz, 1 cup, etc.)",
-      "confidence": 0.95,
-      "nutrition": {
-        "calories": 250,
-        "carbs": 30,
-        "protein": 25,
-        "fat": 8,
-        "fiber": 5,
-        "sugar": 3,
-        "sodium": 150
-      }
-    }
-  ]
-}
-
-Provide nutrition for actual portion shown, not per 100g. Use realistic serving sizes.`;
+    const prompt = `What food is in this image? Return JSON:
+{"foods":[{"name":"food name","portion":"serving size","confidence":0.9,"nutrition":{"calories":200,"carbs":20,"protein":15,"fat":8,"fiber":3,"sugar":5,"sodium":100}}]}`;
 
     const requestBody = {
       contents: [
@@ -634,10 +613,10 @@ Provide nutrition for actual portion shown, not per 100g. Use realistic serving 
         }
       ],
       generationConfig: {
-        temperature: 0.2,
-        topK: 32,
-        topP: 0.8,
-        maxOutputTokens: 1024,
+        temperature: 0.1,
+        topK: 20,
+        topP: 0.7,
+        maxOutputTokens: 1536,
         responseMimeType: "application/json"
       },
     };
