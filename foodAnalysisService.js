@@ -19,8 +19,29 @@ const getGeminiApiUrl = () => {
     throw new Error('Gemini API key not available');
   }
   
+  // Use 1.5 Pro for image analysis (avoids thinking tokens issue)
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
   console.log('✅ getGeminiApiUrl: URL constructed successfully, length:', url.length);
+  return url;
+};
+
+// Function to construct text API URL (uses 2.5 Flash for better text analysis)
+const getGeminiTextApiUrl = () => {
+  const apiKey = getGeminiApiKey();
+  console.log('🔧 getGeminiTextApiUrl debug:', {
+    hasApiKey: !!apiKey,
+    apiKeyLength: apiKey ? apiKey.length : 0,
+    apiKeyStart: apiKey ? apiKey.substring(0, 8) + '***' : 'NONE'
+  });
+  
+  if (!apiKey) {
+    console.error('🚨 getGeminiTextApiUrl: No API key available');
+    throw new Error('Gemini API key not available');
+  }
+  
+  // Use 2.5 Flash for text analysis (works perfectly for manual search)
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  console.log('✅ getGeminiTextApiUrl: URL constructed successfully, length:', url.length);
   return url;
 };
 
@@ -779,12 +800,13 @@ CRITICAL: For fast food, prioritize EXACT official nutrition data over estimates
         topK: 32,
         topP: 1,
         maxOutputTokens: 2048,
+        responseMimeType: "application/json"
       },
     };
 
     try {
       console.log('🔍 Making Gemini API request for text analysis...');
-      const apiUrl = getGeminiApiUrl();
+      const apiUrl = getGeminiTextApiUrl();
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
