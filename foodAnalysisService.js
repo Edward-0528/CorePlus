@@ -8,10 +8,20 @@ const getGeminiApiKey = () => process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 // Function to construct API URL dynamically (ensures API key is available)
 const getGeminiApiUrl = () => {
   const apiKey = getGeminiApiKey();
+  console.log('🔧 getGeminiApiUrl debug:', {
+    hasApiKey: !!apiKey,
+    apiKeyLength: apiKey ? apiKey.length : 0,
+    apiKeyStart: apiKey ? apiKey.substring(0, 8) + '***' : 'NONE'
+  });
+  
   if (!apiKey) {
+    console.error('🚨 getGeminiApiUrl: No API key available');
     throw new Error('Gemini API key not available');
   }
-  return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  console.log('✅ getGeminiApiUrl: URL constructed successfully, length:', url.length);
+  return url;
 };
 
 // Validate API key availability (but don't fail at module load)
@@ -569,6 +579,20 @@ export const foodAnalysisService = {
 
   // Call Gemini API for intelligent food identification
   async callGeminiVision(base64Image) {
+    // Debug API key availability
+    const apiKey = getGeminiApiKey();
+    console.log('🔑 Image analysis API key check:', {
+      hasKey: !!apiKey,
+      keyLength: apiKey ? apiKey.length : 0,
+      keyStart: apiKey ? apiKey.substring(0, 8) + '***' : 'NONE',
+      platform: require('react-native').Platform.OS,
+      isDev: __DEV__
+    });
+
+    if (!apiKey) {
+      throw new Error('Gemini API key not available for image analysis');
+    }
+
     const prompt = `Analyze this food image and provide detailed nutritional information following USDA standards. Please identify:
 
 1. The specific food items visible (be as specific as possible - e.g., "grilled chicken breast" not just "chicken")
@@ -643,13 +667,26 @@ CRITICAL: Provide nutrition values for the ACTUAL portion identified, not per 10
       },
     };
 
+    // Build API URL safely
+    let apiUrl;
+    try {
+      apiUrl = getGeminiApiUrl();
+      console.log('✅ API URL obtained successfully');
+    } catch (urlError) {
+      console.error('❌ Failed to get Gemini API URL:', urlError.message);
+      throw new Error(`API URL generation failed: ${urlError.message}`);
+    }
+    
     console.log('🔄 Making Gemini API request with:', {
-      apiUrl: apiUrl.substring(0, 50) + '...',
+      apiUrl: apiUrl && typeof apiUrl === 'string' ? apiUrl.substring(0, 50) + '...' : 'INVALID_URL',
       imageSize: base64Image.length,
       promptLength: prompt.length
     });
 
-    const apiUrl = getGeminiApiUrl();
+    if (!apiUrl) {
+      throw new Error('Failed to get Gemini API URL - API key may not be available');
+    }
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
