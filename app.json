@@ -26,7 +26,7 @@
     },
     "android": {
       "package": "com.anonymous.coreplus",
-      "versionCode": 71,
+      "versionCode": 72,
       "icon": "./assets/ios-icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
