@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { mealService } from '../services/mealService';
+import { cacheManager } from '../services/cacheManager';
 import { useAppContext } from './AppContext';
 import { getLocalDateString } from '../utils/dateUtils';
 
@@ -120,12 +121,12 @@ export const DailyCaloriesProvider = ({ children }) => {
       
       // Clear cache for the previous user if we have their ID
       if (currentUserId) {
-        // Import cacheManager dynamically to clear previous user's specific data
-        import('../services/cacheManager')
-          .then(({ cacheManager }) => {
-            cacheManager.clearUserSpecificData(currentUserId);
-          })
-          .catch(console.warn);
+        // Use static import instead of dynamic import to avoid Metro bundler issues
+        try {
+          cacheManager.clearUserSpecificData(currentUserId);
+        } catch (e) {
+          console.warn('Failed to clear cache for user:', e);
+        }
       } else {
         // If no previous user ID, clear all cache (fallback)
         clearCache().catch(console.warn);

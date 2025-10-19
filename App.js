@@ -1,12 +1,19 @@
 // Production safety - must be first import
 import './utils/productionSafe';
 
-// Development testing imports
+// Development testing imports - use require to avoid Metro bundler issues
 if (__DEV__) {
-  import('./test_manual_meal_search');
+  try {
+    require('./test_manual_meal_search');
+  } catch (e) {
+    console.warn('Dev import failed:', e);
+  }
 } else {
-  // Production debugging
-  import('./debug_production_logs');
+  try {
+    require('./debug_production_logs');
+  } catch (e) {
+    console.warn('Production debug import failed:', e);
+  }
 }
 
 import 'react-native-reanimated';
@@ -15,10 +22,11 @@ import { Alert, Linking, View, StyleSheet, AppState } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { authService } from './authService';
+import authService from './authService';
 import { socialAuthService } from './socialAuthService';
 import { biometricService } from './biometricService';
 import { revenueCatService } from './services/revenueCatService';
+import quickLoginService from './services/quickLoginService';
 import { styles } from './styles/AppStyles';
 import { AppProvider, useAppContext } from './contexts/AppContext';
 import { DailyCaloriesProvider } from './contexts/DailyCaloriesContext';
@@ -33,7 +41,6 @@ import { configureDesignSystem } from './components/design/Theme';
 import AuthScreen from './components/screens/auth/AuthScreen';
 import OnboardingScreen from './components/screens/onboarding/OnboardingScreen';
 import WorkingMinimalDashboard from './components/screens/main/WorkingMinimalDashboard';
-import WorkingMinimalNutrition from './components/screens/main/WorkingMinimalNutrition';
 import EnhancedNutrition from './components/EnhancedNutrition';
 import WorkingMinimalAccount from './components/screens/main/WorkingMinimalAccount';
 import MinimalNavigation from './components/screens/main/MinimalNavigation';
@@ -73,6 +80,7 @@ function AppContent() {
     handleGetStarted,
     handleSwitchToLogin,
     handleSwitchToSignUp,
+    handleSwitchToQuickLogin,
     handleBackToLanding,
     setShowDatePicker,
     setShowHeightPicker,
@@ -177,15 +185,26 @@ function AppContent() {
         setShowLogin(false);
         setShowSignUp(false);
         
-        // Initialize RevenueCat and user subscription service for this user
+        // Initialize RevenueCat once per user session (non-blocking)
         try {
-          await revenueCatService.setUserID(session.user.id);
+          console.log('🔄 Setting up subscription service for user:', session.user.id);
           
-          // Initialize user subscription service for proper syncing
-          const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
-          await userSubscriptionService.initializeForUser(session.user);
+          // Initialize RevenueCat only once per app launch
+          const initResult = await revenueCatService.initialize();
+          if (initResult.success) {
+            // Set user ID only once per user session
+            await revenueCatService.setUserID(session.user.id);
+            console.log('✅ RevenueCat user ID set for session');
+            
+            // Initialize user subscription service (no duplicate RevenueCat calls)
+            const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
+            await userSubscriptionService.initializeForUser(session.user);
+          } else {
+            console.log('ℹ️ RevenueCat running in fallback mode (Expo Go)');
+          }
           
         } catch (rcError) {
+          console.warn('⚠️ RevenueCat setup failed, but continuing login:', rcError.message);
           // Don't fail the login process if RevenueCat fails
         }
         
@@ -252,26 +271,9 @@ function AppContent() {
   useEffect(() => {
     const handleAppStateChange = (nextAppState) => {
       console.log('📱 App state changed to:', nextAppState);
-      
-      if (nextAppState === 'active') {
-        // App came back to foreground (potentially from purchase flow)
-        // Refresh subscription status after a brief delay
-        setTimeout(async () => {
-          try {
-            await revenueCatService.getCustomerInfo();
-            // Force re-sync subscription status
-            const { default: userSubscriptionService } = await import('./services/userSubscriptionService');
-            if (user?.id) {
-              await userSubscriptionService.syncSubscriptionStatus();
-            }
-          } catch (error) {
-            // Silent failure - don't log subscription refresh errors
-          }
-        }, 1000); // 1 second delay to allow app to stabilize
-      }
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
+      // Only handle app state for auth service, not RevenueCat
+      // RevenueCat should only refresh after actual purchases
+    };    const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription?.remove();
   }, [user?.id]);
 
@@ -324,13 +326,8 @@ function AppContent() {
         }
         
         try {
-          // Add timeout for each session attempt
-          const sessionPromise = authService.initializeSession();
-          const sessionTimeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Session initialization timeout')), 25000)
-          );
-          
-          sessionResult = await Promise.race([sessionPromise, sessionTimeoutPromise]);
+          // Use the improved session restoration method
+          sessionResult = await authService.restoreSession();
           
           if (sessionResult.success && sessionResult.user) {
             console.log(`✅ Session restored successfully on attempt ${retryCount + 1}`);
@@ -395,22 +392,12 @@ function AppContent() {
           setShowOnboarding(false); // Default to false if check fails
         }
         
-        // Initialize RevenueCat AFTER auth is complete and in background
-        setTimeout(async () => {
-          try {
-            console.log('🔄 Initializing RevenueCat in background...');
-            await revenueCatService.initialize();
-            await revenueCatService.setUserID(sessionResult.user.id);
-            console.log('✅ RevenueCat initialized successfully in background');
-          } catch (rcError) {
-            console.warn('⚠️ RevenueCat initialization failed (non-blocking):', rcError.message);
-            // Continue app functionality even if RevenueCat fails
-          }
-        }, 1000); // 1 second delay to not block auth
+        // RevenueCat is already initialized during user sign-in above
+        // No need for duplicate background initialization
         
       } else {
-        // No user found after all retry attempts, show landing
-        console.log('🚫 No user session found after retries, showing landing screen');
+        // No user session found, show landing screen
+        console.log('📱 No user session found, showing landing screen');
         setShowLanding(true);
         setShowOnboarding(false);
         setIsAuthenticated(false);
@@ -716,6 +703,14 @@ function AppContent() {
       if (loginResult.success) {
         console.log('Auto-login successful, user will be redirected to onboarding');
         
+        // Save email for next time and offer biometric setup
+        try {
+          await quickLoginService.saveLoginPreferences(signupEmail, signupPassword, false, true);
+          await promptBiometricSetup(signupEmail, signupPassword);
+        } catch (prefError) {
+          console.warn('⚠️ Failed to save login preferences:', prefError.message);
+        }
+        
         // Auth state listener will handle RevenueCat user ID setting
         console.log('🔗 Auth state listener will handle RevenueCat initialization for:', loginResult.data?.user?.id);
       } else {
@@ -747,8 +742,17 @@ function AppContent() {
       if (result.success) {
         console.log('✅ Login successful for:', result.data?.user?.id);
         
-        // Ask user if they want to enable biometric login
-        await promptBiometricSetup(formData.email, formData.password);
+        // Save email for next time and offer biometric setup
+        try {
+          await quickLoginService.saveLoginPreferences(formData.email, formData.password, false, true);
+          // Only prompt biometric on first successful login
+          const loginPrefs = await quickLoginService.getLoginPreferences();
+          if (!loginPrefs.biometricEnabled) {
+            await promptBiometricSetup(formData.email, formData.password);
+          }
+        } catch (prefError) {
+          console.warn('⚠️ Failed to save login preferences:', prefError.message);
+        }
         
         // Clear form data
         setFormData({
@@ -775,6 +779,8 @@ function AppContent() {
     }
   };
 
+
+
   const promptBiometricSetup = async (email, password) => {
     try {
       const biometricInfo = await biometricService.getBiometricInfo();
@@ -794,6 +800,14 @@ function AppContent() {
               onPress: async () => {
                 const result = await biometricService.enableBiometricLogin(email, password);
                 if (result.success) {
+                  // Update quick login preferences to enable biometric
+                  try {
+                    await quickLoginService.saveLoginPreferences(email, password, true, true);
+                    console.log('💾 Updated quick login preferences with biometric enabled and stay logged in');
+                  } catch (prefError) {
+                    console.warn('⚠️ Failed to update biometric preference:', prefError.message);
+                  }
+                  
                   Alert.alert(
                     'Success!', 
                     `${result.biometricType} login has been enabled. You can now sign in quickly using biometrics.`
@@ -845,12 +859,43 @@ function AppContent() {
 
   const handleLogout = async () => {
     setLoading(true);
-    const result = await authService.signOut();
-    setLoading(false);
-
-    if (!result.success) {
-      Alert.alert('Error', result.error);
-    }
+    
+    // Ask user if they want to clear saved login data
+    Alert.alert(
+      'Sign Out',
+      'Do you want to clear your saved login information for easier sign-in next time?',
+      [
+        {
+          text: 'Keep Login Info',
+          onPress: async () => {
+            const result = await authService.signOut();
+            setLoading(false);
+            if (!result.success) {
+              Alert.alert('Error', result.error);
+            }
+          }
+        },
+        {
+          text: 'Clear All Data',
+          style: 'destructive',
+          onPress: async () => {
+            // Clear quick login preferences
+            try {
+              await quickLoginService.clearLoginPreferences();
+              console.log('🧹 Cleared quick login preferences');
+            } catch (error) {
+              console.warn('⚠️ Failed to clear login preferences:', error.message);
+            }
+            
+            const result = await authService.signOut();
+            setLoading(false);
+            if (!result.success) {
+              Alert.alert('Error', result.error);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleSocialLogin = async (provider) => {
@@ -882,6 +927,16 @@ function AppContent() {
         setLoading(false);
       } else {
         console.log(`${provider} login successful!`);
+        
+        // Save social login email for next time
+        if (result.data?.user?.email) {
+          try {
+            await quickLoginService.saveLoginPreferences(result.data.user.email, null, false, true);
+          } catch (prefError) {
+            console.warn('⚠️ Failed to save social login preferences:', prefError.message);
+          }
+        }
+        
         // Auth state listener will handle the rest
       }
     } catch (error) {
@@ -971,6 +1026,7 @@ function AppContent() {
             onSocialLogin={handleSocialLogin}
           />
         );
+
       case 'Onboarding':
         return (
           <OnboardingScreen

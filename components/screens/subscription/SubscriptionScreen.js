@@ -67,13 +67,10 @@ export default function SubscriptionScreen({ onClose }) {
       setLoading(true);
       setError(null);
       
-      // Initialize RevenueCat with better error handling
-      const initResult = await revenueCatService.initialize();
-      console.log('🔧 RevenueCat init result:', initResult);
-      
-      if (!initResult || (!initResult.success && !initResult.expoGo)) {
-        console.warn('RevenueCat initialization failed');
-        setError('Unable to connect to subscription service');
+      // RevenueCat should already be initialized, just check status
+      if (!revenueCatService.isInitialized) {
+        console.log('ℹ️ RevenueCat not available - showing fallback subscription info');
+        setError(null); // Don't show error for Expo Go
         setProducts([]);
         setLoading(false);
         return;
@@ -121,16 +118,12 @@ export default function SubscriptionScreen({ onClose }) {
       
       // Check if RevenueCat is available
       if (!revenueCatService.isInitialized) {
-        console.warn('RevenueCat not initialized, attempting to initialize...');
-        await revenueCatService.initialize();
-        if (!revenueCatService.isInitialized) {
-          Alert.alert(
-            'Service Unavailable',
-            'Subscription service is not available. Please try again later.',
-            [{ text: 'OK' }]
-          );
-          return;
-        }
+        Alert.alert(
+          'Service Unavailable',
+          'Subscription service is not available. This is normal in Expo Go.',
+          [{ text: 'OK' }]
+        );
+        return;
       }
 
       // Check if product exists

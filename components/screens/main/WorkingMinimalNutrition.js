@@ -12,6 +12,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import FoodCameraScreen from '../../food/FoodCameraScreen';
 import FoodPredictionCard from '../../food/FoodPredictionCard';
 import MultiFoodSelectionCard from '../../food/MultiFoodSelectionCard';
+import FoodAnalysisResultsScreen from '../FoodAnalysisResultsScreen';
 import SwipeToDeleteWrapper from '../../shared/SimpleSwipeToDelete';
 import TodaysMealsComponent from '../../nutrition/TodaysMealsComponent';
 import FoodSearchModal from '../../food/FoodSearchModal';
@@ -32,8 +33,10 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
   // Food selection states
   const [showPredictionCard, setShowPredictionCard] = useState(false);
   const [showMultiSelectionCard, setShowMultiSelectionCard] = useState(false);
+  const [showAnalysisResultsScreen, setShowAnalysisResultsScreen] = useState(false);
   const [foodPredictions, setFoodPredictions] = useState([]);
   const [capturedImage, setCapturedImage] = useState(null);
+  const [analysisError, setAnalysisError] = useState(null);
 
   // Get real meal data from context
   const { 
@@ -304,15 +307,34 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
     // Photo is handled by the camera component
   };
 
-  const handleFoodAnalysisComplete = useCallback(async (predictions, imageUri, isLoading, errorMessage) => {
+  const handleFoodAnalysisComplete = useCallback(async (predictions, imageUri, isLoading, errorMessage, action) => {
     console.log('🔥🔥🔥 HANDLER CALLED - START OF FUNCTION');
     console.log('🔥 handleFoodAnalysisComplete called with:', { 
       predictions: predictions?.length || 0, 
       imageUri, 
       isLoading, 
-      errorMessage 
+      errorMessage,
+      action
     });
     
+    if (action === 'showAnalysisScreen') {
+      console.log('📋 Showing analysis results screen...');
+      setFoodPredictions(predictions);
+      setCapturedImage(imageUri);
+      setAnalysisError(errorMessage);
+      setShowFoodCamera(false);
+      setShowAnalysisResultsScreen(true);
+      return;
+    }
+    
+    if (action === 'updateAnalysisScreen') {
+      console.log('📋 Updating analysis results screen with results...');
+      setFoodPredictions(predictions);
+      setAnalysisError(errorMessage);
+      return;
+    }
+    
+    // Legacy handling for backwards compatibility
     if (errorMessage) {
       console.error('❌ Food analysis error:', errorMessage);
       setShowFoodCamera(false);
@@ -327,34 +349,26 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       // Close camera and show loading screen immediately
       setFoodPredictions([]); // Empty predictions for loading state
       setCapturedImage(imageUri);
-      
-      // Use Alert to test if callback is working
-      console.log('🚨 ABOUT TO SHOW ALERT');
-      Alert.alert('TEST', 'Loading callback was called successfully!');
-      console.log('🚨 ALERT SHOULD HAVE APPEARED');
-      
-      // Use setTimeout to ensure state updates are processed in order
-      setTimeout(() => {
-        setShowFoodCamera(false);
-        setTimeout(() => {
-          setShowMultiSelectionCard(true); // Show loading in multi-selection card
-          console.log('📋 State should be updated now - showMultiSelectionCard=true');
-        }, 50);
-      }, 50);
+      setShowFoodCamera(false);
+      setShowMultiSelectionCard(true); // Show loading in multi-selection card
+      console.log('📋 Transitioning to loading screen - showMultiSelectionCard=true');
       
       return;
     }
 
     if (predictions && predictions.length > 0) {
       console.log(`📋 Showing ${predictions.length} food predictions`);
+      console.log('📋 First prediction:', predictions[0]);
       setFoodPredictions(predictions);
       setCapturedImage(imageUri);
       
       // Show appropriate selection interface based on number of predictions
       if (predictions.length === 1) {
+        console.log('📋 Single prediction - showing FoodPredictionCard');
         setShowMultiSelectionCard(false); // Close any existing loading screen
         setShowPredictionCard(true);
       } else {
+        console.log('📋 Multiple predictions - updating MultiFoodSelectionCard content');
         // Multi-selection card will automatically update from loading to content
         // No need to close/reopen since it's already showing
       }
@@ -362,7 +376,7 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       console.log('❌ No food predictions received');
       setShowFoodCamera(false);
     }
-  }, []);
+  }, [setFoodPredictions, setCapturedImage, setShowFoodCamera, setShowMultiSelectionCard, setShowPredictionCard, setShowAnalysisResultsScreen, setAnalysisError]);
 
   // Food selection handlers
   const handleFoodSelection = async (selectedFood) => {
@@ -962,7 +976,10 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       {/* Multiple Food Selection Card */}
       <MultiFoodSelectionCard
         visible={showMultiSelectionCard}
-        onClose={() => setShowMultiSelectionCard(false)}
+        onClose={() => {
+          console.log('🃏 Closing MultiFoodSelectionCard');
+          setShowMultiSelectionCard(false);
+        }}
         predictions={foodPredictions}
         onSelectFoods={handleMultipleFoodSelection}
         imageUri={capturedImage}
@@ -974,6 +991,28 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
         onClose={() => setShowFoodSearchModal(false)}
         onAddMeal={handleFoodSearchMeal}
       />
+
+      {/* Food Analysis Results Screen */}
+      {showAnalysisResultsScreen && (
+        <Modal
+          visible={showAnalysisResultsScreen}
+          animationType="slide"
+          onRequestClose={() => setShowAnalysisResultsScreen(false)}
+        >
+          <FoodAnalysisResultsScreen
+            route={{
+              params: {
+                imageUri: capturedImage,
+                predictions: foodPredictions,
+                error: analysisError
+              }
+            }}
+            navigation={{
+              goBack: () => setShowAnalysisResultsScreen(false)
+            }}
+          />
+        </Modal>
+      )}
     </View>
   );
 };

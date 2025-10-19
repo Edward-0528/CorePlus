@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppContext } from '../../../contexts/AppContext';
 import { biometricService } from '../../../biometricService';
+import quickLoginService from '../../../services/quickLoginService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -55,9 +56,22 @@ const AuthScreen = memo(({
       videoRef.current.playAsync().catch(console.warn);
     }
     
-    // Check biometric availability
+    // Check biometric availability and load saved email
     checkBiometricStatus();
+    loadSavedEmail();
   }, []);
+  
+  const loadSavedEmail = async () => {
+    try {
+      const loginPrefs = await quickLoginService.getLoginPreferences();
+      if (loginPrefs.savedEmail) {
+        // Auto-fill saved email in login form
+        updateFormData('email', loginPrefs.savedEmail);
+      }
+    } catch (error) {
+      console.log('No saved email found');
+    }
+  };
 
   const handleVideoLoad = () => {
     console.log('✨ Auth screen video background loaded');

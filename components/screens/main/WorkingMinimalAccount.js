@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, RefreshControl, Alert, StyleSheet, Switch } from 'react-native';
+import { ScrollView, RefreshControl, Alert, StyleSheet, Switch, Image } from 'react-native';
 import { View, Modal, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFeatureAccess } from '../../../hooks/useFeatureAccess';
+import { useSubscription } from '../../../contexts/SubscriptionContext';
 import { AppColors, validateColor } from '../../../constants/AppColors';
 import UpgradeModal from '../subscription/UpgradeModal';
+import EditProfileModal from '../../modals/EditProfileModal';
 import { userStatsService } from '../../../services/userStatsService';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { supabase } from '../../../supabaseConfig';
+import UsageStatsCard from '../../ui/UsageStatsCard';
 
 
 const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
@@ -14,6 +17,8 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const [notifications, setNotifications] = useState(true);
   const [biometrics, setBiometrics] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState(user);
   const [userStats, setUserStats] = useState({
     daysActive: 0,
     totalMeals: 0,
@@ -26,8 +31,25 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const { isDarkMode, toggleTheme, colors } = useTheme();
   
   // Use our new subscription system
-  const { subscriptionInfo } = useFeatureAccess();
-  const isPremium = subscriptionInfo?.tier === 'pro';
+  const { isPremium, subscriptionInfo } = useSubscription();
+
+  // Update current user when prop changes
+  useEffect(() => {
+    setCurrentUser(user);
+  }, [user]);
+
+  // Refresh user data from Supabase
+  const refreshUserData = async () => {
+    try {
+      const { data: { user: updatedUser }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (updatedUser) {
+        setCurrentUser(updatedUser);
+      }
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+    }
+  };
 
   // Load user statistics
   const loadUserStats = async () => {
@@ -177,23 +199,33 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
           minimalStyles.avatarContainer,
           {
             borderWidth: 3,
-            borderColor: isPremium ? '#6B8E23' : '#000000', // Olive for premium, black for free
+            borderColor: isPremium ? AppColors.primary : AppColors.black, // Olive for premium, black for free
             borderRadius: 33, // Slightly larger to accommodate border
             backgroundColor: '#FFFFFF', // White background
           }
         ]}>
           <View style={[minimalStyles.avatar, { backgroundColor: '#FFFFFF' }]}>
-            <Text style={[minimalStyles.avatarText, { color: '#6B8E23' }]}>
-              {user?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}
-            </Text>
+            {currentUser?.user_metadata?.profile_image ? (
+              <Image 
+                source={{ uri: currentUser.user_metadata.profile_image }} 
+                style={minimalStyles.avatarImage}
+              />
+            ) : (
+              <Text style={[minimalStyles.avatarText, { color: AppColors.primary }]}>
+                {currentUser?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}
+              </Text>
+            )}
           </View>
         </View>
         <View style={minimalStyles.profileInfo}>
           <Text style={minimalStyles.profileName}>
-            {user?.user_metadata?.first_name || 'User'} {user?.user_metadata?.last_name || ''}
+            {currentUser?.user_metadata?.first_name || 'User'} {currentUser?.user_metadata?.last_name || ''}
           </Text>
-          <Text style={minimalStyles.profileEmail}>{user?.email}</Text>
-          <TouchableOpacity style={minimalStyles.editButton}>
+          <Text style={minimalStyles.profileEmail}>{currentUser?.email}</Text>
+          <TouchableOpacity 
+            style={minimalStyles.editButton}
+            onPress={() => setShowEditProfileModal(true)}
+          >
             <Text style={minimalStyles.editButtonText}>Edit Profile</Text>
             <View style={minimalStyles.editButtonUnderline} />
           </TouchableOpacity>
@@ -201,6 +233,79 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
       </View>
     </View>
   );
+
+  const renderProfileInfo = () => {
+    const profileData = [
+      { 
+        label: 'Weight', 
+        value: currentUser?.user_metadata?.weight ? `${currentUser.user_metadata.weight} lbs` : 'Not set',
+        icon: 'fitness-outline'
+      },
+      { 
+        label: 'Height', 
+        value: currentUser?.user_metadata?.height ? `${Math.floor(currentUser.user_metadata.height / 12)}'${currentUser.user_metadata.height % 12}"` : 'Not set',
+        icon: 'resize-outline'
+      },
+      { 
+        label: 'Age', 
+        value: currentUser?.user_metadata?.age || 'Not set',
+        icon: 'calendar-outline'
+      },
+      { 
+        label: 'Gender', 
+        value: currentUser?.user_metadata?.gender ? currentUser.user_metadata.gender.charAt(0).toUpperCase() + currentUser.user_metadata.gender.slice(1) : 'Not set',
+        icon: 'person-outline'
+      },
+      { 
+        label: 'Activity Level', 
+        value: currentUser?.user_metadata?.activity_level ? currentUser.user_metadata.activity_level.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not set',
+        icon: 'barbell-outline'
+      },
+      { 
+        label: 'Fitness Goal', 
+        value: currentUser?.user_metadata?.fitness_goal ? currentUser.user_metadata.fitness_goal.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not set',
+        icon: 'trophy-outline'
+      }
+    ];
+
+    return (
+      <View style={minimalStyles.section}>
+        <View style={minimalStyles.sectionHeader}>
+          <Text style={[minimalStyles.sectionTitle, dynamicStyles.sectionTitle]}>Profile Information</Text>
+        </View>
+        <View style={minimalStyles.sectionLine} />
+        
+        <View style={[minimalStyles.card, dynamicStyles.card]}>
+          {profileData.map((item, index) => (
+            <View key={index}>
+              <View style={minimalStyles.profileInfoItem}>
+                <View style={minimalStyles.profileInfoLeft}>
+                  <Ionicons 
+                    name={item.icon} 
+                    size={20} 
+                    color={colors.textSecondary} 
+                    style={minimalStyles.profileInfoIcon}
+                  />
+                  <Text style={[minimalStyles.profileInfoLabel, { color: colors.text }]}>
+                    {item.label}
+                  </Text>
+                </View>
+                <Text style={[
+                  minimalStyles.profileInfoValue, 
+                  { color: item.value === 'Not set' ? colors.textSecondary : colors.text }
+                ]}>
+                  {item.value}
+                </Text>
+              </View>
+              {index < profileData.length - 1 && (
+                <View style={[minimalStyles.profileInfoDivider, { backgroundColor: colors.border }]} />
+              )}
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  };
 
   const renderUserStats = () => (
     <View style={minimalStyles.section}>
@@ -355,6 +460,13 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
       >
         {renderUserProfile()}
         {renderUserStats()}
+        
+        {/* Monthly Usage Stats */}
+        <UsageStatsCard 
+          onUpgradePress={() => setShowUpgradeModal(true)} 
+        />
+        
+        {renderProfileInfo()}
         {menuItems.map(renderMenuSection)}
         {renderLogoutButton()}
       </ScrollView>
@@ -365,7 +477,13 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
         onClose={() => setShowUpgradeModal(false)}
       />
 
-
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        visible={showEditProfileModal}
+        onClose={() => setShowEditProfileModal(false)}
+        user={currentUser}
+        onProfileUpdate={refreshUserData}
+      />
 
     </View>
   );
@@ -438,6 +556,12 @@ const minimalStyles = StyleSheet.create({
     backgroundColor: AppColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
   avatarText: {
     fontSize: 24,
@@ -572,6 +696,34 @@ const minimalStyles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     color: AppColors.white,
+  },
+  profileInfoItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  profileInfoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  profileInfoIcon: {
+    marginRight: 12,
+  },
+  profileInfoLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  profileInfoValue: {
+    fontSize: 16,
+    fontWeight: '400',
+    textAlign: 'right',
+  },
+  profileInfoDivider: {
+    height: 0.5,
+    marginHorizontal: 16,
   },
 });
 

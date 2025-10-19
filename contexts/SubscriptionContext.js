@@ -36,10 +36,53 @@ export const SubscriptionProvider = ({ children }) => {
     }
   }, [user?.id, isInitialized]);
 
+  // Set up RevenueCat listener for purchase events (production only)
+  useEffect(() => {
+    if (!__DEV__ && isInitialized && user?.id) {
+      const setupPurchaseListener = async () => {
+        try {
+          
+          // Add listener for customer info updates (purchases, renewals, etc.)
+          console.log('🔄 [SubscriptionContext] Setting up RevenueCat purchase listener');
+          
+          // We'll poll for changes every 30 seconds in production
+          const pollInterval = setInterval(async () => {
+            try {
+              const hadActiveSubscription = subscriptionInfo.isActive;
+              await refreshSubscriptionInfo();
+              const hasActiveSubscription = subscriptionService.getSubscriptionInfo().isActive;
+              
+              // If subscription status changed, log it
+              if (hadActiveSubscription !== hasActiveSubscription) {
+                console.log('🔄 [SubscriptionContext] Subscription status changed:', {
+                  from: hadActiveSubscription ? 'Active' : 'Inactive',
+                  to: hasActiveSubscription ? 'Active' : 'Inactive'
+                });
+              }
+            } catch (error) {
+              console.warn('Subscription polling error:', error);
+            }
+          }, 30000); // Poll every 30 seconds
+          
+          return () => clearInterval(pollInterval);
+        } catch (error) {
+          console.warn('Failed to setup purchase listener:', error);
+        }
+      };
+      
+      setupPurchaseListener();
+    }
+  }, [isInitialized, subscriptionInfo.isActive]);
+
   const initializeSubscriptions = async () => {
     try {
       console.log('🔄 Initializing subscription service for user:', user.id);
       await subscriptionService.initialize(user.id);
+      
+      // Force a fresh check from RevenueCat on user login
+      console.log('🔄 Force refreshing subscription status from RevenueCat...');
+      await revenueCatService.forceRefreshSubscriptionStatus();
+      
       await refreshSubscriptionInfo();
       setIsInitialized(true);
     } catch (error) {
@@ -62,14 +105,27 @@ export const SubscriptionProvider = ({ children }) => {
 
   const refreshSubscriptionInfo = async () => {
     try {
-      await subscriptionService.refreshSubscriptionStatus();
+      if (!user?.id) {
+        console.log('⚠️ SubscriptionContext: No user ID available, skipping refresh');
+        return;
+      }
+      
+      console.log('🔄 SubscriptionContext: Refreshing subscription info...');
+      await subscriptionService.refreshSubscriptionStatus(user.id);
       const info = subscriptionService.getSubscriptionInfo();
+      
+      console.log('📊 SubscriptionContext: Updated subscription info:', {
+        tier: info.tier,
+        isActive: info.isActive,
+        limits: Object.keys(info.limits)
+      });
+      
       setSubscriptionInfo({
         ...info,
         isLoading: false
       });
     } catch (error) {
-      console.error('Error refreshing subscription info:', error);
+      console.error('❌ SubscriptionContext: Error refreshing subscription info:', error);
       setSubscriptionInfo(prev => ({ ...prev, isLoading: false }));
     }
   };
@@ -260,7 +316,14 @@ export const SubscriptionProvider = ({ children }) => {
 
   // Check if user is premium
   const isPremium = () => {
-    return subscriptionService.isPremium();
+    const premiumStatus = subscriptionService.isPremium();
+    console.log('🔍 Checking premium status:', {
+      premiumStatus,
+      tier: subscriptionInfo.tier,
+      isActive: subscriptionInfo.isActive,
+      userId: user?.id
+    });
+    return premiumStatus;
   };
 
   // Get current tier

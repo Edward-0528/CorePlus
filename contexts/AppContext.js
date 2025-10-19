@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
+import { supabase } from '../supabaseConfig';
 
 const AppContext = createContext();
 
@@ -67,6 +68,29 @@ export const AppProvider = ({ children }) => {
     goalWeight: '',
     affiliateCode: ''
   });
+
+  // Simple session check on app start
+  useEffect(() => {
+    checkExistingSession();
+  }, []);
+
+  const checkExistingSession = async () => {
+    try {
+      // Just check if user has an active session - keep it simple
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session && session.user) {
+        setUser(session.user);
+        setIsAuthenticated(true);
+        setShowLanding(false);
+      }
+      
+      setAuthLoading(false);
+    } catch (error) {
+      console.error('Session check error:', error);
+      setAuthLoading(false);
+    }
+  };
 
   // Memoized actions to prevent re-renders
   const actions = {
@@ -192,6 +216,8 @@ export const AppProvider = ({ children }) => {
     // Navigation actions
     setActiveTab: useCallback((tab) => setActiveTab(tab), []),
     setNutritionSubTab: useCallback((subTab) => setNutritionSubTab(subTab), []),
+    
+
   };
 
   // Memoize the context value to prevent unnecessary re-renders

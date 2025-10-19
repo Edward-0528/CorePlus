@@ -28,12 +28,18 @@ class RevenueCatService {
       const androidKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
       const iosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
 
+      // Enhanced production mode detection
+      let isProduction = !__DEV__ && process.env.NODE_ENV === 'production';
+      
       // Debug key availability (show more for debugging)
-      console.log('[RC] Key presence check:', {
+      console.log('[RC] Environment check:', {
         android: androidKey ? `${androidKey.slice(0, 12)}...${androidKey.slice(-6)}` : 'MISSING',
         ios: iosKey ? `${iosKey.slice(0, 12)}...${iosKey.slice(-6)}` : 'MISSING',
         platform: Platform.OS,
-        usingKey: Platform.OS === 'android' ? 'Android key' : 'iOS key'
+        usingKey: Platform.OS === 'android' ? 'Android key' : 'iOS key',
+        isProduction: isProduction,
+        nodeEnv: process.env.NODE_ENV,
+        devMode: __DEV__
       });
 
       if (!androidKey && !iosKey) {
@@ -60,6 +66,9 @@ class RevenueCatService {
 
       await Promise.race([initPromise, timeoutPromise]);
       
+      // Enhanced production mode detection and logging
+      isProduction = !__DEV__ && process.env.NODE_ENV === 'production';
+      
       // Set debug logs (disable in production)
       if (__DEV__) {
         await Purchases.setLogLevel('DEBUG');
@@ -67,8 +76,24 @@ class RevenueCatService {
         await Purchases.setLogLevel('ERROR');
       }
 
+      // In production, explicitly check sandbox mode
+      if (isProduction) {
+        try {
+          const customerInfo = await Purchases.getCustomerInfo();
+          console.log('🏭 Production Mode Validation:', {
+            isProduction: true,
+            appUserId: customerInfo.originalAppUserId,
+            managementURL: customerInfo.managementURL,
+            // Check if we're accidentally in sandbox (management URL indicates this)
+            isSandbox: customerInfo.managementURL?.includes('sandbox') || customerInfo.managementURL?.includes('test')
+          });
+        } catch (infoError) {
+          console.warn('Could not validate production mode:', infoError.message);
+        }
+      }
+
       this.isInitialized = true;
-      console.log('✅ RevenueCat initialized successfully');
+      console.log('✅ RevenueCat initialized successfully', { isProduction });
 
       // Log the app user ID for debugging dashboard sync
       try {
@@ -100,14 +125,55 @@ class RevenueCatService {
         return null;
       }
       
+      console.log('🔄 Refreshing customer info from RevenueCat...');
+      
+      // Force refresh from server (not cache)
       this.customerInfo = await Purchases.getCustomerInfo();
+      
+      const isProduction = !__DEV__ && process.env.NODE_ENV === 'production';
+      
       console.log('📊 Customer info refreshed:', {
+        originalAppUserId: this.customerInfo.originalAppUserId,
+        activeEntitlements: Object.keys(this.customerInfo.entitlements.active),
         hasActiveSubscription: this.hasActiveSubscription(),
-        activeEntitlements: Object.keys(this.customerInfo.entitlements.active)
+        isProduction: isProduction
       });
+
       return this.customerInfo;
     } catch (error) {
       console.error('🚧 RevenueCat customer info failed:', error.message);
+      this.customerInfo = null;
+      return null;
+    }
+  }
+
+  // Force clear cache and refresh
+  async forceRefreshSubscriptionStatus() {
+    try {
+      console.log('🔄 Force refreshing subscription status (clearing cache)...');
+      
+      if (!this.isInitialized) {
+        console.log('🚧 RevenueCat not initialized - cannot refresh');
+        return null;
+      }
+
+      // Clear cached customer info
+      this.customerInfo = null;
+      
+      // Invalidate RevenueCat's internal cache
+      try {
+        await Purchases.invalidateCustomerInfoCache();
+        console.log('✅ RevenueCat cache invalidated');
+      } catch (cacheError) {
+        console.warn('⚠️ Could not invalidate RevenueCat cache:', cacheError.message);
+      }
+      
+      // Force fresh data from RevenueCat servers
+      await this.refreshCustomerInfo();
+      
+      return this.customerInfo;
+    } catch (error) {
+      console.error('❌ Error force refreshing subscription status:', error);
       return null;
     }
   }
@@ -323,14 +389,66 @@ class RevenueCatService {
         return false;
       }
       
-      // Check for active Pro entitlement (matches RevenueCat dashboard identifier)
-      const proEntitlement = this.customerInfo.entitlements.active['Pro'];
-      const isActive = proEntitlement && proEntitlement.isActive;
+      // Debug: Log all available entitlements
+      const activeEntitlements = Object.keys(this.customerInfo.entitlements.active);
+      console.log('🔍 [DEBUG] Available active entitlements:', activeEntitlements);
+      
+      // Enhanced production validation
+      const isProduction = !__DEV__ && process.env.NODE_ENV === 'production';
+      
+      // Check for active entitlement - try multiple possible names
+      const possibleEntitlementNames = ['Pro', 'pro', 'Premium', 'premium', 'CorePlus', 'coreplus'];
+      let activeEntitlement = null;
+      
+      for (const name of possibleEntitlementNames) {
+        if (this.customerInfo.entitlements.active[name]) {
+          activeEntitlement = this.customerInfo.entitlements.active[name];
+          console.log(`✅ Found active entitlement: ${name}`, {
+            isActive: activeEntitlement.isActive,
+            productId: activeEntitlement.productIdentifier,
+            expirationDate: activeEntitlement.expirationDate
+          });
+          break;
+        }
+      }
+      
+      // If no named entitlement found, check if there are ANY active entitlements
+      if (!activeEntitlement && activeEntitlements.length > 0) {
+        // Use the first active entitlement
+        const firstEntitlementName = activeEntitlements[0];
+        activeEntitlement = this.customerInfo.entitlements.active[firstEntitlementName];
+        console.log(`🔍 Using first available entitlement: ${firstEntitlementName}`, {
+          isActive: activeEntitlement.isActive,
+          productId: activeEntitlement.productIdentifier
+        });
+      }
+      
+      const isActive = activeEntitlement && activeEntitlement.isActive;
+      
+      // In production, be extra strict about validation
+      if (isProduction && isActive) {
+        // Additional production checks
+        const now = new Date();
+        const expirationDate = activeEntitlement.expirationDate ? new Date(activeEntitlement.expirationDate) : null;
+        const isNotExpired = !expirationDate || expirationDate > now;
+        
+        console.log('🏭 Production entitlement validation:', {
+          hasActiveEntitlement: !!activeEntitlement,
+          isActive: isActive,
+          expirationDate: expirationDate?.toISOString(),
+          isNotExpired: isNotExpired,
+          willRenew: activeEntitlement?.willRenew,
+          availableEntitlements: Object.keys(this.customerInfo.entitlements.active)
+        });
+        
+        return isActive && isNotExpired;
+      }
       
       console.log('📊 Entitlement check result:', {
-        hasProEntitlement: !!proEntitlement,
+        hasActiveEntitlement: !!activeEntitlement,
         isActive: isActive,
-        availableEntitlements: Object.keys(this.customerInfo.entitlements.active)
+        availableEntitlements: Object.keys(this.customerInfo.entitlements.active),
+        isProduction: isProduction
       });
       
       return isActive;
@@ -377,7 +495,15 @@ class RevenueCatService {
           console.warn('Could not get customer info before login:', beforeError.message);
         }
         
-        await Purchases.logIn(userID);
+        // This will transfer any anonymous purchases to the real user ID
+        const loginResult = await Purchases.logIn(userID);
+        console.log('[RC] Login result:', {
+          customerInfo: {
+            originalAppUserId: loginResult.customerInfo.originalAppUserId,
+            created: loginResult.created
+          }
+        });
+        
         await this.refreshCustomerInfo();
         
         console.log(`✅ User logged in to RevenueCat: ${userID}`);
@@ -464,15 +590,31 @@ class RevenueCatService {
         };
       }
 
-      const proEntitlement = this.customerInfo.entitlements.active['Pro'];
+      // Use the same flexible entitlement detection as hasActiveSubscription
+      const activeEntitlements = Object.keys(this.customerInfo.entitlements.active);
+      const possibleEntitlementNames = ['Pro', 'pro', 'Premium', 'premium', 'CorePlus', 'coreplus'];
+      let activeEntitlement = null;
       
-      if (proEntitlement && proEntitlement.isActive) {
+      for (const name of possibleEntitlementNames) {
+        if (this.customerInfo.entitlements.active[name]) {
+          activeEntitlement = this.customerInfo.entitlements.active[name];
+          break;
+        }
+      }
+      
+      // If no named entitlement found, use the first available
+      if (!activeEntitlement && activeEntitlements.length > 0) {
+        const firstEntitlementName = activeEntitlements[0];
+        activeEntitlement = this.customerInfo.entitlements.active[firstEntitlementName];
+      }
+      
+      if (activeEntitlement && activeEntitlement.isActive) {
         return {
           isActive: true,
           isPremium: true,
-          expirationDate: proEntitlement.expirationDate,
-          productId: proEntitlement.productIdentifier,
-          willRenew: proEntitlement.willRenew,
+          expirationDate: activeEntitlement.expirationDate,
+          productId: activeEntitlement.productIdentifier,
+          willRenew: activeEntitlement.willRenew,
           status: 'premium'
         };
       }

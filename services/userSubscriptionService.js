@@ -16,72 +16,54 @@ class UserSubscriptionService {
 
   /**
    * Initialize service when user signs in
+   * Assumes RevenueCat is already initialized and user ID is set
    */
   async initializeForUser(supabaseUser) {
     try {
       this.currentUser = supabaseUser;
       
-      // Link Supabase user to RevenueCat
-      await this.linkUserToRevenueCat(supabaseUser);
-      
-      // Get current subscription status
+      // Only sync subscription status - don't re-initialize RevenueCat
       await this.syncSubscriptionStatus();
-      
-      // Set up webhooks listener for real-time updates
-      this.setupSubscriptionListener();
       
       console.log('✅ User subscription service initialized for:', supabaseUser.email);
       
     } catch (error) {
       console.error('❌ Failed to initialize user subscription service:', error);
-      throw error;
+      // Don't throw - this shouldn't block user login
     }
   }
 
   /**
-   * Link Supabase user to RevenueCat with proper user ID
+   * Set user attributes in RevenueCat (assumes user ID already set)
    */
-  async linkUserToRevenueCat(supabaseUser) {
+  async setUserAttributes(supabaseUser) {
     try {
-      console.log('🔗 Linking user to RevenueCat:', supabaseUser.id, supabaseUser.email);
-      
-      // Ensure RevenueCat is initialized before setting user ID
-      const initResult = await revenueCatService.initialize();
-      if (!initResult.success) {
-        console.warn('⚠️ RevenueCat initialization failed, skipping user linking:', initResult.error);
+      // Only set attributes if RevenueCat is available
+      if (!revenueCatService.isInitialized) {
+        console.log('ℹ️ RevenueCat not available - skipping attributes');
         return;
       }
       
-      // Use Supabase user ID as RevenueCat user ID for consistency
-      await revenueCatService.setUserID(supabaseUser.id);
-      
-      // Store user metadata in RevenueCat
-      try {
-        await revenueCatService.setAttributes({
-          email: supabaseUser.email,
-          supabase_user_id: supabaseUser.id,
-          created_at: supabaseUser.created_at,
-          user_type: 'free' // Mark as free user initially
-        });
-        console.log('📋 User attributes set in RevenueCat');
-      } catch (attributeError) {
-        console.warn('⚠️ Failed to set RevenueCat attributes:', attributeError.message);
-      }
-      
-      console.log('✅ User linked to RevenueCat:', supabaseUser.id);
+      await revenueCatService.setAttributes({
+        email: supabaseUser.email,
+        supabase_user_id: supabaseUser.id,
+        created_at: supabaseUser.created_at,
+        user_type: 'free'
+      });
+      console.log('📋 User attributes set in RevenueCat');
       
     } catch (error) {
-      console.error('❌ Failed to link user to RevenueCat:', error.message);
-      // Don't throw error to prevent app crashes
+      console.warn('⚠️ Failed to set RevenueCat attributes:', error.message);
     }
   }
 
   /**
    * Sync subscription status between RevenueCat and Supabase
+   * Only called when truly needed (not on every auth change)
    */
   async syncSubscriptionStatus() {
     try {
-      // Get subscription status from RevenueCat
+      // Get subscription status from RevenueCat (handles fallback gracefully)
       const revenueCatStatus = await revenueCatService.getSubscriptionStatus();
       
       // Update Supabase user profile with subscription status
@@ -90,16 +72,14 @@ class UserSubscriptionService {
       // Update local state
       this.subscriptionStatus = revenueCatStatus;
       
-      // Notify listeners
-      this.notifyListeners(revenueCatStatus);
-      
-      console.log('🔄 Subscription status synced:', revenueCatStatus);
+      console.log('🔄 Subscription status synced:', revenueCatStatus.tier);
       
       return revenueCatStatus;
       
     } catch (error) {
-      console.error('❌ Failed to sync subscription status:', error);
-      throw error;
+      console.warn('⚠️ Failed to sync subscription status:', error.message);
+      // Return default free status instead of throwing
+      return { tier: 'free', isActive: false, isPremium: false };
     }
   }
 
@@ -139,14 +119,12 @@ class UserSubscriptionService {
   }
 
   /**
-   * Set up real-time subscription listener
+   * Refresh subscription status after purchase
+   * Call this manually after successful purchases only
    */
-  setupSubscriptionListener() {
-    // Listen for RevenueCat webhook events
-    revenueCatService.onSubscriptionChange((event) => {
-      console.log('🔔 Subscription change detected:', event);
-      this.syncSubscriptionStatus();
-    });
+  async refreshAfterPurchase() {
+    console.log('� Refreshing subscription status after purchase...');
+    return await this.syncSubscriptionStatus();
   }
 
   /**

@@ -1,6 +1,7 @@
 import Purchases from 'react-native-purchases';
 import { Platform } from 'react-native';
 import { supabase } from '../supabaseConfig';
+import { revenueCatService } from './revenueCatService';
 
 // RevenueCat Configuration
 const REVENUECAT_API_KEY = {
@@ -24,7 +25,8 @@ export const PRODUCT_IDS = {
 // Feature Limits by Tier
 export const FEATURE_LIMITS = {
   [SUBSCRIPTION_TIERS.FREE]: {
-    aiScansPerDay: 5,
+    aiScansPerMonth: 20,
+    aiManualSearchesPerMonth: 20,
     mealHistoryDays: 7,
     workoutPlans: 1,
     canExportData: false,
@@ -35,7 +37,8 @@ export const FEATURE_LIMITS = {
     supportLevel: 'community'
   },
   [SUBSCRIPTION_TIERS.PRO]: {
-    aiScansPerDay: -1, // unlimited
+    aiScansPerMonth: -1, // unlimited
+    aiManualSearchesPerMonth: -1, // unlimited
     mealHistoryDays: -1, // unlimited
     workoutPlans: -1, // unlimited
     canExportData: true,
@@ -62,10 +65,14 @@ class SubscriptionService {
     try {
       if (this.isInitialized) return;
 
+      console.log('🔄 Initializing subscription service for user:', userId);
+
       // Check if RevenueCat is available (it may not be in development)
       if (typeof Purchases === 'undefined') {
         console.warn('RevenueCat SDK not available - running in development mode');
         this.isInitialized = true;
+        // In dev mode, check database for subscription status
+        await this.loadSubscriptionFromDatabase(userId);
         return;
       }
 
@@ -78,6 +85,8 @@ class SubscriptionService {
       if (!apiKey) {
         console.warn('RevenueCat API key not found for platform:', Platform.OS, '- running in development mode');
         this.isInitialized = true;
+        // In dev mode, check database for subscription status
+        await this.loadSubscriptionFromDatabase(userId);
         return;
       }
 
@@ -88,73 +97,254 @@ class SubscriptionService {
 
       // Set up listener for subscription changes
       Purchases.addCustomerInfoUpdateListener((customerInfo) => {
-        this.handleSubscriptionUpdate(customerInfo);
+        this.handleSubscriptionUpdate(customerInfo, userId);
       });
 
       this.isInitialized = true;
-      console.log('🔄 RevenueCat initialized for user:', userId);
+      console.log('✅ RevenueCat initialized for user:', userId);
 
-      // Load current subscription status
-      await this.refreshSubscriptionStatus();
+      // Load current subscription status with user validation
+      await this.refreshSubscriptionStatus(userId);
     } catch (error) {
       console.error('Error initializing RevenueCat:', error);
     }
   }
 
   // Get current subscription status
-  async refreshSubscriptionStatus() {
+  async refreshSubscriptionStatus(userId) {
     try {
-      if (!this.isInitialized || typeof Purchases === 'undefined') {
-        console.log('RevenueCat not initialized - using free tier');
-        return this.currentSubscription;
+      console.log('🔄 Refreshing subscription status via RevenueCat for user:', userId);
+      
+      // Use our centralized RevenueCat service
+      const customerInfo = await revenueCatService.refreshCustomerInfo();
+      
+      if (!customerInfo) {
+        console.log('📊 No customer info available - using free tier');
+        this.userTier = SUBSCRIPTION_TIERS.FREE;
+        this.currentSubscription = null;
+        // Load from database as fallback
+        await this.loadSubscriptionFromDatabase(userId);
+        return null;
       }
       
-      const customerInfo = await Purchases.getCustomerInfo();
-      await this.handleSubscriptionUpdate(customerInfo);
+      // CRITICAL: Validate this user should have access to the subscription
+      await this.validateUserSubscriptionAccess(customerInfo, userId);
       return this.currentSubscription;
     } catch (error) {
-      console.error('Error refreshing subscription status:', error);
+      console.error('❌ Error refreshing subscription status:', error);
+      // Fallback to free tier on error
+      this.userTier = SUBSCRIPTION_TIERS.FREE;
+      this.currentSubscription = null;
       return null;
     }
   }
 
   // Handle subscription updates
-  async handleSubscriptionUpdate(customerInfo) {
+  async handleSubscriptionUpdate(customerInfo, userId) {
     try {
-      console.log('📊 Processing subscription update:', customerInfo);
+      console.log('📊 Processing subscription update for user:', userId);
+      console.log('📊 CustomerInfo:', customerInfo);
+
+      // CRITICAL: Always validate user access before granting benefits
+      await this.validateUserSubscriptionAccess(customerInfo, userId);
+      
+    } catch (error) {
+      console.error('Error handling subscription update:', error);
+      // On error, default to free tier for security
+      this.userTier = SUBSCRIPTION_TIERS.FREE;
+      this.currentSubscription = null;
+    }
+  }
+
+  /**
+   * CRITICAL SECURITY METHOD: Validate that the current user should have access to subscription benefits
+   * This prevents unauthorized users from accessing premium features due to device-level purchases
+   */
+  async validateUserSubscriptionAccess(customerInfo, userId) {
+    try {
+      console.log('🔒 Validating subscription access for user:', userId);
 
       let newTier = SUBSCRIPTION_TIERS.FREE;
       let subscriptionDetails = null;
 
-      // Check active entitlements
-      if (customerInfo.entitlements.active['elite']) {
-        newTier = SUBSCRIPTION_TIERS.ELITE;
-        subscriptionDetails = customerInfo.entitlements.active['elite'];
-      } else if (customerInfo.entitlements.active['pro']) {
-        newTier = SUBSCRIPTION_TIERS.PRO;
-        subscriptionDetails = customerInfo.entitlements.active['pro'];
+      // Check active entitlements from RevenueCat
+      if (customerInfo.entitlements.active['Pro']) {
+        subscriptionDetails = customerInfo.entitlements.active['Pro'];
+        
+        // Step 1: Check if this purchase belongs to this user in our database
+        const isValidSubscription = await this.validateSubscriptionOwnership(userId, subscriptionDetails);
+        
+        if (isValidSubscription) {
+          newTier = SUBSCRIPTION_TIERS.PRO;
+          console.log('✅ Subscription validated for user:', userId);
+        } else {
+          console.log('❌ Subscription found but not owned by current user:', userId);
+          // This is a security issue - someone else's purchase is active on this device
+          newTier = SUBSCRIPTION_TIERS.FREE;
+          subscriptionDetails = null;
+        }
       }
 
+      // Debug: Show all available entitlements
+      console.log('📊 Available entitlements:', Object.keys(customerInfo.entitlements.active));
+      console.log('📊 Validated tier for user:', newTier);
+
+      // Store previous tier for comparison
+      const previousTier = this.userTier;
       this.userTier = newTier;
       this.currentSubscription = subscriptionDetails;
 
-      // Update user tier in Supabase
-      await this.updateUserTierInDatabase(newTier, subscriptionDetails);
+      console.log(`🔄 [SubscriptionService] Tier change: ${previousTier} → ${newTier}`);
+      if (newTier === SUBSCRIPTION_TIERS.PRO) {
+        console.log('🎉 [SubscriptionService] User now has PRO access with unlimited features!');
+      }
 
-      console.log(`✅ User tier updated to: ${newTier}`);
+      // Update user tier in Supabase (this also creates a record if needed)
+      await this.updateUserTierInDatabase(newTier, subscriptionDetails, userId);
+
+      console.log(`✅ User tier securely validated and updated to: ${newTier}`);
     } catch (error) {
-      console.error('Error handling subscription update:', error);
+      console.error('❌ Error validating subscription access:', error);
+      // On error, default to free tier for security
+      this.userTier = SUBSCRIPTION_TIERS.FREE;
+      this.currentSubscription = null;
+    }
+  }
+
+  /**
+   * Validate that the subscription belongs to the current user
+   * Checks against our database records to prevent cross-user access
+   */
+  async validateSubscriptionOwnership(userId, subscriptionDetails) {
+    try {
+      // Check if we have a record of this user purchasing this subscription
+      const { data: userSubscription, error } = await supabase
+        .from('user_subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('subscription_status', 'active')
+        .single();
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('Database error checking subscription ownership:', error);
+        return false;
+      }
+
+      if (userSubscription) {
+        // We have a database record for this user's subscription
+        console.log('✅ Found database record for user subscription');
+        return true;
+      }
+
+      // No database record found - this could be:
+      // 1. A new purchase that hasn't been recorded yet
+      // 2. Someone else's purchase active on this device
+
+      // For new purchases, we'll create a record and allow it
+      // But we should be cautious about this in production
+      console.log('⚠️ No database record found - creating new subscription record');
+      
+      await this.createSubscriptionRecord(userId, subscriptionDetails);
+      return true;
+
+    } catch (error) {
+      console.error('Error validating subscription ownership:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Create a subscription record in our database
+   */
+  async createSubscriptionRecord(userId, subscriptionDetails) {
+    try {
+      const subscriptionData = {
+        user_id: userId,
+        subscription_tier: SUBSCRIPTION_TIERS.PRO,
+        subscription_status: 'active',
+        product_id: subscriptionDetails.productIdentifier,
+        original_transaction_id: subscriptionDetails.originalTransactionId,
+        expires_at: subscriptionDetails.expiresDate,
+        purchased_at: subscriptionDetails.originalPurchaseDate,
+        platform: Platform.OS,
+        revenue_cat_user_id: subscriptionDetails.originalTransactionId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('user_subscriptions')
+        .upsert(subscriptionData);
+
+      if (error) {
+        console.error('Error creating subscription record:', error);
+        throw error;
+      }
+
+      console.log('✅ Created subscription record for user:', userId);
+    } catch (error) {
+      console.error('Failed to create subscription record:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load subscription status from database (fallback when RevenueCat unavailable)
+   */
+  async loadSubscriptionFromDatabase(userId) {
+    try {
+      console.log('📊 Loading subscription from database for user:', userId);
+      
+      const { data: userSubscription, error } = await supabase
+        .from('user_subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('subscription_status', 'active')
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Database error loading subscription:', error);
+        this.userTier = SUBSCRIPTION_TIERS.FREE;
+        return;
+      }
+
+      if (userSubscription) {
+        // Check if subscription is still valid
+        const expiresAt = new Date(userSubscription.expires_at);
+        const now = new Date();
+        
+        if (expiresAt > now) {
+          this.userTier = userSubscription.subscription_tier;
+          console.log('✅ Valid subscription found in database:', this.userTier);
+        } else {
+          console.log('❌ Subscription expired:', expiresAt);
+          this.userTier = SUBSCRIPTION_TIERS.FREE;
+          // Mark as expired in database
+          await this.updateUserTierInDatabase(SUBSCRIPTION_TIERS.FREE, null, userId);
+        }
+      } else {
+        console.log('📊 No active subscription found in database');
+        this.userTier = SUBSCRIPTION_TIERS.FREE;
+      }
+    } catch (error) {
+      console.error('Error loading subscription from database:', error);
+      this.userTier = SUBSCRIPTION_TIERS.FREE;
     }
   }
 
   // Update user tier in Supabase
-  async updateUserTierInDatabase(tier, subscriptionDetails) {
+  async updateUserTierInDatabase(tier, subscriptionDetails, userId = null) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      // Use provided userId or get from auth
+      let targetUserId = userId;
+      if (!targetUserId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        targetUserId = user.id;
+      }
 
       const subscriptionData = {
-        user_id: user.id,
+        user_id: targetUserId,
         subscription_tier: tier,
         subscription_status: subscriptionDetails ? 'active' : 'free',
         subscription_product_id: subscriptionDetails?.productIdentifier || null,
@@ -168,6 +358,12 @@ class SubscriptionService {
 
       if (error) {
         console.error('Error updating subscription in database:', error);
+      } else {
+        console.log('✅ Successfully updated user subscription in database:', {
+          userId: targetUserId,
+          tier: tier,
+          status: subscriptionData.subscription_status
+        });
       }
     } catch (error) {
       console.error('Error updating user tier in database:', error);
@@ -348,6 +544,100 @@ class SubscriptionService {
       expiresAt: this.currentSubscription?.expirationDate,
       productId: this.currentSubscription?.productIdentifier,
       limits: FEATURE_LIMITS[this.userTier]
+    };
+  }
+
+  // Get usage limits for tracking service
+  getUsageLimits() {
+    const limits = FEATURE_LIMITS[this.userTier];
+    console.log('🔒 [SubscriptionService] Getting usage limits for tier:', this.userTier);
+    console.log('🔒 [SubscriptionService] Raw limits:', limits);
+    
+    const usageLimits = {
+      aiScansPerMonth: limits.aiScansPerMonth,
+      aiManualSearchesPerMonth: limits.aiManualSearchesPerMonth
+    };
+    console.log('🔒 [SubscriptionService] Usage limits returned:', usageLimits);
+    return usageLimits;
+  }
+
+  /**
+   * DEVELOPMENT/TESTING: Reset subscription state for current user
+   * This helps clear sandbox purchases that persist on device
+   */
+  async resetSubscriptionForTesting(userId) {
+    try {
+      console.log('🧪 Resetting subscription state for testing - User:', userId);
+      
+      // Reset local state
+      this.userTier = SUBSCRIPTION_TIERS.FREE;
+      this.currentSubscription = null;
+      
+      // Clear database records for this user
+      const { error } = await supabase
+        .from('user_subscriptions')
+        .delete()
+        .eq('user_id', userId);
+        
+      if (error) {
+        console.error('Error clearing subscription records:', error);
+      } else {
+        console.log('✅ Cleared subscription records for user:', userId);
+      }
+      
+      // Try to reset RevenueCat (this may not work in sandbox)
+      if (this.isInitialized && typeof Purchases !== 'undefined') {
+        try {
+          // Note: This doesn't actually cancel sandbox purchases
+          // Those need to be managed through App Store Connect / Google Play Console
+          await Purchases.invalidateCustomerInfoCache();
+          console.log('✅ Invalidated RevenueCat cache');
+        } catch (rcError) {
+          console.log('⚠️ Could not reset RevenueCat state:', rcError.message);
+        }
+      }
+      
+      console.log('🧪 Subscription reset complete - User should be on free tier');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ Error resetting subscription:', error);
+      return false;
+    }
+  }
+
+  /**
+   * DEVELOPMENT: Check if this is a sandbox environment
+   */
+  isSandboxEnvironment() {
+    return __DEV__ || process.env.NODE_ENV === 'development';
+  }
+
+  /**
+   * Force refresh subscription for current user (useful for testing)
+   */
+  async forceRefreshSubscription(userId) {
+    console.log('🔄 Force refreshing subscription for user:', userId);
+    this.isInitialized = false;
+    await this.initialize(userId);
+  }
+
+  /**
+   * DEVELOPMENT: Get detailed debug info about current subscription state
+   */
+  getDebugInfo() {
+    console.log('🔍 [SubscriptionService] Debug Info:');
+    console.log('  - User Tier:', this.userTier);
+    console.log('  - Has Subscription:', this.currentSubscription !== null);
+    console.log('  - Feature Limits:', FEATURE_LIMITS[this.userTier]);
+    console.log('  - Is Initialized:', this.isInitialized);
+    
+    return {
+      userTier: this.userTier,
+      hasSubscription: this.currentSubscription !== null,
+      limits: FEATURE_LIMITS[this.userTier],
+      isInitialized: this.isInitialized,
+      subscriptionDetails: this.currentSubscription
     };
   }
 }

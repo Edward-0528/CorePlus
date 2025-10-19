@@ -1,0 +1,607 @@
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Image,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '../../supabaseConfig';
+import { useTheme } from '../../contexts/ThemeContext';
+import { AppColors } from '../../constants/AppColors';
+import profilePictureService from '../../services/profilePictureService';
+
+const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
+  const { isDarkMode, colors } = useTheme();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    weight: '',
+    height: '',
+    age: '',
+    gender: '',
+    activityLevel: '',
+    fitnessGoal: '',
+    dietaryPreferences: '',
+    profileImage: null
+  });
+
+  // Initialize form data when user prop changes
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        firstName: user?.user_metadata?.first_name || '',
+        lastName: user?.user_metadata?.last_name || '',
+        weight: user?.user_metadata?.weight || '',
+        height: user?.user_metadata?.height || '',
+        age: user?.user_metadata?.age || '',
+        gender: user?.user_metadata?.gender || '',
+        activityLevel: user?.user_metadata?.activity_level || '',
+        fitnessGoal: user?.user_metadata?.fitness_goal || '',
+        dietaryPreferences: user?.user_metadata?.dietary_preferences || '',
+        profileImage: user?.user_metadata?.profile_image || null
+      });
+      
+      // Test bucket access when modal opens
+      if (visible) {
+        profilePictureService.testBucketAccess().then(accessible => {
+          if (!accessible) {
+            console.warn('⚠️ Profile pictures bucket may not be properly configured');
+          }
+        });
+      }
+    }
+  }, [user, visible]);
+
+  const pickImage = async () => {
+    try {
+      // Request permission
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow access to your photo library to upload a profile picture.');
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setFormData(prev => ({ ...prev, profileImage: result.assets[0].uri }));
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
+    }
+  };
+
+  const uploadImage = async (uri) => {
+    // Get the current profile image URL to delete the old one
+    const currentImageUrl = user?.user_metadata?.profile_image || null;
+    console.log('🔄 Uploading new image, current image to delete:', currentImageUrl);
+    
+    return await profilePictureService.uploadProfilePicture(uri, user.id, currentImageUrl);
+  };
+
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+
+      console.log('💾 Starting profile save process...');
+      console.log('📊 Form data:', {
+        firstName: formData.firstName,
+        profileImage: formData.profileImage ? formData.profileImage.substring(0, 50) + '...' : 'none'
+      });
+
+      // Validate required fields
+      if (!formData.firstName.trim()) {
+        Alert.alert('Error', 'First name is required');
+        return;
+      }
+
+      let profileImageUrl = formData.profileImage;
+      
+      // Upload new image if selected
+      if (formData.profileImage && formData.profileImage.startsWith('file://')) {
+        console.log('📤 Uploading new profile image...');
+        profileImageUrl = await uploadImage(formData.profileImage);
+        console.log('📤 Upload result:', profileImageUrl ? 'SUCCESS' : 'FAILED');
+        
+        if (!profileImageUrl) {
+          Alert.alert('Warning', 'Failed to upload profile image, but other changes will be saved.');
+          profileImageUrl = null;
+        }
+      } else {
+        console.log('ℹ️ No new image to upload (using existing or none)');
+      }
+
+      // Prepare the updated user metadata
+      const updatedMetadata = {
+        first_name: formData.firstName.trim(),
+        last_name: formData.lastName.trim(),
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        height: formData.height ? parseFloat(formData.height) : null,
+        age: formData.age ? parseInt(formData.age) : null,
+        gender: formData.gender,
+        activity_level: formData.activityLevel,
+        fitness_goal: formData.fitnessGoal,
+        dietary_preferences: formData.dietaryPreferences,
+        profile_image: profileImageUrl
+      };
+
+      console.log('📝 Updating user metadata:', {
+        ...updatedMetadata,
+        profile_image: profileImageUrl ? 'URL_SET' : 'NULL'
+      });
+
+      // Update user metadata in Supabase Auth
+      const { error } = await supabase.auth.updateUser({
+        data: updatedMetadata
+      });
+
+      if (error) {
+        console.error('❌ Supabase auth update failed:', error);
+        throw error;
+      }
+
+      console.log('✅ Supabase auth metadata updated successfully');
+
+      // Also update or create user profile in user_profiles table if it exists
+      try {
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .upsert({
+            user_id: user.id,
+            updated_at: new Date().toISOString(),
+            // You can add additional profile fields here if needed
+          });
+
+        if (profileError) {
+          console.warn('Profile table update failed:', profileError);
+          // Don't throw error here since the main update succeeded
+        } else {
+          console.log('✅ User profile table updated');
+        }
+      } catch (profileErr) {
+        console.warn('Profile table update error:', profileErr);
+      }
+
+      console.log('🎉 Profile update completed successfully');
+      Alert.alert('Success', 'Profile updated successfully!');
+      
+      // Call the callback to refresh user data
+      if (onProfileUpdate) {
+        onProfileUpdate();
+      }
+      
+      onClose();
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderInput = (label, value, onChangeText, placeholder, keyboardType = 'default', multiline = false) => (
+    <View style={styles.inputContainer}>
+      <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+      <TextInput
+        style={[
+          styles.input,
+          {
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+            color: colors.text
+          },
+          multiline && styles.multilineInput
+        ]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.textSecondary}
+        keyboardType={keyboardType}
+        multiline={multiline}
+      />
+    </View>
+  );
+
+  const renderPicker = (label, value, onValueChange, options) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const selectedOption = options.find(opt => opt.value === value);
+    
+    return (
+      <View style={styles.inputContainer}>
+        <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+        <TouchableOpacity 
+          style={[
+            styles.input,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              color: colors.text,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }
+          ]}
+          onPress={() => setIsOpen(!isOpen)}
+        >
+          <Text style={[
+            { color: selectedOption ? colors.text : colors.textSecondary },
+            styles.dropdownText
+          ]}>
+            {selectedOption ? selectedOption.label : 'Select...'}
+          </Text>
+          <Ionicons 
+            name={isOpen ? "chevron-up" : "chevron-down"} 
+            size={20} 
+            color={colors.textSecondary} 
+          />
+        </TouchableOpacity>
+        
+        {isOpen && (
+          <View style={[
+            styles.dropdownOptions, 
+            { 
+              backgroundColor: colors.surface, 
+              borderColor: colors.border,
+              shadowColor: colors.text 
+            }
+          ]}>
+            <ScrollView style={styles.dropdownScroll} showsVerticalScrollIndicator={false}>
+              <TouchableOpacity 
+                style={styles.dropdownOption}
+                onPress={() => {
+                  onValueChange('');
+                  setIsOpen(false);
+                }}
+              >
+                <Text style={[styles.dropdownOptionText, { color: colors.textSecondary }]}>
+                  Select...
+                </Text>
+              </TouchableOpacity>
+              {options.map((option) => (
+                <TouchableOpacity 
+                  key={option.value}
+                  style={[
+                    styles.dropdownOption,
+                    value === option.value && styles.selectedDropdownOption
+                  ]}
+                  onPress={() => {
+                    onValueChange(option.value);
+                    setIsOpen(false);
+                  }}
+                >
+                  <Text style={[
+                    styles.dropdownOptionText, 
+                    { color: colors.text },
+                    value === option.value && styles.selectedDropdownOptionText
+                  ]}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const genderOptions = [
+    { label: 'Male', value: 'male' },
+    { label: 'Female', value: 'female' },
+    { label: 'Other', value: 'other' },
+    { label: 'Prefer not to say', value: 'prefer_not_to_say' }
+  ];
+
+  const activityLevelOptions = [
+    { label: 'Sedentary (little/no exercise)', value: 'sedentary' },
+    { label: 'Lightly active (light exercise 1-3 days/week)', value: 'lightly_active' },
+    { label: 'Moderately active (moderate exercise 3-5 days/week)', value: 'moderately_active' },
+    { label: 'Very active (hard exercise 6-7 days/week)', value: 'very_active' },
+    { label: 'Super active (very hard exercise, physical job)', value: 'super_active' }
+  ];
+
+  const fitnessGoalOptions = [
+    { label: 'Lose weight', value: 'lose_weight' },
+    { label: 'Maintain weight', value: 'maintain_weight' },
+    { label: 'Gain weight', value: 'gain_weight' },
+    { label: 'Build muscle', value: 'build_muscle' },
+    { label: 'Improve fitness', value: 'improve_fitness' },
+    { label: 'General health', value: 'general_health' }
+  ];
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView 
+        style={[styles.container, { backgroundColor: colors.background }]}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={onClose} style={styles.headerButton}>
+            <Text style={[styles.headerButtonText, { color: colors.primary }]}>Cancel</Text>
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Edit Profile</Text>
+          <TouchableOpacity 
+            onPress={handleSave} 
+            style={styles.headerButton}
+            disabled={loading}
+          >
+            <Text style={[
+              styles.headerButtonText, 
+              { color: loading ? colors.textSecondary : colors.primary }
+            ]}>
+              {loading ? 'Saving...' : 'Save'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Form */}
+        <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+          {/* Profile Image Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Profile Picture</Text>
+            
+            <View style={styles.imageContainer}>
+              <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
+                {formData.profileImage ? (
+                  <Image source={{ uri: formData.profileImage }} style={styles.profileImage} />
+                ) : (
+                  <View style={[styles.placeholderImage, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Ionicons name="camera" size={40} color={colors.textSecondary} />
+                    <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
+                      Add Photo
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              {formData.profileImage && (
+                <TouchableOpacity 
+                  style={styles.removeImageButton}
+                  onPress={() => setFormData(prev => ({ ...prev, profileImage: null }))}
+                >
+                  <Ionicons name="close-circle" size={24} color={colors.danger} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+          
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Information</Text>
+            
+            {renderInput(
+              'First Name *',
+              formData.firstName,
+              (text) => setFormData(prev => ({ ...prev, firstName: text })),
+              'Enter your first name'
+            )}
+
+            {renderInput(
+              'Last Name',
+              formData.lastName,
+              (text) => setFormData(prev => ({ ...prev, lastName: text })),
+              'Enter your last name'
+            )}
+
+            {renderInput(
+              'Age',
+              formData.age,
+              (text) => setFormData(prev => ({ ...prev, age: text })),
+              'Enter your age',
+              'numeric'
+            )}
+
+            {renderPicker(
+              'Gender',
+              formData.gender,
+              (value) => setFormData(prev => ({ ...prev, gender: value })),
+              genderOptions
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Physical Information</Text>
+            
+            {renderInput(
+              'Weight (lbs)',
+              formData.weight,
+              (text) => setFormData(prev => ({ ...prev, weight: text })),
+              'Enter your weight in pounds',
+              'numeric'
+            )}
+
+            {renderInput(
+              'Height (inches)',
+              formData.height,
+              (text) => setFormData(prev => ({ ...prev, height: text })),
+              'Enter your height in inches (e.g., 70 for 5\'10")',
+              'numeric'
+            )}
+          </View>
+
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Fitness & Goals</Text>
+            
+            {renderPicker(
+              'Activity Level',
+              formData.activityLevel,
+              (value) => setFormData(prev => ({ ...prev, activityLevel: value })),
+              activityLevelOptions
+            )}
+
+            {renderPicker(
+              'Fitness Goal',
+              formData.fitnessGoal,
+              (value) => setFormData(prev => ({ ...prev, fitnessGoal: value })),
+              fitnessGoalOptions
+            )}
+
+            {renderInput(
+              'Dietary Preferences',
+              formData.dietaryPreferences,
+              (text) => setFormData(prev => ({ ...prev, dietaryPreferences: text })),
+              'e.g., Vegetarian, Vegan, Keto, etc.',
+              'default',
+              true
+            )}
+          </View>
+
+          <View style={styles.bottomPadding} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+  },
+  headerButton: {
+    minWidth: 60,
+  },
+  headerButtonText: {
+    fontSize: 17,
+    fontWeight: '400',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  scrollContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  section: {
+    marginTop: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    minHeight: 48,
+  },
+  multilineInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  dropdownText: {
+    fontSize: 16,
+  },
+  dropdownOptions: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    borderWidth: 1,
+    borderRadius: 12,
+    marginTop: 4,
+    zIndex: 1000,
+    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    maxHeight: 200,
+  },
+  dropdownScroll: {
+    maxHeight: 200,
+  },
+  dropdownOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#E5E5E5',
+  },
+  selectedDropdownOption: {
+    backgroundColor: '#F0F8FF',
+  },
+  dropdownOptionText: {
+    fontSize: 16,
+  },
+  selectedDropdownOptionText: {
+    fontWeight: '600',
+    color: '#007AFF',
+  },
+  bottomPadding: {
+    height: 40,
+  },
+  imageContainer: {
+    alignItems: 'center',
+    position: 'relative',
+  },
+  imagePickerButton: {
+    position: 'relative',
+  },
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+  },
+  placeholderImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: 'white',
+    borderRadius: 12,
+  },
+});
+
+export default EditProfileModal;

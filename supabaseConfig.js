@@ -30,7 +30,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: false, // Helps prevent auth loops
     // Add timeout settings to prevent hanging
     flowType: 'implicit',
   },

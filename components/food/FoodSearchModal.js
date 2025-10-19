@@ -19,6 +19,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 // Import enhanced food analysis service
 import { foodAnalysisService } from '../../foodAnalysisService';
+import usageTrackingService from '../../services/usageTrackingService';
+import { useSubscription } from '../../contexts/SubscriptionContext';
+import { useAppContext } from '../../contexts/AppContext';
 
 // Use the same colors as WorkingMinimalNutrition
 const AppColors = {
@@ -44,6 +47,8 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedFoods, setSelectedFoods] = useState([]);
   const [isAddingMeals, setIsAddingMeals] = useState(false);
+  const { isPremium, subscriptionInfo } = useSubscription();
+  const { user } = useAppContext();
 
   // Helper function to fix capitalization issues
   const fixCapitalization = (text) => {
@@ -67,6 +72,30 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
     if (!searchQuery.trim()) {
       Alert.alert('Search Required', 'Please enter a food item to search for.');
       return;
+    }
+
+    // Check usage limits before searching (for free users)
+    if (!isPremium && user?.id) {
+      const canUse = await usageTrackingService.canUseFeature(
+        'manual_searches', 
+        subscriptionInfo.limits?.aiManualSearchesPerMonth || 20,
+        user.id
+      );
+      
+      if (!canUse.canUse) {
+        Alert.alert(
+          'Monthly Limit Reached',
+          `You've used all ${canUse.limit} AI searches this month. Upgrade to Core+ Pro for unlimited searches!`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Upgrade', onPress: () => {
+              onClose?.();
+              // Could trigger upgrade modal here
+            }}
+          ]
+        );
+        return;
+      }
     }
 
     setIsSearching(true);
@@ -107,6 +136,12 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
         
         setSearchResults(foods);
         console.log('✅ Found', foods.length, 'food options using enhanced analysis');
+        
+        // Increment usage counter after successful search (for free users)
+        if (!isPremium && user?.id) {
+          await usageTrackingService.incrementUsage('manual_searches', user.id);
+          console.log('📊 Manual search usage incremented');
+        }
       } else {
         // If enhanced analysis fails, try fallback search
         console.warn('⚠️ Enhanced analysis failed, trying fallback search...');
@@ -115,6 +150,12 @@ const FoodSearchModal = ({ visible, onClose, onAddMeal }) => {
           if (fallbackResult.success && fallbackResult.foods?.length > 0) {
             setSearchResults(fallbackResult.foods);
             console.log('✅ Found', fallbackResult.foods.length, 'food options using fallback service');
+            
+            // Increment usage counter after successful fallback search (for free users)
+            if (!isPremium && user?.id) {
+              await usageTrackingService.incrementUsage('manual_searches', user.id);
+              console.log('📊 Manual search usage incremented (fallback)');
+            }
           } else {
             setSearchResults([]);
             console.log('❌ No results from fallback search either');

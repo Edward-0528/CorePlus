@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, RefreshControl, StyleSheet, Modal, TextInput, Alert, View, Text, TouchableOpacity } from 'react-native';
+import { ScrollView, RefreshControl, StyleSheet, Modal, TextInput, Alert, View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -14,11 +14,16 @@ import { getLocalDateString } from '../../../utils/dateUtils';
 
 // Services
 import { userStatsService } from '../../../services/userStatsService';
+import { supabase } from '../../../supabaseConfig';
 
 // Components
 import WeeklyProgressCard from '../../dashboard/WeeklyProgressCard';
 import FoodCameraScreen from '../../food/FoodCameraScreen';
+import FoodAnalysisResultsScreen from '../FoodAnalysisResultsScreen';
 import FoodSearchModal from '../../food/FoodSearchModal';
+import ShouldIEatItCamera from '../../food/ShouldIEatItCamera';
+import FoodRecommendationScreen from '../FoodRecommendationScreen';
+import AICoachCard from '../../nutrition/AICoachCard';
 
 // Define colors directly
 const AppColors = {
@@ -39,6 +44,33 @@ const AppColors = {
 };
 
 const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
+  // State for refreshed user data
+  const [currentUser, setCurrentUser] = useState(user);
+
+  // Update currentUser when user prop changes
+  useEffect(() => {
+    setCurrentUser(user);
+  }, [user]);
+
+  // Refresh user data function
+  const refreshUserData = async () => {
+    try {
+      console.log('🔄 Refreshing user data in Dashboard...');
+      const { data: { user: updatedUser }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (updatedUser) {
+        console.log('✅ User data refreshed in Dashboard');
+        setCurrentUser(updatedUser);
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing user data in Dashboard:', error);
+    }
+  };
+
+  // Refresh user data when screen comes into focus
+  useEffect(() => {
+    refreshUserData();
+  }, []);
   const { 
     dailyCalories, 
     addCalories, 
@@ -68,6 +100,15 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [showFoodCamera, setShowFoodCamera] = useState(false);
   const [showFoodSearchModal, setShowFoodSearchModal] = useState(false);
+  const [showShouldIEatItCamera, setShowShouldIEatItCamera] = useState(false);
+  const [showFoodRecommendation, setShowFoodRecommendation] = useState(false);
+  const [currentRecommendation, setCurrentRecommendation] = useState(null);
+  
+  // Food analysis states
+  const [showAnalysisResultsScreen, setShowAnalysisResultsScreen] = useState(false);
+  const [foodPredictions, setFoodPredictions] = useState([]);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [analysisError, setAnalysisError] = useState(null);
 
   // Load water intake from storage on component mount
   useEffect(() => {
@@ -240,6 +281,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   // Quick Actions for meal logging
   const quickActions = [
     { icon: 'camera-outline', title: 'Scan Food', color: AppColors.nutrition },
+    { icon: 'help-circle-outline', title: 'Should I Eat It?', color: AppColors.warning, premium: true },
     { icon: 'restaurant-outline', title: 'Log Meal', color: AppColors.primary },
     { icon: 'water-outline', title: 'Water', color: AppColors.primary },
   ];
@@ -253,6 +295,10 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
       case 'Scan Food':
         console.log('📸 Opening food camera...');
         setShowFoodCamera(true);
+        break;
+      case 'Should I Eat It?':
+        console.log('🤔 Opening Should I Eat It camera...');
+        setShowShouldIEatItCamera(true);
         break;
       case 'Log Meal':
         console.log('📝 Opening manual meal entry...');
@@ -353,13 +399,28 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
     }
   };
 
+  // Handle food recommendation completion
+  const handleRecommendationComplete = (recommendation) => {
+    console.log('🤔 Food recommendation received:', recommendation.recommendation.shouldEat ? 'Yes' : 'No');
+    setCurrentRecommendation(recommendation);
+    setShowShouldIEatItCamera(false);
+    setShowFoodRecommendation(true);
+  };
+
+  // Handle trying another recommendation
+  const handleTryAnotherRecommendation = () => {
+    setShowFoodRecommendation(false);
+    setCurrentRecommendation(null);
+    setShowShouldIEatItCamera(true);
+  };
+
   const renderHeader = () => (
     <View style={[enhancedStyles.header, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
       <View style={enhancedStyles.headerContent}>
         <View style={enhancedStyles.greetingSection}>
           <Text style={[enhancedStyles.greeting, { color: colors.textSecondary }]}>{getGreeting()}</Text>
           <Text style={[enhancedStyles.userName, { color: colors.textPrimary }]}>
-            {user?.user_metadata?.first_name || 'User'}
+            {currentUser?.user_metadata?.first_name || 'User'}
           </Text>
           <Text style={[enhancedStyles.dateText, { color: colors.textSecondary }]}>
             {new Date().toLocaleDateString('en-US', { 
@@ -379,10 +440,32 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
               backgroundColor: AppColors.white, // White background
             }
           ]}>
-            <View style={[enhancedStyles.avatar, { backgroundColor: AppColors.white }]}>
-              <Text style={[enhancedStyles.avatarText, { color: AppColors.primary }]}>
-                {user?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}
-              </Text>
+            <View style={[enhancedStyles.avatar, { backgroundColor: AppColors.white, position: 'relative' }]}>
+              {/* Render Image component if profile image exists */}
+              {currentUser?.user_metadata?.profile_image ? (
+                <Image 
+                  key={currentUser.user_metadata.profile_image}
+                  source={{ 
+                    uri: currentUser.user_metadata.profile_image,
+                    cache: 'reload'
+                  }} 
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: 28,
+                  }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={[enhancedStyles.avatarText, { color: AppColors.primary }]}>
+                  {currentUser?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}
+                </Text>
+              )}
             </View>
           </TouchableOpacity>
         </View>
@@ -516,7 +599,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
 
   const renderWeeklyProgress = () => {
     return (
-      <View style={minimalStyles.section}>
+      <View style={enhancedStyles.section}>
         <WeeklyProgressCard 
           calorieGoal={calorieGoal}
           onPress={() => {
@@ -534,7 +617,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
       
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ flexGrow: 1 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -547,6 +630,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
         {renderPrimaryCalorieProgress()}
         {renderQuickActions()}
         {renderWeeklyProgress()}
+        <AICoachCard />
         {renderUserStatistics()}
       </ScrollView>
 
@@ -631,8 +715,18 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
                   onPress={() => handleQuickAction(action)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name={action.icon} size={20} color={action.color} />
+                  <View style={popupStyles.actionIconContainer}>
+                    <Ionicons name={action.icon} size={20} color={action.color} />
+                    {action.premium && !isPremium && (
+                      <View style={popupStyles.premiumBadge}>
+                        <Ionicons name="diamond" size={12} color={AppColors.white} />
+                      </View>
+                    )}
+                  </View>
                   <Text style={popupStyles.actionText}>{action.title}</Text>
+                  {action.premium && !isPremium && (
+                    <Text style={popupStyles.premiumText}>PRO</Text>
+                  )}
                 </TouchableOpacity>
               ))}
             </View>
@@ -652,8 +746,33 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
               console.log('Photo taken:', imageUri);
             }}
             onClose={() => setShowFoodCamera(false)}
-            onAnalysisComplete={(predictions) => {
-              // Handle food analysis results - you can implement this similar to WorkingMinimalNutrition
+            onAnalysisComplete={(predictions, imageUri, isLoading, errorMessage, action) => {
+              console.log('🔥🔥🔥 Dashboard analysis complete:', { 
+                predictions: predictions?.length || 0, 
+                imageUri, 
+                isLoading, 
+                errorMessage,
+                action
+              });
+              
+              if (action === 'showAnalysisScreen') {
+                console.log('📋 Dashboard showing analysis results screen...');
+                setFoodPredictions(predictions);
+                setCapturedImage(imageUri);
+                setAnalysisError(errorMessage);
+                setShowFoodCamera(false);
+                setShowAnalysisResultsScreen(true);
+                return;
+              }
+              
+              if (action === 'updateAnalysisScreen') {
+                console.log('📋 Dashboard updating analysis results screen with results...');
+                setFoodPredictions(predictions);
+                setAnalysisError(errorMessage);
+                return;
+              }
+              
+              // Legacy handling
               console.log('Food analyzed:', predictions);
               setShowFoodCamera(false);
             }}
@@ -668,6 +787,60 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
           onClose={() => setShowFoodSearchModal(false)}
           onAddMeal={handleFoodSearchMeal}
         />
+      )}
+
+      {/* Should I Eat It Camera Modal */}
+      {showShouldIEatItCamera && (
+        <Modal
+          visible={showShouldIEatItCamera}
+          animationType="slide"
+          presentationStyle="fullScreen"
+        >
+          <ShouldIEatItCamera
+            onClose={() => setShowShouldIEatItCamera(false)}
+            onRecommendationComplete={handleRecommendationComplete}
+          />
+        </Modal>
+      )}
+
+      {/* Food Recommendation Screen Modal */}
+      {showFoodRecommendation && currentRecommendation && (
+        <Modal
+          visible={showFoodRecommendation}
+          animationType="slide"
+          presentationStyle="fullScreen"
+        >
+          <FoodRecommendationScreen
+            recommendation={currentRecommendation}
+            onClose={() => {
+              setShowFoodRecommendation(false);
+              setCurrentRecommendation(null);
+            }}
+            onTryAgain={handleTryAnotherRecommendation}
+          />
+        </Modal>
+      )}
+
+      {/* Food Analysis Results Screen */}
+      {showAnalysisResultsScreen && (
+        <Modal
+          visible={showAnalysisResultsScreen}
+          animationType="slide"
+          onRequestClose={() => setShowAnalysisResultsScreen(false)}
+        >
+          <FoodAnalysisResultsScreen
+            route={{
+              params: {
+                imageUri: capturedImage,
+                predictions: foodPredictions,
+                error: analysisError
+              }
+            }}
+            navigation={{
+              goBack: () => setShowAnalysisResultsScreen(false)
+            }}
+          />
+        </Modal>
       )}
     </View>
   );
@@ -728,11 +901,24 @@ const minimalStyles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 5,
+    overflow: 'hidden', // Ensure image is clipped to circle
   },
   avatarText: {
     fontSize: 20,
     fontWeight: 'bold',
     color: AppColors.white,
+  },
+  avatarImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: '#FF0000', // Temporary red border to see if Image renders
   },
   separator: {
     height: 1,
@@ -1081,12 +1267,35 @@ const popupStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border,
   },
+  actionIconContainer: {
+    position: 'relative',
+  },
+  premiumBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: AppColors.warning,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   actionText: {
     flex: 1,
     fontSize: 16,
     fontWeight: '500',
     color: AppColors.textPrimary,
     marginLeft: 12,
+  },
+  premiumText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: AppColors.warning,
+    backgroundColor: AppColors.warning + '20',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
   },
 });
 
@@ -1153,7 +1362,9 @@ const enhancedStyles = StyleSheet.create({
 
   // Primary Calorie Progress
   primarySection: {
-    margin: 20,
+    marginTop: 24,
+    marginHorizontal: 20,
+    marginBottom: 24,
     backgroundColor: AppColors.white,
     borderRadius: 16,
     padding: 24,
@@ -1229,6 +1440,7 @@ const enhancedStyles = StyleSheet.create({
 
   // Section Styles
   section: {
+    marginTop: 0,
     marginHorizontal: 20,
     marginBottom: 24,
   },

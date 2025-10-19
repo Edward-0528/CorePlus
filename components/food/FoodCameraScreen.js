@@ -250,30 +250,21 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
           console.log('❌ onPhotoTaken callback is null');
         }
 
-        // Immediately transition to selection screen with loading state
-        console.log('📱 About to call onAnalysisComplete with loading=true');
+        // Immediately transition to loading screen
+        console.log('📱 Calling onAnalysisComplete to show loading screen');
         if (callbacksRef.current.onAnalysisComplete) {
-          console.log('📱 Calling onAnalysisComplete with loading state');
-          callbacksRef.current.onAnalysisComplete([], photo.uri, true); // Empty predictions, loading = true
-          console.log('📱 onAnalysisComplete loading call completed');
-        } else {
-          console.log('❌ onAnalysisComplete callback is null');
+          callbacksRef.current.onAnalysisComplete([], photo.uri, true, null, 'showAnalysisScreen');
         }
         
-        // Close camera immediately to show loading screen
-        console.log('📱 About to close camera');
+        // Close camera
         if (callbacksRef.current.onClose) {
-          console.log('📱 Calling onClose');
           callbacksRef.current.onClose();
-          console.log('📱 onClose call completed');
-        } else {
-          console.log('❌ onClose callback is null');
         }
         
         // Reset analyzing state immediately since we're transitioning away
         setIsAnalyzing(false);
 
-        // Start background analysis - use setTimeout to ensure camera is closed first
+        // Start background analysis
         setTimeout(async () => {
           try {
             console.log('🔄 Starting background food analysis for:', photo.uri);
@@ -283,24 +274,24 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
             
             if (analysisResult.success && analysisResult.predictions.length > 0) {
               console.log('✅ Analysis successful, predictions:', analysisResult.predictions.length);
-              // Update with actual analysis results using refs
+              // Update with actual analysis results
               if (callbacksRef.current.onAnalysisComplete) {
-                callbacksRef.current.onAnalysisComplete(analysisResult.predictions, photo.uri, false);
+                callbacksRef.current.onAnalysisComplete(analysisResult.predictions, photo.uri, false, null, 'updateAnalysisScreen');
               }
             } else {
               console.log('⚠️ Analysis returned no predictions');
-              // Analysis failed, update with error state using refs
+              // Show error on results screen
               if (callbacksRef.current.onAnalysisComplete) {
-                callbacksRef.current.onAnalysisComplete([], photo.uri, false, 'Could not identify the food. Please try again or add manually.');
+                callbacksRef.current.onAnalysisComplete([], photo.uri, false, 'Could not identify the food. Please try again or add manually.', 'updateAnalysisScreen');
               }
             }
           } catch (analysisError) {
             console.error('❌ Background food analysis failed:', analysisError);
             if (callbacksRef.current.onAnalysisComplete) {
-              callbacksRef.current.onAnalysisComplete([], photo.uri, false, `Analysis failed: ${analysisError.message}`);
+              callbacksRef.current.onAnalysisComplete([], photo.uri, false, `Analysis failed: ${analysisError.message}`, 'updateAnalysisScreen');
             }
           }
-        }, 100); // Small delay to ensure camera modal is fully closed
+        }, 100);
 
       } catch (error) {
         setIsAnalyzing(false);

@@ -3,6 +3,9 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } fr
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { foodAnalysisService } from '../foodAnalysisService';
+import usageTrackingService from '../../services/usageTrackingService';
+import { useSubscription } from '../../contexts/SubscriptionContext';
+import { useAppContext } from '../../contexts/AppContext';
 
 // Define colors directly to match the minimal design
 const AppColors = {
@@ -23,6 +26,8 @@ const MinimalFoodCamera = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [facing, setFacing] = useState('back');
   const cameraRef = useRef(null);
+  const { isPremium, subscriptionInfo } = useSubscription();
+  const { user } = useAppContext();
 
   if (!permission) {
     return <View style={styles.container} />;
@@ -51,6 +56,30 @@ const MinimalFoodCamera = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
   const takePicture = async () => {
     if (cameraRef.current && !isAnalyzing) {
       try {
+        // Check usage limits before taking picture (for free users)
+        if (!isPremium && user?.id) {
+          const canUse = await usageTrackingService.canUseFeature(
+            'ai_scans', 
+            subscriptionInfo.limits?.aiScansPerMonth || 20,
+            user.id
+          );
+          
+          if (!canUse.canUse) {
+            Alert.alert(
+              'Monthly Limit Reached',
+              `You've used all ${canUse.limit} AI scans this month. Upgrade to Core+ Pro for unlimited scans!`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Upgrade', onPress: () => {
+                  onClose?.();
+                  // Could trigger upgrade modal here
+                }}
+              ]
+            );
+            return;
+          }
+        }
+
         setIsAnalyzing(true);
         
         const photo = await cameraRef.current.takePictureAsync({
@@ -67,6 +96,13 @@ const MinimalFoodCamera = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
         
         if (analysisResult.success) {
           console.log('✅ Food analysis completed');
+          
+          // Increment usage counter after successful analysis (for free users)
+          if (!isPremium && user?.id) {
+            await usageTrackingService.incrementUsage('ai_scans', user.id);
+            console.log('📊 AI scan usage incremented');
+          }
+          
           onAnalysisComplete?.(analysisResult);
         } else {
           console.error('❌ Food analysis failed:', analysisResult.error);
