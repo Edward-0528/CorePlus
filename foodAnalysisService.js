@@ -593,40 +593,14 @@ export const foodAnalysisService = {
       throw new Error('Gemini API key not available for image analysis');
     }
 
-    const prompt = `Analyze this food image and provide detailed nutritional information following USDA standards. Please identify:
+    const prompt = `Identify foods in this image and provide nutrition info. Be specific (e.g., "grilled chicken breast" not "chicken").
 
-1. The specific food items visible (be as specific as possible - e.g., "grilled chicken breast" not just "chicken")
-2. REALISTIC portion sizes based on typical serving measurements:
-   - Use standard measurements (cups, tablespoons, ounces, grams)
-   - For proteins: typical serving = 3-4 oz (85-115g)
-   - For vegetables: typical serving = 1/2 to 1 cup
-   - For grains: typical serving = 1/2 to 1 cup cooked
-   - For fruits: 1 medium piece or 1/2 to 1 cup
-   - Avoid vague terms like "small portion" or "large serving"
-
-3. For each food item, provide ACCURATE nutritional values per actual serving size:
-   - Calories (based on actual portion, not per 100g)
-   - Carbohydrates (g)
-   - Protein (g) 
-   - Fat (g)
-   - Fiber (g)
-   - Sugar (g)
-   - Sodium (mg)
-
-PORTION ACCURACY EXAMPLES:
-- Chicken breast (4 oz/115g) = ~165 calories
-- Apple (1 medium/180g) = ~95 calories  
-- Brown rice (1/2 cup cooked/100g) = ~110 calories
-- Broccoli (1 cup/90g) = ~25 calories
-
-4. Confidence level for each identification (0.0 to 1.0)
-
-Format your response as JSON:
+Return JSON format:
 {
   "foods": [
     {
       "name": "specific food name",
-      "portion": "realistic serving description with measurements",
+      "portion": "realistic serving size (3 oz, 1 cup, etc.)",
       "confidence": 0.95,
       "nutrition": {
         "calories": 250,
@@ -641,7 +615,7 @@ Format your response as JSON:
   ]
 }
 
-CRITICAL: Provide nutrition values for the ACTUAL portion identified, not per 100g. Use realistic serving sizes that people actually eat.`;
+Provide nutrition for actual portion shown, not per 100g. Use realistic serving sizes.`;
 
     const requestBody = {
       contents: [
@@ -660,10 +634,11 @@ CRITICAL: Provide nutrition values for the ACTUAL portion identified, not per 10
         }
       ],
       generationConfig: {
-        temperature: 0.1,
+        temperature: 0.2,
         topK: 32,
-        topP: 1,
-        maxOutputTokens: 2048,
+        topP: 0.8,
+        maxOutputTokens: 1024,
+        responseMimeType: "application/json"
       },
     };
 
