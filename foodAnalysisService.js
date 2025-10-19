@@ -201,31 +201,72 @@ export const foodAnalysisService = {
     try {
       console.log('🔍 Starting food analysis with Gemini for image:', imageUri);
       
+      // Validate API key first
+      const apiKey = getGeminiApiKey();
+      if (!apiKey) {
+        console.error('❌ No Gemini API key available for image analysis');
+        return {
+          success: false,
+          error: 'API key not available',
+          predictions: []
+        };
+      }
+      
+      console.log('✅ API key available for image analysis');
+      
       // Convert image to base64
+      console.log('🔄 Converting image to base64...');
       const base64Image = await this.convertImageToBase64(imageUri);
+      console.log('✅ Image converted to base64, length:', base64Image.length);
       
       // Call Gemini API for intelligent food identification
+      console.log('🔄 Calling Gemini Vision API...');
       const geminiResponse = await this.callGeminiVision(base64Image);
+      console.log('✅ Gemini Vision API response received:', {
+        hasCandidates: !!geminiResponse.candidates,
+        candidatesLength: geminiResponse.candidates?.length || 0
+      });
       
       // Extract food items from Gemini response
+      console.log('🔄 Extracting food items from Gemini response...');
       const detectedFoods = this.extractFoodItemsFromGemini(geminiResponse);
+      console.log('✅ Detected foods extracted:', {
+        count: detectedFoods.length,
+        foods: detectedFoods.map(f => ({ name: f.name, confidence: f.confidence }))
+      });
       
       // Generate top 3 food predictions with enhanced accuracy
+      console.log('🔄 Generating food predictions...');
       const predictions = this.generateFoodPredictions(detectedFoods);
+      console.log('✅ Enhanced food predictions generated:', {
+        count: predictions.length,
+        predictions: predictions.map(p => ({ name: p.name, calories: p.calories, confidence: p.confidence }))
+      });
       
-      console.log('✅ Enhanced food predictions generated:', predictions);
       return {
         success: true,
         predictions: predictions,
-        imageUri: imageUri
+        imageUri: imageUri,
+        source: 'gemini-vision'
       };
       
     } catch (error) {
       console.error('❌ Food analysis error:', error);
+      console.error('❌ Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
+      
+      // Return fallback predictions if analysis fails completely
+      console.log('🔄 Returning fallback predictions due to error');
+      const fallbackPredictions = this.getTimeBasedFallbacks();
+      
       return {
         success: false,
         error: error.message,
-        predictions: []
+        predictions: fallbackPredictions,
+        source: 'fallback-error'
       };
     }
   },
@@ -468,6 +509,14 @@ export const foodAnalysisService = {
   async convertImageToBase64(imageUri) {
     try {
       console.log('🔄 Converting image to base64:', imageUri);
+      console.log('🔍 Image URI details:', {
+        length: imageUri.length,
+        scheme: imageUri.split('://')[0],
+        isFile: imageUri.startsWith('file://'),
+        isContent: imageUri.startsWith('content://'),
+        isAsset: imageUri.startsWith('asset://'),
+        hasPath: imageUri.includes('/')
+      });
       
       // Method 1: Try expo-file-system first
       try {
@@ -482,8 +531,20 @@ export const foodAnalysisService = {
         
         // Method 2: Fallback to fetch + manual base64 conversion
         const response = await fetch(imageUri);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+        }
+        
         const arrayBuffer = await response.arrayBuffer();
         const bytes = new Uint8Array(arrayBuffer);
+        
+        console.log('🔍 Image fetch details:', {
+          responseOk: response.ok,
+          status: response.status,
+          arrayBufferSize: arrayBuffer.byteLength,
+          bytesLength: bytes.length
+        });
         
         // Convert to base64 manually
         let binary = '';
@@ -496,7 +557,12 @@ export const foodAnalysisService = {
         return base64;
       }
     } catch (error) {
-      console.error('Base64 conversion error:', error);
+      console.error('❌ Base64 conversion error:', error);
+      console.error('❌ Error details:', {
+        name: error.name,
+        message: error.message,
+        imageUri: imageUri
+      });
       throw new Error(`Failed to convert image to base64: ${error.message}`);
     }
   },
@@ -577,6 +643,12 @@ CRITICAL: Provide nutrition values for the ACTUAL portion identified, not per 10
       },
     };
 
+    console.log('🔄 Making Gemini API request with:', {
+      apiUrl: apiUrl.substring(0, 50) + '...',
+      imageSize: base64Image.length,
+      promptLength: prompt.length
+    });
+
     const apiUrl = getGeminiApiUrl();
     const response = await fetch(apiUrl, {
       method: 'POST',
@@ -586,12 +658,21 @@ CRITICAL: Provide nutrition values for the ACTUAL portion identified, not per 10
       body: JSON.stringify(requestBody)
     });
 
+    console.log('🔍 Gemini API response status:', response.status);
+
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`Gemini API error: ${JSON.stringify(errorData)}`);
+      console.error('❌ Gemini API error response:', errorData);
+      throw new Error(`Gemini API error (${response.status}): ${JSON.stringify(errorData)}`);
     }
 
-    return response.json();
+    const responseData = await response.json();
+    console.log('✅ Gemini API response successful:', {
+      hasCandidates: !!responseData.candidates,
+      candidatesCount: responseData.candidates?.length || 0
+    });
+
+    return responseData;
   },
 
   // Call Gemini API for text-based food analysis
