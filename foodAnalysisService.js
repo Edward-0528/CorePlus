@@ -19,9 +19,9 @@ const getGeminiApiUrl = () => {
     throw new Error('Gemini API key not available');
   }
   
-  // Use 1.5 Pro for image analysis (avoids thinking tokens issue)
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`;
-  console.log('✅ getGeminiApiUrl: URL constructed successfully, length:', url.length);
+  // Use 2.5 Flash-Lite for image analysis (newer, lite = no thinking tokens, higher output limit)
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
+  console.log('✅ getGeminiApiUrl: Image analysis URL constructed (2.5 Flash-Lite), length:', url.length);
   return url;
 };
 
@@ -41,7 +41,7 @@ const getGeminiTextApiUrl = () => {
   
   // Use 2.5 Flash for text analysis (works perfectly for manual search)
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-  console.log('✅ getGeminiTextApiUrl: URL constructed successfully, length:', url.length);
+  console.log('✅ getGeminiTextApiUrl: Text analysis URL constructed (2.5 Flash), length:', url.length);
   return url;
 };
 
@@ -637,7 +637,7 @@ export const foodAnalysisService = {
         temperature: 0.1,
         topK: 20,
         topP: 0.7,
-        maxOutputTokens: 1536,
+        maxOutputTokens: 2048,
         responseMimeType: "application/json"
       },
     };
