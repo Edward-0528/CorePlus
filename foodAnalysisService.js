@@ -688,6 +688,42 @@ Example: {"foods":[{"name":"grilled chicken breast","portion":"4 oz","confidence
       candidatesCount: responseData.candidates?.length || 0
     });
 
+    // Log token usage and cost for image analysis
+    if (responseData.usageMetadata) {
+      const usage = responseData.usageMetadata;
+      
+      // Gemini 2.5 Pro pricing (approximate)
+      const INPUT_COST_PER_MILLION = 1.25; // $1.25 per 1M input tokens
+      const OUTPUT_COST_PER_MILLION = 5.00; // $5.00 per 1M output tokens
+      
+      const inputTokens = usage.promptTokenCount || 0;
+      const outputTokens = usage.candidatesTokenCount || 0;
+      const totalTokens = usage.totalTokenCount || 0;
+      
+      const inputCost = (inputTokens / 1000000) * INPUT_COST_PER_MILLION;
+      const outputCost = (outputTokens / 1000000) * OUTPUT_COST_PER_MILLION;
+      const totalCost = inputCost + outputCost;
+      
+      console.log('💰 IMAGE ANALYSIS COST BREAKDOWN:');
+      console.log(`📊 Token Usage:`, {
+        inputTokens: inputTokens.toLocaleString(),
+        outputTokens: outputTokens.toLocaleString(),
+        totalTokens: totalTokens.toLocaleString(),
+        thoughtsTokens: usage.thoughtsTokenCount?.toLocaleString() || 'N/A'
+      });
+      console.log(`💵 Cost Breakdown:`, {
+        inputCost: `$${inputCost.toFixed(6)}`,
+        outputCost: `$${outputCost.toFixed(6)}`,
+        totalCost: `$${totalCost.toFixed(6)}`,
+        costPer1000Scans: `$${(totalCost * 1000).toFixed(2)}`
+      });
+      console.log(`📈 Scaling Estimates:`, {
+        per100Users: `$${(totalCost * 100).toFixed(4)}`,
+        per1000Users: `$${(totalCost * 1000).toFixed(2)}`,
+        per10000Users: `$${(totalCost * 10000).toFixed(2)}`
+      });
+    }
+
     return responseData;
   },
 
@@ -827,6 +863,43 @@ CRITICAL: For fast food, prioritize EXACT official nutrition data over estimates
 
       const result = await response.json();
       console.log('✅ Gemini API response received successfully');
+
+      // Log token usage and cost for text analysis
+      if (result.usageMetadata) {
+        const usage = result.usageMetadata;
+        
+        // Gemini 2.5 Flash pricing (approximate)
+        const INPUT_COST_PER_MILLION = 0.075; // $0.075 per 1M input tokens
+        const OUTPUT_COST_PER_MILLION = 0.30;  // $0.30 per 1M output tokens
+        
+        const inputTokens = usage.promptTokenCount || 0;
+        const outputTokens = usage.candidatesTokenCount || 0;
+        const totalTokens = usage.totalTokenCount || 0;
+        
+        const inputCost = (inputTokens / 1000000) * INPUT_COST_PER_MILLION;
+        const outputCost = (outputTokens / 1000000) * OUTPUT_COST_PER_MILLION;
+        const totalCost = inputCost + outputCost;
+        
+        console.log('💰 TEXT SEARCH COST BREAKDOWN:');
+        console.log(`📊 Token Usage:`, {
+          inputTokens: inputTokens.toLocaleString(),
+          outputTokens: outputTokens.toLocaleString(),
+          totalTokens: totalTokens.toLocaleString(),
+          thoughtsTokens: usage.thoughtsTokenCount?.toLocaleString() || 'N/A'
+        });
+        console.log(`💵 Cost Breakdown:`, {
+          inputCost: `$${inputCost.toFixed(6)}`,
+          outputCost: `$${outputCost.toFixed(6)}`,
+          totalCost: `$${totalCost.toFixed(6)}`,
+          costPer1000Searches: `$${(totalCost * 1000).toFixed(2)}`
+        });
+        console.log(`📈 Scaling Estimates:`, {
+          per100Users: `$${(totalCost * 100).toFixed(4)}`,
+          per1000Users: `$${(totalCost * 1000).toFixed(2)}`,
+          per10000Users: `$${(totalCost * 10000).toFixed(2)}`
+        });
+      }
+      
       return result;
       
     } catch (networkError) {
@@ -1702,5 +1775,50 @@ CRITICAL: For fast food, prioritize EXACT official nutrition data over estimates
   // Capitalize words for display
   capitalizeWords(str) {
     return str.replace(/\b\w/g, l => l.toUpperCase());
+  },
+
+  // Cost analysis helper function
+  calculateCostBreakdown(usage, isImageAnalysis = false) {
+    if (!usage) return null;
+    
+    const pricing = isImageAnalysis ? {
+      INPUT_COST_PER_MILLION: 1.25,   // Gemini 2.5 Pro for images
+      OUTPUT_COST_PER_MILLION: 5.00,
+      modelName: 'Gemini 2.5 Pro'
+    } : {
+      INPUT_COST_PER_MILLION: 0.075,  // Gemini 2.5 Flash for text
+      OUTPUT_COST_PER_MILLION: 0.30,
+      modelName: 'Gemini 2.5 Flash'
+    };
+
+    const inputTokens = usage.promptTokenCount || 0;
+    const outputTokens = usage.candidatesTokenCount || 0;
+    const totalTokens = usage.totalTokenCount || 0;
+    
+    const inputCost = (inputTokens / 1000000) * pricing.INPUT_COST_PER_MILLION;
+    const outputCost = (outputTokens / 1000000) * pricing.OUTPUT_COST_PER_MILLION;
+    const totalCost = inputCost + outputCost;
+
+    return {
+      model: pricing.modelName,
+      tokens: {
+        input: inputTokens,
+        output: outputTokens,
+        total: totalTokens,
+        thoughts: usage.thoughtsTokenCount || 0
+      },
+      costs: {
+        input: inputCost,
+        output: outputCost,
+        total: totalCost
+      },
+      projections: {
+        per100Users: totalCost * 100,
+        per1000Users: totalCost * 1000,
+        per10000Users: totalCost * 10000,
+        monthly100ActiveUsers: totalCost * 100 * 30, // assuming 1 scan per day per user
+        monthly1000ActiveUsers: totalCost * 1000 * 30
+      }
+    };
   }
 };
