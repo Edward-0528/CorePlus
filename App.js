@@ -22,6 +22,7 @@ import { Alert, Linking, View, StyleSheet, AppState } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import authService from './authService';
 import { socialAuthService } from './socialAuthService';
 import { biometricService } from './biometricService';
@@ -396,11 +397,40 @@ function AppContent() {
         // No need for duplicate background initialization
         
       } else {
-        // No user session found, show landing screen
-        console.log('📱 No user session found, showing landing screen');
-        setShowLanding(true);
+        // No user session found, check if this is a returning user
+        console.log('📱 No user session found, checking returning user status...');
+        
+        try {
+          // Check if user has logged in before
+          const hasLoggedInBefore = await AsyncStorage.getItem('hasLoggedInBefore');
+          const savedEmail = await AsyncStorage.getItem('lastLoginEmail');
+          
+          console.log('🔍 Returning user check:', {
+            hasLoggedInBefore: !!hasLoggedInBefore,
+            hasSavedEmail: !!savedEmail
+          });
+          
+          if (hasLoggedInBefore) {
+            // Skip landing page for returning users - go straight to quick login
+            console.log('� Returning user detected, showing quick login screen');
+            setShowLanding(false);
+            setShowLogin(true); // This will trigger the QuickLoginScreen logic
+            setIsAuthenticated(false);
+          } else {
+            // New user, show landing screen
+            console.log('👋 New user detected, showing landing screen');
+            setShowLanding(true);
+            setIsAuthenticated(false);
+          }
+        } catch (storageError) {
+          console.warn('⚠️ Could not check returning user status:', storageError.message);
+          // Fallback to landing screen
+          console.log('📱 Falling back to landing screen');
+          setShowLanding(true);
+          setIsAuthenticated(false);
+        }
+        
         setShowOnboarding(false);
-        setIsAuthenticated(false);
       }
     } catch (error) {
       console.error('❌ Authentication check error:', error);
@@ -703,6 +733,15 @@ function AppContent() {
       if (loginResult.success) {
         console.log('Auto-login successful, user will be redirected to onboarding');
         
+        // Mark user as returning user for future app launches
+        try {
+          await AsyncStorage.setItem('hasLoggedInBefore', 'true');
+          await AsyncStorage.setItem('lastLoginEmail', signupEmail);
+          console.log('💾 New user marked as returning user after signup');
+        } catch (storageError) {
+          console.warn('⚠️ Failed to mark returning user after signup:', storageError.message);
+        }
+        
         // Save email for next time and offer biometric setup
         try {
           await quickLoginService.saveLoginPreferences(signupEmail, signupPassword, false, true);
@@ -741,6 +780,15 @@ function AppContent() {
       
       if (result.success) {
         console.log('✅ Login successful for:', result.data?.user?.id);
+        
+        // Mark user as returning user for future app launches
+        try {
+          await AsyncStorage.setItem('hasLoggedInBefore', 'true');
+          await AsyncStorage.setItem('lastLoginEmail', formData.email);
+          console.log('💾 User marked as returning user');
+        } catch (storageError) {
+          console.warn('⚠️ Failed to mark returning user:', storageError.message);
+        }
         
         // Save email for next time and offer biometric setup
         try {
