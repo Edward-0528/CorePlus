@@ -19,9 +19,9 @@ const getGeminiApiUrl = () => {
     throw new Error('Gemini API key not available');
   }
   
-  // Use 2.5 Flash-Lite for image analysis (newer, lite = no thinking tokens, higher output limit)
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
-  console.log('✅ getGeminiApiUrl: Image analysis URL constructed (2.5 Flash-Lite), length:', url.length);
+  // Use 2.5 Pro for image analysis (most accurate model available)
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
+  console.log('✅ getGeminiApiUrl: Image analysis URL constructed (2.5 Pro - highest accuracy), length:', url.length);
   return url;
 };
 
@@ -614,8 +614,12 @@ export const foodAnalysisService = {
       throw new Error('Gemini API key not available for image analysis');
     }
 
-    const prompt = `What food is in this image? Return JSON:
-{"foods":[{"name":"food name","portion":"serving size","confidence":0.9,"nutrition":{"calories":200,"carbs":20,"protein":15,"fat":8,"fiber":3,"sugar":5,"sodium":100}}]}`;
+    const prompt = `Identify the specific foods in this image. Be precise about food names and portions.
+
+Return only JSON:
+{"foods":[{"name":"specific food name","portion":"realistic serving","confidence":0.9,"nutrition":{"calories":200,"carbs":20,"protein":15,"fat":8,"fiber":3,"sugar":5,"sodium":100}}]}
+
+Example: {"foods":[{"name":"grilled chicken breast","portion":"4 oz","confidence":0.95,"nutrition":{"calories":185,"carbs":0,"protein":35,"fat":4,"fiber":0,"sugar":0,"sodium":74}}]}`;
 
     const requestBody = {
       contents: [
@@ -636,8 +640,8 @@ export const foodAnalysisService = {
       generationConfig: {
         temperature: 0.1,
         topK: 20,
-        topP: 0.7,
-        maxOutputTokens: 2048,
+        topP: 0.8,
+        maxOutputTokens: 4096,
         responseMimeType: "application/json"
       },
     };
