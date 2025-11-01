@@ -352,6 +352,12 @@ class SubscriptionService {
         updated_at: new Date().toISOString()
       };
 
+      // DISABLED: No longer writing subscription data to Supabase
+      // RevenueCat is the single source of truth for subscription state
+      console.log('ℹ️ Subscription database write disabled - using RevenueCat as single source of truth');
+      console.log('ℹ️ Would have written:', { tier, userId: targetUserId, status: subscriptionDetails ? 'active' : 'free' });
+      
+      /*
       const { error } = await supabase
         .from('user_subscriptions')
         .upsert(subscriptionData);
@@ -365,6 +371,7 @@ class SubscriptionService {
           status: subscriptionData.subscription_status
         });
       }
+      */
     } catch (error) {
       console.error('Error updating user tier in database:', error);
     }

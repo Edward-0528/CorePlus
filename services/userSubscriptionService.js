@@ -58,21 +58,18 @@ class UserSubscriptionService {
   }
 
   /**
-   * Sync subscription status between RevenueCat and Supabase
-   * Only called when truly needed (not on every auth change)
+   * Sync subscription status from RevenueCat only
+   * Do not update Supabase - let RevenueCat be the single source of truth
    */
   async syncSubscriptionStatus() {
     try {
       // Get subscription status from RevenueCat (handles fallback gracefully)
       const revenueCatStatus = await revenueCatService.getSubscriptionStatus();
       
-      // Update Supabase user profile with subscription status
-      await this.updateSupabaseUserProfile(revenueCatStatus);
-      
-      // Update local state
+      // Update local state only - do not update Supabase
       this.subscriptionStatus = revenueCatStatus;
       
-      console.log('🔄 Subscription status synced:', revenueCatStatus.tier);
+      console.log('🔄 Subscription status synced from RevenueCat:', revenueCatStatus.tier);
       
       return revenueCatStatus;
       
@@ -83,40 +80,9 @@ class UserSubscriptionService {
     }
   }
 
-  /**
-   * Update Supabase user profile with subscription data
-   */
-  async updateSupabaseUserProfile(subscriptionStatus) {
-    try {
-      // Map RevenueCat status to tier
-      const tier = subscriptionStatus.isPremium ? 'pro' : 'free';
-      
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .upsert({
-          user_id: this.currentUser.id,
-          subscription_tier: tier,
-          subscription_status: subscriptionStatus.status,
-          subscription_expires_at: subscriptionStatus.expirationDate,
-          subscription_product_id: subscriptionStatus.productId,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id'
-        });
-
-      if (error) throw error;
-      
-      console.log('✅ Supabase user profile updated with subscription data:', {
-        tier,
-        status: subscriptionStatus.status,
-        productId: subscriptionStatus.productId
-      });
-      
-    } catch (error) {
-      console.error('❌ Failed to update Supabase user profile:', error);
-      // Don't throw - this is not critical for app functionality
-    }
-  }
+  // REMOVED: updateSupabaseUserProfile method
+  // RevenueCat is now the single source of truth for subscription data
+  // No need to duplicate subscription status in Supabase user profiles
 
   /**
    * Refresh subscription status after purchase
