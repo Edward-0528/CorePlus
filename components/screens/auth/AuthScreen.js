@@ -71,7 +71,7 @@ const AuthScreen = memo(({
     loadSavedEmail();
   }, []);
   
-  // NEW: Update currentView when route changes from App.js
+  // Update currentView when route changes from App.js
   useEffect(() => {
     let newView;
     switch (currentRoute) {
@@ -80,7 +80,6 @@ const AuthScreen = memo(({
       case 'Landing':
       default: newView = 'landing'; break;
     }
-    console.log('🔄 AuthScreen: Route changed to', currentRoute, '-> setting view to', newView);
     setCurrentView(newView);
   }, [currentRoute]);
   

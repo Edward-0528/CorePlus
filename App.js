@@ -5,7 +5,6 @@ import './utils/productionSafe';
 if (__DEV__) {
   try {
     require('./test_manual_meal_search');
-    require('./manual_test_returning_user');
   } catch (e) {
     console.warn('Dev import failed:', e);
   }
@@ -256,7 +255,6 @@ function AppContent() {
             setShowLanding(false);
             setShowLogin(true);
           } else {
-            console.log('🔄 Signed out new user - setting landing screen');
             setShowLanding(true);
           }
         } catch (error) {
@@ -458,24 +456,12 @@ function AppContent() {
         
         // Additional check: Log final state after returning user logic
         setTimeout(() => {
-          console.log('🔍 POST-LOGIC STATE CHECK:', {
-            showLanding,
+          console.log('✅ Authentication complete - final state:', {
             showLogin,
-            showSignUp,
-            showOnboarding,
-            isAuthenticated,
-            user: user?.id || 'none'
+            showLanding,
+            isAuthenticated
           });
         }, 200);
-        
-        // CRITICAL DEBUG: Track what might be overriding our states
-        setTimeout(() => {
-          console.log('🚨 DELAYED STATE CHECK (500ms):', {
-            showLanding,
-            showLogin,
-            expectedForReturningUser: 'showLogin=true, showLanding=false'
-          });
-        }, 500);
         
         setShowOnboarding(false);
       }
@@ -1048,22 +1034,10 @@ function AppContent() {
       loading
     });
     
-    if (showLanding) {
-      console.log('📍 Route: Landing (showLanding=true)');
-      return 'Landing';
-    }
-    if (showLogin) {
-      console.log('📍 Route: Login (showLogin=true)');
-      return 'Login';
-    }
-    if (showSignUp) {
-      console.log('📍 Route: SignUp (showSignUp=true)');
-      return 'SignUp';
-    }
-    if (showOnboarding) {
-      console.log('📍 Route: Onboarding (showOnboarding=true)');
-      return 'Onboarding';
-    }
+    if (showLanding) return 'Landing';
+    if (showLogin) return 'Login';
+    if (showSignUp) return 'SignUp';
+    if (showOnboarding) return 'Onboarding';
     if (isAuthenticated && user && !showOnboarding && !authLoading && !loading) {
       console.log('✅ Route: Authenticated');
       return 'Authenticated';
@@ -1207,13 +1181,6 @@ function AppContent() {
     <SafeAreaView style={{ flex: 1 }} edges={getSafeAreaEdges()}>
       <View style={{ flex: 1 }}>
         {route !== 'None' && renderRoute()}
-        
-        {/* TEMPORARY EMERGENCY DEBUG - REMOVE AFTER TESTING */}
-        {__DEV__ && (
-          React.createElement(
-            require('./components/debug/EmergencyAsyncStorageTest').EmergencyAsyncStorageTest
-          )
-        )}
       </View>
       <StatusBar style={getStatusBarStyle()} backgroundColor="transparent" translucent />
     </SafeAreaView>
