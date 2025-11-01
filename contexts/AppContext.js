@@ -69,28 +69,29 @@ export const AppProvider = ({ children }) => {
     affiliateCode: ''
   });
 
-  // Simple session check on app start
-  useEffect(() => {
-    checkExistingSession();
-  }, []);
+  // Simple session check on app start - DISABLED
+  // App.js handles authentication flow including returning user detection
+  // useEffect(() => {
+  //   checkExistingSession();
+  // }, []);
 
-  const checkExistingSession = async () => {
-    try {
-      // Just check if user has an active session - keep it simple
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session && session.user) {
-        setUser(session.user);
-        setIsAuthenticated(true);
-        setShowLanding(false);
-      }
-      
-      setAuthLoading(false);
-    } catch (error) {
-      console.error('Session check error:', error);
-      setAuthLoading(false);
-    }
-  };
+  // const checkExistingSession = async () => {
+  //   try {
+  //     // Just check if user has an active session - keep it simple
+  //     const { data: { session } } = await supabase.auth.getSession();
+  //     
+  //     if (session && session.user) {
+  //       setUser(session.user);
+  //       setIsAuthenticated(true);
+  //       setShowLanding(false);
+  //     }
+  //     
+  //     setAuthLoading(false);
+  //   } catch (error) {
+  //     console.error('Session check error:', error);
+  //     setAuthLoading(false);
+  //   }
+  // };
 
   // Memoized actions to prevent re-renders
   const actions = {
