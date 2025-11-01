@@ -14,6 +14,7 @@ const AuthScreen = memo(({
   // General props
   loading,
   styles,
+  currentRoute, // NEW: The route from App.js ('Landing', 'Login', 'SignUp')
   // Landing props
   onGetStarted,
   // Login props  
@@ -28,8 +29,17 @@ const AuthScreen = memo(({
 }) => {
   const { formData, updateFormData } = useAppContext();
   
-  // Auth screen state management
-  const [currentView, setCurrentView] = useState('landing'); // 'landing', 'login', 'signup'
+  // Auth screen state management - initialize based on currentRoute
+  const getInitialView = () => {
+    switch (currentRoute) {
+      case 'Login': return 'login';
+      case 'SignUp': return 'signup';
+      case 'Landing':
+      default: return 'landing';
+    }
+  };
+  
+  const [currentView, setCurrentView] = useState(getInitialView());
   const [termsAccepted, setTermsAccepted] = useState(true);
   
   // Video state
@@ -60,6 +70,19 @@ const AuthScreen = memo(({
     checkBiometricStatus();
     loadSavedEmail();
   }, []);
+  
+  // NEW: Update currentView when route changes from App.js
+  useEffect(() => {
+    let newView;
+    switch (currentRoute) {
+      case 'Login': newView = 'login'; break;
+      case 'SignUp': newView = 'signup'; break;
+      case 'Landing':
+      default: newView = 'landing'; break;
+    }
+    console.log('🔄 AuthScreen: Route changed to', currentRoute, '-> setting view to', newView);
+    setCurrentView(newView);
+  }, [currentRoute]);
   
   const loadSavedEmail = async () => {
     try {

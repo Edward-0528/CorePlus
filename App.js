@@ -243,7 +243,27 @@ function AppContent() {
         
         setUser(null);
         setIsAuthenticated(false);
-        setShowLanding(true);
+        
+        // CRITICAL FIX: Don't automatically set showLanding(true) for signed out users
+        // Let checkAuthState handle the returning user detection instead
+        console.log('🔄 User signed out - checking if this is a returning user before setting landing');
+        
+        // Check if this is a returning user before defaulting to landing page
+        try {
+          const hasLoggedInBefore = await AsyncStorage.getItem('hasLoggedInBefore');
+          if (hasLoggedInBefore) {
+            console.log('🔄 Signed out returning user - setting login screen');
+            setShowLanding(false);
+            setShowLogin(true);
+          } else {
+            console.log('🔄 Signed out new user - setting landing screen');
+            setShowLanding(true);
+          }
+        } catch (error) {
+          console.warn('⚠️ Could not check returning user status on signout, defaulting to landing');
+          setShowLanding(true);
+        }
+        
         setShowOnboarding(false);
         // Clear loading states
         setAuthLoading(false);
@@ -447,6 +467,15 @@ function AppContent() {
             user: user?.id || 'none'
           });
         }, 200);
+        
+        // CRITICAL DEBUG: Track what might be overriding our states
+        setTimeout(() => {
+          console.log('🚨 DELAYED STATE CHECK (500ms):', {
+            showLanding,
+            showLogin,
+            expectedForReturningUser: 'showLogin=true, showLanding=false'
+          });
+        }, 500);
         
         setShowOnboarding(false);
       }
@@ -1085,6 +1114,7 @@ function AppContent() {
           <AuthScreen
             loading={loading}
             styles={styles}
+            currentRoute={route} // Pass the current route so AuthScreen knows what to show
             // Landing props
             onGetStarted={handleGetStarted}
             // Login props
@@ -1177,6 +1207,13 @@ function AppContent() {
     <SafeAreaView style={{ flex: 1 }} edges={getSafeAreaEdges()}>
       <View style={{ flex: 1 }}>
         {route !== 'None' && renderRoute()}
+        
+        {/* TEMPORARY EMERGENCY DEBUG - REMOVE AFTER TESTING */}
+        {__DEV__ && (
+          React.createElement(
+            require('./components/debug/EmergencyAsyncStorageTest').EmergencyAsyncStorageTest
+          )
+        )}
       </View>
       <StatusBar style={getStatusBarStyle()} backgroundColor="transparent" translucent />
     </SafeAreaView>
