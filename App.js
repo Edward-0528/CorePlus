@@ -912,6 +912,15 @@ function AppContent() {
       if (loginResult.success) {
         // Auth state listener will handle RevenueCat user ID setting
         console.log('🔗 Auth state listener will handle RevenueCat initialization for:', loginResult.data?.user?.id);
+        
+        // Mark user as returning user for future app launches (biometric login)
+        try {
+          await AsyncStorage.setItem('hasLoggedInBefore', 'true');
+          await AsyncStorage.setItem('lastLoginEmail', credentialsResult.credentials.email);
+          console.log('💾 User marked as returning user (biometric login)');
+        } catch (storageError) {
+          console.warn('⚠️ Failed to mark returning user after biometric login:', storageError.message);
+        }
       } else {
         setLoading(false);
         Alert.alert('Login Failed', loginResult.error);
@@ -978,6 +987,11 @@ function AppContent() {
         if (result.data?.user?.email) {
           try {
             await quickLoginService.saveLoginPreferences(result.data.user.email, null, false, true);
+            
+            // Mark user as returning user for future app launches (social login)
+            await AsyncStorage.setItem('hasLoggedInBefore', 'true');
+            await AsyncStorage.setItem('lastLoginEmail', result.data.user.email);
+            console.log('💾 User marked as returning user (social login)');
           } catch (prefError) {
             console.warn('⚠️ Failed to save social login preferences:', prefError.message);
           }
