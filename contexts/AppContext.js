@@ -32,7 +32,8 @@ const ACTIVITY_OPTIONS = [
 
 export const AppProvider = ({ children }) => {
   // All state management
-  const [showLanding, setShowLanding] = useState(true);
+  // Start with neutral state - App.js will determine initial screen based on returning user detection
+  const [showLanding, setShowLanding] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
   const [showGenderModal, setShowGenderModal] = useState(false);

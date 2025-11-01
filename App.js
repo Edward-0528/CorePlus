@@ -405,9 +405,14 @@ function AppContent() {
           const hasLoggedInBefore = await AsyncStorage.getItem('hasLoggedInBefore');
           const savedEmail = await AsyncStorage.getItem('lastLoginEmail');
           
-          console.log('🔍 Returning user check:', {
-            hasLoggedInBefore: !!hasLoggedInBefore,
-            hasSavedEmail: !!savedEmail
+          console.log('🔍 ENHANCED Returning user check:', {
+            hasLoggedInBefore_raw: hasLoggedInBefore,
+            hasLoggedInBefore_type: typeof hasLoggedInBefore,
+            hasLoggedInBefore_boolean: !!hasLoggedInBefore,
+            savedEmail_raw: savedEmail,
+            savedEmail_type: typeof savedEmail,
+            hasSavedEmail: !!savedEmail,
+            shouldSkipLanding: !!hasLoggedInBefore
           });
           
           if (hasLoggedInBefore) {
