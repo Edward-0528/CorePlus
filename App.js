@@ -5,6 +5,7 @@ import './utils/productionSafe';
 if (__DEV__) {
   try {
     require('./test_manual_meal_search');
+    require('./manual_test_returning_user');
   } catch (e) {
     console.warn('Dev import failed:', e);
   }
@@ -401,10 +402,6 @@ function AppContent() {
         console.log('📱 No user session found, checking returning user status...');
         
         try {
-          // DEBUG: Test AsyncStorage values
-          const { testAsyncStorageValues } = require('./test_asyncstorage');
-          await testAsyncStorageValues();
-          
           // Check if user has logged in before
           const hasLoggedInBefore = await AsyncStorage.getItem('hasLoggedInBefore');
           const savedEmail = await AsyncStorage.getItem('lastLoginEmail');
@@ -1042,32 +1039,26 @@ function AppContent() {
   };
 
   const renderRoute = () => {
-    // Temporary debug component - REMOVE IN PRODUCTION
-    const AsyncStorageDebugger = require('./components/debug/AsyncStorageDebugger').AsyncStorageDebugger;
-    
     switch (route) {
       case 'Landing':
       case 'SignUp':
       case 'Login':
         return (
-          <View style={{ flex: 1 }}>
-            <AsyncStorageDebugger />
-            <AuthScreen
-              loading={loading}
-              styles={styles}
-              // Landing props
-              onGetStarted={handleGetStarted}
-              // Login props
-              onLogin={handleLogin}
-              onBiometricLogin={handleBiometricLogin}
-              // SignUp props
-              onSignUp={handleSignUp}
-              genderOptions={GENDER_OPTIONS}
-              onGenderSelect={handleGenderSelect}
-              // Social auth
-              onSocialLogin={handleSocialLogin}
-            />
-          </View>
+          <AuthScreen
+            loading={loading}
+            styles={styles}
+            // Landing props
+            onGetStarted={handleGetStarted}
+            // Login props
+            onLogin={handleLogin}
+            onBiometricLogin={handleBiometricLogin}
+            // SignUp props
+            onSignUp={handleSignUp}
+            genderOptions={GENDER_OPTIONS}
+            onGenderSelect={handleGenderSelect}
+            // Social auth
+            onSocialLogin={handleSocialLogin}
+          />
         );
 
       case 'Onboarding':
