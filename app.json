@@ -32,6 +32,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "allowBackup": false,
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.CAMERA",
