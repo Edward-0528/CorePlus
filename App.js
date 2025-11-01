@@ -436,6 +436,18 @@ function AppContent() {
           setIsAuthenticated(false);
         }
         
+        // Additional check: Log final state after returning user logic
+        setTimeout(() => {
+          console.log('🔍 POST-LOGIC STATE CHECK:', {
+            showLanding,
+            showLogin,
+            showSignUp,
+            showOnboarding,
+            isAuthenticated,
+            user: user?.id || 'none'
+          });
+        }, 200);
+        
         setShowOnboarding(false);
       }
     } catch (error) {
@@ -993,10 +1005,22 @@ function AppContent() {
       loading
     });
     
-    if (showLanding) return 'Landing';
-    if (showLogin) return 'Login';
-    if (showSignUp) return 'SignUp';
-    if (showOnboarding) return 'Onboarding';
+    if (showLanding) {
+      console.log('📍 Route: Landing (showLanding=true)');
+      return 'Landing';
+    }
+    if (showLogin) {
+      console.log('📍 Route: Login (showLogin=true)');
+      return 'Login';
+    }
+    if (showSignUp) {
+      console.log('📍 Route: SignUp (showSignUp=true)');
+      return 'SignUp';
+    }
+    if (showOnboarding) {
+      console.log('📍 Route: Onboarding (showOnboarding=true)');
+      return 'Onboarding';
+    }
     if (isAuthenticated && user && !showOnboarding && !authLoading && !loading) {
       console.log('✅ Route: Authenticated');
       return 'Authenticated';
