@@ -908,42 +908,22 @@ function AppContent() {
   const handleLogout = async () => {
     setLoading(true);
     
-    // Ask user if they want to clear saved login data
-    Alert.alert(
-      'Sign Out',
-      'Do you want to clear your saved login information for easier sign-in next time?',
-      [
-        {
-          text: 'Keep Login Info',
-          onPress: async () => {
-            const result = await authService.signOut();
-            setLoading(false);
-            if (!result.success) {
-              Alert.alert('Error', result.error);
-            }
-          }
-        },
-        {
-          text: 'Clear All Data',
-          style: 'destructive',
-          onPress: async () => {
-            // Clear quick login preferences
-            try {
-              await quickLoginService.clearLoginPreferences();
-              console.log('🧹 Cleared quick login preferences');
-            } catch (error) {
-              console.warn('⚠️ Failed to clear login preferences:', error.message);
-            }
-            
-            const result = await authService.signOut();
-            setLoading(false);
-            if (!result.success) {
-              Alert.alert('Error', result.error);
-            }
-          }
-        }
-      ]
-    );
+    try {
+      // Simple logout - no dialog, just sign out
+      console.log('👋 Signing out user...');
+      const result = await authService.signOut();
+      
+      if (!result.success) {
+        Alert.alert('Error', result.error || 'Failed to sign out');
+      } else {
+        console.log('✅ User signed out successfully');
+      }
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+      Alert.alert('Error', 'Something went wrong during sign out');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSocialLogin = async (provider) => {
