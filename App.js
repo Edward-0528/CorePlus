@@ -40,7 +40,6 @@ import { configureDesignSystem } from './components/design/Theme';
 
 // Import components - organized structure
 import AuthScreen from './components/screens/auth/AuthScreen';
-import OnboardingScreen from './components/screens/onboarding/OnboardingScreen';
 import WorkingMinimalDashboard from './components/screens/main/WorkingMinimalDashboard';
 import EnhancedNutrition from './components/EnhancedNutrition';
 import WorkingMinimalAccount from './components/screens/main/WorkingMinimalAccount';
@@ -62,11 +61,6 @@ function AppContent() {
     showLanding,
     showLogin,
     showSignUp,
-    showOnboarding,
-    onboardingStep,
-    showDatePicker,
-    showHeightPicker,
-    showWeightPicker,
     isAuthenticated,
     user,
     loading,
@@ -74,35 +68,20 @@ function AppContent() {
     count,
     activeTab,
     formData,
-    onboardingData,
-    mainGoals,
-    activityOptions,
     // Actions from context
     handleGetStarted,
     handleSwitchToLogin,
     handleSwitchToSignUp,
     handleSwitchToQuickLogin,
     handleBackToLanding,
-    setShowDatePicker,
-    setShowHeightPicker,
-    setShowWeightPicker,
-    nextOnboardingStep,
-    prevOnboardingStep,
-    selectGoal,
-    toggleActivity,
-    selectDate,
-    selectHeight,
-    selectWeight,
     setUser,
     setIsAuthenticated,
     setAuthLoading,
     setLoading,
-    setShowOnboarding,
     setShowLanding,
     setShowLogin,
     setShowSignUp,
     setFormData,
-    setOnboardingData,
     setCount,
     updateFormData,
     setActiveTab
@@ -124,7 +103,6 @@ function AppContent() {
           loading,
           isAuthenticated,
           user: user?.id || 'none',
-          showOnboarding,
           showLanding,
           showLogin,
           showSignUp,
@@ -161,7 +139,7 @@ function AppContent() {
         clearTimeout(emergencyTimeout);
       }
     };
-  }, [authLoading, loading, isAuthenticated, user, showOnboarding, showLanding]);
+  }, [authLoading, loading, isAuthenticated, user, showLanding]);
 
   // Check authentication state on app load
   useEffect(() => {
@@ -209,16 +187,7 @@ function AppContent() {
           // Don't fail the login process if RevenueCat fails
         }
         
-        // Check if user needs onboarding with error handling
-        try {
-          const needsOnboarding = await checkIfUserNeedsOnboarding(session.user.id);
-          setShowOnboarding(needsOnboarding);
-        } catch (onboardingError) {
-          console.warn('⚠️ Onboarding check failed, defaulting to dashboard:', onboardingError);
-          setShowOnboarding(false); // Default to dashboard on error
-        }
-        
-        // Clear both loading states after onboarding check
+        // Clear both loading states
         setLoading(false);
         setAuthLoading(false);
       } else {
@@ -262,7 +231,6 @@ function AppContent() {
           setShowLanding(true);
         }
         
-        setShowOnboarding(false);
         // Clear loading states
         setAuthLoading(false);
         setLoading(false);
@@ -303,7 +271,6 @@ function AppContent() {
     console.log('🔄 Current state:', {
       isAuthenticated,
       user: user?.id || 'none',
-      showOnboarding,
       authLoading,
       loading
     });
@@ -391,36 +358,50 @@ function AppContent() {
         setIsAuthenticated(true);
         setShowLanding(false);
         
-        // For existing users, check if they have completed onboarding
-        console.log('🎯 [STEP 3/3] Checking onboarding status...');
-        const onboardingStartTime = Date.now();
-        
-        // Add timeout for onboarding check (increased to 20s)
-        const onboardingPromise = checkIfUserNeedsOnboarding(sessionResult.user.id);
-        const onboardingTimeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Onboarding check timeout')), 20000)
-        );
-        
-        try {
-          const needsOnboarding = await Promise.race([onboardingPromise, onboardingTimeoutPromise]);
-          console.log(`🎯 ✅ Onboarding check completed in ${Date.now() - onboardingStartTime}ms`);
-          console.log(`🎯 Needs onboarding:`, needsOnboarding);
-          setShowOnboarding(needsOnboarding);
-        } catch (onboardingError) {
-          console.error('❌ Onboarding check failed:', onboardingError.message);
-          console.log('🎯 Defaulting to no onboarding needed');
-          setShowOnboarding(false); // Default to false if check fails
-        }
-        
         // RevenueCat is already initialized during user sign-in above
         // No need for duplicate background initialization
         
       } else {
-        // No user session found, check if this is a returning user
-        console.log('📱 No user session found, checking returning user status...');
+        // No user session found, prioritize biometric auto-login for fastest UX
+        console.log('📱 No user session found, checking biometric and returning user status...');
         
         try {
-          // Check if user has logged in before
+          // First check if biometric login is available and enabled for automatic login
+          const { biometricService } = await import('./biometricService');
+          const isBiometricEnabled = await biometricService.isBiometricLoginEnabled();
+          const biometricAvailability = await biometricService.isAvailable();
+          
+          console.log('🔐 Biometric login check:', {
+            isBiometricEnabled,
+            isAvailable: biometricAvailability.isAvailable,
+            biometricType: biometricAvailability.biometricType
+          });
+          
+          if (isBiometricEnabled && biometricAvailability.isAvailable) {
+            // Automatically trigger biometric login for faster authentication
+            console.log('🚀 Auto-triggering biometric login for faster access...');
+            
+            // Set loading state temporarily during auto-biometric
+            setLoading(true);
+            
+            // Delay slightly to ensure UI is ready, then trigger biometric
+            setTimeout(async () => {
+              try {
+                await handleBiometricLogin();
+              } catch (biometricError) {
+                console.warn('⚠️ Auto-biometric login failed, falling back to login screen:', biometricError.message);
+                // Fall back to login screen if auto-biometric fails
+                setLoading(false);
+                setShowLanding(false);
+                setShowLogin(true);
+                setIsAuthenticated(false);
+              }
+            }, 500);
+            
+            return; // Exit early since biometric login is handling authentication
+          }
+          
+          // Check if user has logged in before (fallback for non-biometric users)
           const hasLoggedInBefore = await AsyncStorage.getItem('hasLoggedInBefore');
           const savedEmail = await AsyncStorage.getItem('lastLoginEmail');
           
@@ -463,7 +444,6 @@ function AppContent() {
           });
         }, 200);
         
-        setShowOnboarding(false);
       }
     } catch (error) {
       console.error('❌ Authentication check error:', error);
@@ -484,238 +464,21 @@ function AppContent() {
       console.log('✅ Final state:', {
         isAuthenticated,
         user: user?.id || 'none',
-        showOnboarding,
         showLanding,
         loading: false
       });
     }
   };
 
-  const checkIfUserNeedsOnboarding = async (userId) => {
-    try {
-      // Try to import supabase configuration
-      const { supabase } = await import('./supabaseConfig');
-      
-      // Check if supabase is properly configured before making queries
-      if (!supabase || !process.env.EXPO_PUBLIC_SUPABASE_URL) {
-        console.warn('⚠️ Supabase not configured, skipping onboarding check - user can access app');
-        return false; // Allow user to access app without onboarding check
-      }
-      
-      // Fast query - only check if record exists
-      const { data, error } = await supabase
-        .from('user_fitness_profiles')
-        .select('id')
-        .eq('id', userId)
-        .maybeSingle();
-      
-      if (error) {
-        // Handle specific database errors
-        if (error.code === '42P01' || error.message?.includes('does not exist')) {
-          console.warn('user_fitness_profiles table does not exist. User can access app.');
-          return false; // Allow access without onboarding check if table doesn't exist
-        }
-        
-        // Handle connection errors
-        if (error.message?.includes('supabaseUrl is required') || error.message?.includes('fetch')) {
-          console.warn('⚠️ Database connection issue, allowing user access');
-          return false; // Allow access on connection issues
-        }
-        
-        console.error('Database error during onboarding check:', error);
-        return false; // Default to allowing access on database errors
-      }
-      
-      // If data exists, user has completed onboarding
-      const hasProfile = !!data;
-      
-      if (hasProfile) {
-        console.log('✅ User has fitness profile, going to dashboard');
-        return false; // No onboarding needed
-      } else {
-        console.log('📝 User needs onboarding');
-        return true; // Show onboarding
-      }
-    } catch (error) {
-      // Handle any other errors (like import failures, network issues)
-      console.warn('⚠️ Error checking onboarding status, allowing user access:', error.message);
-      return false; // Default to allowing access on any error
-    }
-  };
+  // Function removed - onboarding eliminated to reduce user friction
 
-  const calculateBMI = (heightInches, weightPounds) => {
-    // BMI = (weight in pounds / (height in inches)²) × 703
-    const bmi = (weightPounds / (heightInches * heightInches)) * 703;
-    return Math.round(bmi * 10) / 10; // Round to 1 decimal place
-  };
-
-  const getBMICategory = (bmi, age) => {
-    if (bmi < 18.5) return { category: 'Underweight', color: '#3182ce', advice: 'Consider gaining weight through healthy eating and exercise.' };
-    if (bmi < 25) return { category: 'Normal weight', color: '#38a169', advice: 'Great! Maintain your current healthy weight.' };
-    if (bmi < 30) return { category: 'Overweight', color: '#d69e2e', advice: 'Consider losing weight through diet and exercise.' };
-    return { category: 'Obese', color: '#e53e3e', advice: 'Consult with a healthcare provider about weight management.' };
-  };
-
-  const calculateAge = (dateOfBirth) => {
-    if (!dateOfBirth) return 0;
-    
-    const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    
-    // Check if the date is valid
-    if (isNaN(birthDate.getTime())) {
-      console.error('Invalid date format:', dateOfBirth);
-      return 0;
-    }
-    
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    
-    return age;
-  };
-
-  const formatDateForDisplay = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    
-    // Check if the date is valid
-    if (isNaN(date.getTime())) {
-      console.error('Invalid date format for display:', dateString);
-      return 'Invalid Date';
-    }
-    
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  };
-
-  const convertHeightToInches = (feet, inches) => {
-    return (parseInt(feet) || 0) * 12 + (parseInt(inches) || 0);
-  };
-
-  const formatHeightDisplay = (feet, inches) => {
-    if (!feet && !inches) return 'Select height';
-    return `${feet || 0}' ${inches || 0}"`;
-  };
+  // Helper functions removed - only used for onboarding which has been eliminated
 
   const handleGenderSelect = (selectedGender) => {
     updateFormData({ gender: selectedGender });
   };
 
-  const handleCompleteOnboarding = async () => {
-    setLoading(true);
-    
-    try {
-      // Calculate BMI and age
-      const heightInches = convertHeightToInches(onboardingData.heightFeet, onboardingData.heightInches);
-      const weightPounds = parseFloat(onboardingData.weight);
-      const age = calculateAge(onboardingData.dateOfBirth);
-      const bmi = calculateBMI(heightInches, weightPounds);
-      const bmiInfo = getBMICategory(bmi, age);
-      
-      // Prepare the data for insertion
-      const profileData = {
-        id: user.id,
-        main_goal: onboardingData.mainGoal,
-        activities: onboardingData.activities || [], // Ensure it's an array
-        date_of_birth: onboardingData.dateOfBirth,
-        age: age, // Include calculated age
-        height_inches: heightInches,
-        weight_pounds: weightPounds,
-        goal_weight_pounds: parseFloat(onboardingData.goalWeight) || weightPounds, // Default to current weight if not set
-        bmi: bmi, // Include calculated BMI
-        created_at: new Date().toISOString()
-      };
-      
-      console.log('Saving fitness profile:', profileData);
-      
-      // Save to Supabase
-      const { supabase } = await import('./supabaseConfig');
-      const { data, error } = await supabase
-        .from('user_fitness_profiles')
-        .insert(profileData)
-        .select(); // Return the inserted data
-      
-      if (error) {
-        console.error('Error saving fitness profile:', error);
-        Alert.alert('Error', `Failed to save your fitness profile: ${error.message}`);
-        setLoading(false);
-        return;
-      }
-      
-      console.log('Fitness profile saved successfully:', data);
-
-      // Record affiliate code usage if provided
-      if (onboardingData.affiliateCode && onboardingData.affiliateCode.trim() !== '') {
-        try {
-          console.log('🎯 Recording affiliate code usage:', onboardingData.affiliateCode);
-          const { affiliateService } = await import('./services/affiliateService');
-          const affiliateResult = await affiliateService.recordAffiliateUsage(
-            user.id, 
-            onboardingData.affiliateCode
-          );
-          
-          if (affiliateResult.success) {
-            console.log('✅ Affiliate code recorded successfully');
-          } else {
-            console.warn('⚠️ Failed to record affiliate code:', affiliateResult.error);
-            // Don't stop onboarding for affiliate code issues
-          }
-        } catch (affiliateError) {
-          console.error('Error recording affiliate code:', affiliateError);
-          // Don't stop onboarding for affiliate code issues
-        }
-      }
-
-      // Generate an initial adaptive workout plan for the user
-      try {
-        const { planService } = await import('./services/planService');
-        const profileForPlan = {
-          goal: onboardingData.mainGoal,
-          experience: onboardingData.experience || 'beginner',
-          daysAvailablePerWeek: onboardingData.daysPerWeek || 3,
-          sessionLengthMinutes: onboardingData.sessionLength || 30,
-          preferredSplit: onboardingData.preferredSplit || 'auto',
-          equipment: onboardingData.equipment || []
-        };
-
-        const planResult = await planService.generatePlanForUser(user.id, profileForPlan);
-        if (planResult.success) {
-          console.log('Generated workout plan for user:', planResult.planId);
-        } else {
-          console.warn('Plan generation failed:', planResult.error);
-        }
-      } catch (planError) {
-        console.error('Error generating plan:', planError);
-      }
-
-      // Smooth transition to dashboard - use context setters
-      setShowOnboarding(false);
-      setShowLanding(false); // Ensure landing screen is hidden
-      setLoading(false);
-      
-      // Force a re-check of onboarding status to ensure proper navigation
-      setTimeout(async () => {
-        const stillNeedsOnboarding = await checkIfUserNeedsOnboarding(user.id);
-        if (stillNeedsOnboarding) {
-          console.warn('User still needs onboarding after completion - there may be a database issue');
-        } else {
-          console.log('✅ Onboarding completed successfully - user should see dashboard');
-        }
-      }, 1000);
-      
-    } catch (error) {
-      console.error('Error completing onboarding:', error);
-      Alert.alert('Error', `Something went wrong: ${error.message}`);
-      setLoading(false);
-    }
-  };
+  // Function removed - onboarding eliminated to reduce user friction
 
   const handleSignUp = async () => {
     const missingFields = [];
@@ -1027,7 +790,6 @@ function AppContent() {
       showLanding,
       showLogin,
       showSignUp,
-      showOnboarding,
       isAuthenticated,
       hasUser: !!user,
       authLoading,
@@ -1037,14 +799,13 @@ function AppContent() {
     if (showLanding) return 'Landing';
     if (showLogin) return 'Login';
     if (showSignUp) return 'SignUp';
-    if (showOnboarding) return 'Onboarding';
-    if (isAuthenticated && user && !showOnboarding && !authLoading && !loading) {
+    if (isAuthenticated && user && !authLoading && !loading) {
       console.log('✅ Route: Authenticated');
       return 'Authenticated';
     }
     console.log('⏳ Route: None (showing loading)');
     return 'None';
-  }, [showLanding, showLogin, showSignUp, showOnboarding, isAuthenticated, user, authLoading, loading]);
+  }, [showLanding, showLogin, showSignUp, isAuthenticated, user, authLoading, loading]);
 
   // Determine safe area edges based on route
   function getSafeAreaEdges() {
@@ -1103,22 +864,6 @@ function AppContent() {
           />
         );
 
-      case 'Onboarding':
-        return (
-          <OnboardingScreen
-            onboardingStep={onboardingStep}
-            showDatePicker={showDatePicker}
-            showHeightPicker={showHeightPicker}
-            showWeightPicker={showWeightPicker}
-            loading={loading}
-            onCompleteOnboarding={handleCompleteOnboarding}
-            formatDateForDisplay={formatDateForDisplay}
-            formatHeightDisplay={formatHeightDisplay}
-            mainGoals={mainGoals}
-            activityOptions={activityOptions}
-            styles={styles}
-          />
-        );
       case 'Dashboard':
         return (
           <WorkingMinimalDashboard
@@ -1153,7 +898,6 @@ function AppContent() {
       loading,
       isAuthenticated,
       user: user?.id || 'none',
-      showOnboarding,
       showLanding
     });
     
@@ -1163,7 +907,6 @@ function AppContent() {
     setShowLanding(true);
     setIsAuthenticated(false);
     setUser(null);
-    setShowOnboarding(false);
   };
 
   // Single loading screen for all loading states
