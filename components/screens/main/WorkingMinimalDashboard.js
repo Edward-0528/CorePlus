@@ -1,19 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, RefreshControl, StyleSheet, Modal, TextInput, Alert, View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
 // Contexts
 import { useDailyCalories } from '../../../contexts/DailyCaloriesContext';
 import { useSubscription } from '../../../contexts/SubscriptionContext';
 import { useAppContext } from '../../../contexts/AppContext';
 import { useTheme } from '../../../contexts/ThemeContext';
 
-// Utils
+// Utils  
 import { getLocalDateString } from '../../../utils/dateUtils';
 
-// Services
-import { userStatsService } from '../../../services/userStatsService';
+// Services (progress tracking imports removed to focus on AI coach)
 import { supabase } from '../../../supabaseConfig';
 
 // Components
@@ -88,13 +85,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [calorieGoal, setCalorieGoal] = useState(2000);
   const [tempGoal, setTempGoal] = useState('2000');
-  const [waterIntake, setWaterIntake] = useState(0); // New state for water tracking
-  const [currentDate, setCurrentDate] = useState(getLocalDateString()); // Track current date for resets
-  
-  // User statistics state
-  const [daysActive, setDaysActive] = useState(0);
-  const [currentStreak, setCurrentStreak] = useState(0);
-  const [totalMeals, setTotalMeals] = useState(0);
+  // Progress statistics removed to focus on AI coach
   
   // Quick Actions state
   const [showQuickActions, setShowQuickActions] = useState(false);
@@ -110,98 +101,9 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   const [capturedImage, setCapturedImage] = useState(null);
   const [analysisError, setAnalysisError] = useState(null);
 
-  // Load water intake from storage on component mount
-  useEffect(() => {
-    loadWaterIntake();
-    loadUserStats();
-  }, []);
+  // Progress statistics loading removed to focus on AI coach
 
-  // Load user statistics
-  const loadUserStats = async () => {
-    try {
-      const result = await userStatsService.getUserStats();
-      if (result.success) {
-        const stats = result.stats;
-        setDaysActive(stats.daysActive);
-        setCurrentStreak(stats.currentStreak);
-        setTotalMeals(stats.totalMeals);
-      } else {
-        console.error('Failed to load user stats:', result.error);
-        // Set default values on error
-        setDaysActive(0);
-        setCurrentStreak(0);
-        setTotalMeals(0);
-      }
-    } catch (error) {
-      console.error('Error loading user stats:', error);
-      // Set default values on error
-      setDaysActive(0);
-      setCurrentStreak(0);
-      setTotalMeals(0);
-    }
-  };
-
-  // Check for date changes and reset water intake at local midnight
-  useEffect(() => {
-    const checkDateChange = () => {
-      const today = getLocalDateString();
-      if (today !== currentDate) {
-        console.log('🕛 Water tracker: Date changed! Resetting water intake for new day (local timezone):', today);
-        console.log('Previous date:', currentDate);
-        console.log('New date:', today);
-        
-        // Update current date state
-        setCurrentDate(today);
-        
-        // Reset water intake for the new day
-        console.log('💧 Resetting water intake for new day');
-        setWaterIntake(0);
-        
-        // Clear previous day's water data to save storage space
-        const yesterdayKey = `water_intake_${currentDate}`;
-        AsyncStorage.removeItem(yesterdayKey).catch(console.warn);
-        
-        // Load water intake for the new day (should be 0 but check anyway)
-        loadWaterIntake();
-      }
-    };
-
-    // Check immediately when component mounts
-    checkDateChange();
-    
-    // Set up interval to check every 10 seconds (same as meals system)
-    const interval = setInterval(checkDateChange, 10000);
-
-    return () => clearInterval(interval);
-  }, [currentDate]);
-
-  // Load water intake from AsyncStorage
-  const loadWaterIntake = async () => {
-    try {
-      const today = getLocalDateString(); // Use local timezone date
-      const savedWater = await AsyncStorage.getItem(`water_intake_${today}`);
-      if (savedWater) {
-        const intake = parseInt(savedWater);
-        console.log(`💧 Loaded water intake for ${today}: ${intake} cups`);
-        setWaterIntake(intake);
-      } else {
-        console.log(`💧 No saved water intake for ${today}, starting fresh`);
-        setWaterIntake(0);
-      }
-    } catch (error) {
-      console.warn('Error loading water intake:', error);
-    }
-  };
-
-  // Save water intake to AsyncStorage
-  const saveWaterIntake = async (newIntake) => {
-    try {
-      const today = getLocalDateString(); // Use local timezone date
-      await AsyncStorage.setItem(`water_intake_${today}`, newIntake.toString());
-    } catch (error) {
-      console.warn('Error saving water intake:', error);
-    }
-  };
+  // Progress statistics and water tracking removed to focus on AI coach
 
   // Calculate recommended calories based on age (simple estimation)
   const getRecommendedCalories = () => {
@@ -210,13 +112,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
     return 2000; // Default recommendation
   };
 
-  // Handle water intake increment
-  const handleWaterIncrement = () => {
-    const newIntake = waterIntake + 1;
-    console.log(`💧 Water intake incremented: ${waterIntake} → ${newIntake} cups (${getLocalDateString()})`);
-    setWaterIntake(newIntake);
-    saveWaterIntake(newIntake);
-  };
+  // Water tracking removed to focus on AI coach
 
   // Calculate BMI if user has height and weight data
   const calculateBMI = () => {
@@ -267,13 +163,6 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   // Mock data for metrics
   const todayStats = [
     { value: dailyCalories.toString(), label: 'Calories', color: AppColors.nutrition },
-    { 
-      value: `${waterIntake}`, 
-      label: 'Water (cups)', 
-      color: AppColors.primary,
-      onPress: handleWaterIncrement,
-      tappable: true
-    },
     { value: getCaloriesBurned(), label: 'Burned', color: AppColors.workout },
     { value: calculateBMI(), label: 'BMI', color: getBMIColor() },
   ];
@@ -283,7 +172,6 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
     { icon: 'camera-outline', title: 'Scan Food', color: AppColors.nutrition },
     { icon: 'help-circle-outline', title: 'Should I Eat It?', color: AppColors.warning, premium: true },
     { icon: 'restaurant-outline', title: 'Log Meal', color: AppColors.primary },
-    { icon: 'water-outline', title: 'Water', color: AppColors.primary },
   ];
 
   // Handle quick action selections
@@ -304,10 +192,6 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
         console.log('📝 Opening manual meal entry...');
         setShowFoodSearchModal(true);
         break;
-      case 'Water':
-        console.log('💧 Adding water...');
-        handleWaterIncrement();
-        break;
       default:
         console.log('Unknown action:', action.title);
     }
@@ -322,8 +206,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await loadUserStats();
-      await loadWaterIntake();
+      // Refresh functionality simplified - progress tracking removed
     } catch (error) {
       console.error('Error refreshing dashboard:', error);
     }
@@ -545,57 +428,12 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
           <Text style={enhancedStyles.actionLabel}>View Meals</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={enhancedStyles.actionButton}
-          onPress={() => addWater()}
-        >
-          <View style={[enhancedStyles.actionIcon, { backgroundColor: '#36C5F0' }]}>
-            <Ionicons name="water" size={24} color="#FFFFFF" />
-          </View>
-          <Text style={enhancedStyles.actionLabel}>Add Water</Text>
-        </TouchableOpacity>
+        {/* Water tracking removed to focus on AI coach */}
       </View>
     </View>
   );
 
-  const renderUserStatistics = () => (
-    <View style={enhancedStyles.section}>
-      <Text style={enhancedStyles.sectionTitle}>Your Progress</Text>
-      <View style={enhancedStyles.statsGrid}>
-        <View style={enhancedStyles.statCard}>
-          <View style={[enhancedStyles.statIconContainer, { backgroundColor: '#E8F5E8' }]}>
-            <Ionicons name="calendar" size={20} color="#28A745" />
-          </View>
-          <Text style={enhancedStyles.statNumber}>{daysActive}</Text>
-          <Text style={enhancedStyles.statLabel}>Days Active</Text>
-        </View>
-        
-        <View style={enhancedStyles.statCard}>
-          <View style={[enhancedStyles.statIconContainer, { backgroundColor: '#FFF2E8' }]}>
-            <Ionicons name="flame" size={20} color="#FF6B35" />
-          </View>
-          <Text style={enhancedStyles.statNumber}>{currentStreak}</Text>
-          <Text style={enhancedStyles.statLabel}>Day Streak</Text>
-        </View>
-        
-        <View style={enhancedStyles.statCard}>
-          <View style={[enhancedStyles.statIconContainer, { backgroundColor: '#E8F4FD' }]}>
-            <Ionicons name="restaurant" size={20} color="#4A90E2" />
-          </View>
-          <Text style={enhancedStyles.statNumber}>{totalMeals}</Text>
-          <Text style={enhancedStyles.statLabel}>Total Meals</Text>
-        </View>
-        
-        <View style={enhancedStyles.statCard}>
-          <View style={[enhancedStyles.statIconContainer, { backgroundColor: '#F0F8FF' }]}>
-            <Ionicons name="water" size={20} color="#36C5F0" />
-          </View>
-          <Text style={enhancedStyles.statNumber}>{waterIntake}</Text>
-          <Text style={enhancedStyles.statLabel}>Glasses Today</Text>
-        </View>
-      </View>
-    </View>
-  );
+  // Progress statistics section removed to focus on AI coach
 
   const renderWeeklyProgress = () => {
     return (
@@ -631,7 +469,6 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
         {renderQuickActions()}
         {renderWeeklyProgress()}
         <AICoachCard />
-        {renderUserStatistics()}
       </ScrollView>
 
       {/* Calorie Goal Setting Modal */}
