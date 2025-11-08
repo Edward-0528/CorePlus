@@ -2,7 +2,7 @@
   "expo": {
     "name": "Core+",
     "slug": "core-plus",
-    "version": "1.0.66",
+    "version": "1.0.68",
     "orientation": "portrait",
     "icon": "./assets/ios-icon.png",
     "userInterfaceStyle": "light",
@@ -26,7 +26,7 @@
     },
     "android": {
       "package": "com.anonymous.coreplus",
-      "versionCode": 81,
+      "versionCode": 83,
       "icon": "./assets/ios-icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",

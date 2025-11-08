@@ -3,25 +3,32 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import TodayNutritionView from './nutrition/TodayNutritionView';
 import CalendarMealHistory from './nutrition/CalendarMealHistory';
+import FoodSearchModal from './food/FoodSearchModal';
 import { useDailyCalories } from '../contexts/DailyCaloriesContext';
 import { AppColors } from '../constants/AppColors';
 
 const EnhancedNutrition = ({ user, onLogout, loading, styles }) => {
   const [activeTab, setActiveTab] = useState('today'); // 'today' or 'history'
+  const [showFoodSearchModal, setShowFoodSearchModal] = useState(false);
   const { dailyCalories } = useDailyCalories();
   const calorieGoal = user?.calorie_goal || 2000; // Get from user settings
+
+  // Handler to open food search modal
+  const handleOpenFoodSearch = () => {
+    setShowFoodSearchModal(true);
+  };
 
   const tabs = [
     {
       id: 'today',
       title: 'Today',
-      icon: 'today',
+      icon: 'today-outline',
       component: TodayNutritionView
     },
     {
       id: 'history',
-      title: 'History',
-      icon: 'calendar',
+      title: 'Journal',
+      icon: 'calendar-outline',
       component: CalendarMealHistory
     }
   ];
@@ -65,6 +72,7 @@ const EnhancedNutrition = ({ user, onLogout, loading, styles }) => {
         <Component
           user={user}
           calorieGoal={calorieGoal}
+          onOpenFoodSearch={handleOpenFoodSearch}
         />
       );
     } else if (activeTab === 'history') {
@@ -100,6 +108,14 @@ const EnhancedNutrition = ({ user, onLogout, loading, styles }) => {
       <View style={enhancedStyles.content}>
         {renderContent()}
       </View>
+
+      {/* Food Search Modal */}
+      {showFoodSearchModal && (
+        <FoodSearchModal
+          visible={showFoodSearchModal}
+          onClose={() => setShowFoodSearchModal(false)}
+        />
+      )}
     </SafeAreaView>
   );
 };

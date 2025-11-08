@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDailyCalories } from '../../contexts/DailyCaloriesContext';
 import TodaysMealsComponent from './TodaysMealsComponent';
 import { AppColors } from '../../constants/AppColors';
 
-const TodayNutritionView = ({ user, calorieGoal = 2000 }) => {
+const TodayNutritionView = ({ user, calorieGoal = 2000, onOpenFoodSearch }) => {
   const { 
     dailyCalories, 
     dailyMacros, 
+    dailyMicros,
     todaysMeals, 
     mealsLoading,
     refreshMealsFromServer 
   } = useDailyCalories();
   
   const [refreshing, setRefreshing] = useState(false);
+  const [macroExpanded, setMacroExpanded] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -39,7 +41,7 @@ const TodayNutritionView = ({ user, calorieGoal = 2000 }) => {
   };
 
   const renderCalorieProgress = () => (
-    <View style={styles.section}>
+    <View style={[styles.section, { marginTop: 20 }]}>
       <Text style={styles.sectionTitle}>Daily Progress</Text>
       <View style={styles.calorieCard}>
         <View style={styles.calorieHeader}>
@@ -59,71 +61,97 @@ const TodayNutritionView = ({ user, calorieGoal = 2000 }) => {
     </View>
   );
 
-  const renderMacroProgress = () => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Macronutrients</Text>
-      <View style={styles.macroContainer}>
-        {Object.entries(nutritionGoals).map(([macro, goal]) => {
-          const current = dailyMacros[macro] || 0;
-          const progress = calculateProgress(current, goal);
-          
-          return (
-            <View key={macro} style={styles.macroItem}>
-              <View style={styles.macroHeader}>
-                <Text style={styles.macroLabel}>
-                  {macro.charAt(0).toUpperCase() + macro.slice(1)}
-                </Text>
-                <Text style={styles.macroValue}>
-                  {Math.round(current)}g / {goal}g
-                </Text>
-              </View>
-              <View style={styles.macroProgressBar}>
-                <View style={[
-                  styles.macroProgressFill,
-                  { 
-                    width: `${progress}%`,
-                    backgroundColor: progress >= 80 ? AppColors.success : AppColors.primary
-                  }
-                ]} />
-              </View>
-            </View>
-          );
-        })}
-      </View>
-    </View>
-  );
+  const renderMacroProgress = () => {
+    const microGoals = {
+      fiber: user?.fiber_goal || 25,
+      sugar: user?.sugar_goal || 50,
+      sodium: user?.sodium_goal || 2300
+    };
 
-  const renderQuickStats = () => {
-    const mealCount = todaysMeals.length;
-    const avgCaloriesPerMeal = mealCount > 0 ? Math.round(dailyCalories / mealCount) : 0;
-    
+    const microUnits = {
+      fiber: 'g',
+      sugar: 'g', 
+      sodium: 'mg'
+    };
+
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Today's Summary</Text>
-        <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Ionicons name="restaurant" size={24} color={AppColors.primary} />
-            <Text style={styles.statNumber}>{mealCount}</Text>
-            <Text style={styles.statLabel}>Meals</Text>
+        <TouchableOpacity 
+          style={[styles.macroCard, macroExpanded && styles.macroCardExpanded]}
+          onPress={() => setMacroExpanded(!macroExpanded)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.expandableHeader}>
+            <Text style={styles.sectionTitle}>Macronutrients</Text>
+            <Ionicons 
+              name={macroExpanded ? "chevron-up" : "chevron-down"} 
+              size={20} 
+              color={AppColors.textSecondary} 
+            />
           </View>
+        
+          <View style={styles.macroContainer}>
+          {Object.entries(nutritionGoals).map(([macro, goal]) => {
+            const current = dailyMacros[macro] || 0;
+            const progress = calculateProgress(current, goal);
+            
+            return (
+              <View key={macro} style={styles.macroItem}>
+                <View style={styles.macroHeader}>
+                  <Text style={styles.macroLabel}>
+                    {macro.charAt(0).toUpperCase() + macro.slice(1)}
+                  </Text>
+                  <Text style={styles.macroValue}>
+                    {Math.round(current)}g / {goal}g
+                  </Text>
+                </View>
+                <View style={styles.macroProgressBar}>
+                  <View style={[
+                    styles.macroProgressFill,
+                    { 
+                      width: `${progress}%`,
+                      backgroundColor: progress >= 80 ? AppColors.success : AppColors.primary
+                    }
+                  ]} />
+                </View>
+              </View>
+            );
+          })}
           
-          <View style={styles.statCard}>
-            <Ionicons name="speedometer" size={24} color={AppColors.success} />
-            <Text style={styles.statNumber}>{avgCaloriesPerMeal}</Text>
-            <Text style={styles.statLabel}>Avg/Meal</Text>
+          {macroExpanded && (
+            <>
+              <Text style={styles.microTitle}>Micronutrients</Text>
+              {Object.entries(microGoals).map(([micro, goal]) => {
+                const current = dailyMicros[micro] || 0;
+                const progress = calculateProgress(current, goal);
+                const unit = microUnits[micro];
+                
+                return (
+                  <View key={micro} style={styles.macroItem}>
+                    <View style={styles.macroHeader}>
+                      <Text style={styles.macroLabel}>
+                        {micro.charAt(0).toUpperCase() + micro.slice(1)}
+                      </Text>
+                      <Text style={styles.macroValue}>
+                        {micro === 'sodium' ? Math.round(current) : Math.round(current * 10) / 10}{unit} / {goal}{unit}
+                      </Text>
+                    </View>
+                    <View style={styles.macroProgressBar}>
+                      <View style={[
+                        styles.macroProgressFill,
+                        { 
+                          width: `${progress}%`,
+                          backgroundColor: progress >= 80 ? AppColors.success : AppColors.primary
+                        }
+                      ]} />
+                    </View>
+                  </View>
+                );
+              })}
+            </>
+          )}
           </View>
-          
-          <View style={styles.statCard}>
-            <Ionicons name="checkmark-circle" size={24} color={
-              dailyCalories >= calorieGoal * 0.8 && dailyCalories <= calorieGoal * 1.2 
-                ? AppColors.success : AppColors.warning
-            } />
-            <Text style={styles.statNumber}>
-              {Math.round((dailyCalories / calorieGoal) * 100)}%
-            </Text>
-            <Text style={styles.statLabel}>Goal</Text>
-          </View>
-        </View>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -152,13 +180,13 @@ const TodayNutritionView = ({ user, calorieGoal = 2000 }) => {
     >
       {renderCalorieProgress()}
       {renderMacroProgress()}
-      {renderQuickStats()}
       
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Today's Meals</Text>
         <TodaysMealsComponent 
           showViewAll={false}
           maxMealsToShow={null}
+          onEmptyStatePress={onOpenFoodSearch}
         />
       </View>
     </ScrollView>
@@ -190,6 +218,34 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: AppColors.textPrimary,
     marginBottom: 16,
+  },
+  expandableHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  macroCard: {
+    backgroundColor: AppColors.white,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  macroCardExpanded: {
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  microTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: AppColors.textSecondary,
+    marginTop: 16,
+    marginBottom: 8,
   },
   calorieCard: {
     backgroundColor: AppColors.white,
@@ -235,9 +291,7 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
   },
   macroContainer: {
-    backgroundColor: AppColors.white,
-    borderRadius: 12,
-    padding: 20,
+    // Container styling removed since it's now inside macroCard
   },
   macroItem: {
     marginBottom: 20,
@@ -266,34 +320,6 @@ const styles = StyleSheet.create({
   macroProgressFill: {
     height: '100%',
     borderRadius: 3,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: AppColors.white,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    marginHorizontal: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: AppColors.textPrimary,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: AppColors.textSecondary,
   },
 });
 

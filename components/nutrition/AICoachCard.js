@@ -176,76 +176,54 @@ const AICoachCard = ({ onPress, style }) => {
       {/* Scrollable Content */}
       <ScrollView 
         style={styles.scrollableContent} 
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
+        nestedScrollEnabled={true}
         contentContainerStyle={styles.scrollContentContainer}
       >
+        {/* Simple action-focused summary */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📊 Weekly Analysis</Text>
-          <Text style={styles.sectionText}>{insight.weeklyInsight}</Text>
+          <Text style={styles.compactSummary}>
+            {insight.weeklyInsight || insight.suggestion || "Keep tracking your meals for personalized insights!"}
+          </Text>
         </View>
 
-        {insight.achievements && insight.achievements.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🏆 What You Did Well</Text>
-            {insight.achievements.map((achievement, index) => (
-              <View key={index} style={styles.bulletPoint}>
-                <Text style={styles.bulletText}>• {achievement}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+        {/* Quick wins and concerns in compact format */}
+        <View style={styles.quickTipsContainer}>
+          {insight.achievements && insight.achievements.length > 0 && (
+            <View style={styles.quickTipItem}>
+              <Text style={styles.quickTipEmoji}>✅</Text>
+              <Text style={styles.quickTipText}>{insight.achievements[0]}</Text>
+            </View>
+          )}
 
-        {insight.concerns && insight.concerns.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>⚠️ Areas to Focus On</Text>
-            {insight.concerns.map((concern, index) => (
-              <View key={index} style={styles.bulletPoint}>
-                <Text style={styles.bulletText}>• {concern}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+          {insight.concerns && insight.concerns.length > 0 && (
+            <View style={styles.quickTipItem}>
+              <Text style={styles.quickTipEmoji}>⚠️</Text>
+              <Text style={styles.quickTipText}>{insight.concerns[0]}</Text>
+            </View>
+          )}
 
-        {insight.recommendations && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>💡 Personalized Recommendations</Text>
-            
-            {insight.recommendations.calories && (
-              <View style={styles.recommendationItem}>
-                <Text style={styles.recommendationLabel}>Calories:</Text>
-                <Text style={styles.recommendationText}>{insight.recommendations.calories}</Text>
-              </View>
-            )}
-            
-            {insight.recommendations.macros && (
-              <View style={styles.recommendationItem}>
-                <Text style={styles.recommendationLabel}>Macros:</Text>
-                <Text style={styles.recommendationText}>{insight.recommendations.macros}</Text>
-              </View>
-            )}
-            
-            {insight.recommendations.nutrients && (
-              <View style={styles.recommendationItem}>
-                <Text style={styles.recommendationLabel}>Nutrients:</Text>
-                <Text style={styles.recommendationText}>{insight.recommendations.nutrients}</Text>
-              </View>
-            )}
-            
-            {insight.recommendations.behavior && (
-              <View style={styles.recommendationItem}>
-                <Text style={styles.recommendationLabel}>Habits:</Text>
-                <Text style={styles.recommendationText}>{insight.recommendations.behavior}</Text>
-              </View>
-            )}
-          </View>
-        )}
+          {/* Top 2 actionable recommendations only */}
+          {insight.recommendations?.calories && (
+            <View style={styles.quickTipItem}>
+              <Text style={styles.quickTipEmoji}>💡</Text>
+              <Text style={styles.quickTipText}>{insight.recommendations.calories}</Text>
+            </View>
+          )}
 
+          {insight.recommendations?.macros && (
+            <View style={styles.quickTipItem}>
+              <Text style={styles.quickTipEmoji}>🥗</Text>
+              <Text style={styles.quickTipText}>{insight.recommendations.macros}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Health alerts if any */}
         {insight.redFlags && insight.redFlags.length > 0 && (
-          <View style={[styles.section, styles.redFlagSection]}>
-            <Text style={styles.redFlagTitle}>🚨 Health Alerts</Text>
-            {insight.redFlags.map((flag, index) => (
-              <Text key={index} style={styles.redFlagText}>• {flag}</Text>
-            ))}
+          <View style={styles.alertContainer}>
+            <Text style={styles.alertTitle}>🚨 Important</Text>
+            <Text style={styles.alertText}>{insight.redFlags[0]}</Text>
           </View>
         )}
 
@@ -283,7 +261,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   expandedContainer: {
-    height: 400, // Fixed height when expanded
+    maxHeight: 500, // Max height with proper scrolling
+    minHeight: 300, // Minimum height for content
   },
   quickInsightContainer: {
     padding: 16,
@@ -305,7 +284,8 @@ const styles = StyleSheet.create({
   },
   scrollContentContainer: {
     padding: 16,
-    paddingBottom: 24, // Extra padding at bottom for better scroll experience
+    paddingBottom: 40, // More padding at bottom for better scroll experience
+    flexGrow: 1,
   },
   header: {
     flexDirection: 'row',
@@ -496,6 +476,55 @@ const styles = StyleSheet.create({
     color: AppColors.textSecondary,
     textAlign: 'center',
     paddingVertical: 20,
+  },
+  // New compact styles
+  compactSummary: {
+    fontSize: 15,
+    color: AppColors.textPrimary,
+    lineHeight: 22,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  quickTipsContainer: {
+    marginTop: 16,
+  },
+  quickTipItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    backgroundColor: '#F8F9FA',
+    padding: 12,
+    borderRadius: 8,
+  },
+  quickTipEmoji: {
+    fontSize: 16,
+    marginRight: 10,
+    marginTop: 1,
+  },
+  quickTipText: {
+    flex: 1,
+    fontSize: 14,
+    color: AppColors.textSecondary,
+    lineHeight: 20,
+  },
+  alertContainer: {
+    backgroundColor: '#FFF3E0',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF8C00',
+  },
+  alertTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#E65100',
+    marginBottom: 4,
+  },
+  alertText: {
+    fontSize: 14,
+    color: '#BF360C',
+    lineHeight: 18,
   },
 });
 

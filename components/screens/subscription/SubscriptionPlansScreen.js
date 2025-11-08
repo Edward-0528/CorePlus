@@ -272,7 +272,7 @@ const SubscriptionPlansScreen = ({ navigation }) => {
             <Text style={styles.freeTrialText}>
               • 5 AI food scans per day{'\n'}
               • Basic nutrition tracking{'\n'}
-              • 7-day meal history{'\n'}
+              • 7-day meal journal{'\n'}
               • 1 workout plan
             </Text>
           </View>

@@ -16,6 +16,7 @@ import FoodAnalysisResultsScreen from '../FoodAnalysisResultsScreen';
 import SwipeToDeleteWrapper from '../../shared/SimpleSwipeToDelete';
 import TodaysMealsComponent from '../../nutrition/TodaysMealsComponent';
 import FoodSearchModal from '../../food/FoodSearchModal';
+import ConciseAICoach from '../../nutrition/ConciseAICoach';
 import { AppColors } from '../../../constants/AppColors';
 
 const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
@@ -169,7 +170,7 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       return (
         <View style={minimalStyles.emptyState}>
           <Ionicons name="restaurant-outline" size={32} color={AppColors.textSecondary} />
-          <Text style={minimalStyles.emptyStateText}>Loading meal history...</Text>
+          <Text style={minimalStyles.emptyStateText}>Loading meal journal...</Text>
         </View>
       );
     }
@@ -202,11 +203,11 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
                   <Ionicons name="add-circle" size={40} color="#007AFF" />
                 </View>
                 <Text style={modernMealsStyles.emptyStateText}>
-                  {selectedFilter === 'all' ? 'No meal history found' : `No meals found for ${filterLabel.toLowerCase()}`}
+                  {selectedFilter === 'all' ? 'No meal journal found' : `No meals found for ${filterLabel.toLowerCase()}`}
                 </Text>
                 <Text style={modernMealsStyles.emptyStateSubtext}>
                   {selectedFilter === 'all' 
-                    ? 'Start logging meals to build your history'
+                    ? 'Start logging meals to build your journal'
                     : 'Try selecting a different time period'
                   }
                 </Text>
@@ -907,6 +908,10 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
       case 'today':
         return (
           <>
+            <View style={{ marginHorizontal: 20, marginBottom: 12, backgroundColor: '#FFE4B5', padding: 12, borderRadius: 8 }}>
+              <Text style={{ fontSize: 14, color: '#8B4513', fontWeight: '500' }}>🤖 AI Nutrition Coach: Start logging meals to get personalized tips!</Text>
+            </View>
+            <ConciseAICoach />
             {renderCalorieProgress()}
             {/* Today's Meals Section Title */}
             <View style={modernCardStyles.titleSection}>

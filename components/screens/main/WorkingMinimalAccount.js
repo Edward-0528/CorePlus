@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, RefreshControl, Alert, StyleSheet, Switch, Image } from 'react-native';
+import { ScrollView, RefreshControl, Alert, StyleSheet, Switch, Image, TextInput } from 'react-native';
 import { View, Modal, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSubscription } from '../../../contexts/SubscriptionContext';
 import { AppColors, validateColor } from '../../../constants/AppColors';
 import UpgradeModal from '../subscription/UpgradeModal';
 import EditProfileModal from '../../modals/EditProfileModal';
-import { userStatsService } from '../../../services/userStatsService';
 import { supabase } from '../../../supabaseConfig';
-import UsageStatsCard from '../../ui/UsageStatsCard';
 
 
 const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
@@ -16,16 +14,39 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [currentUser, setCurrentUser] = useState(user);
-  const [userStats, setUserStats] = useState({
-    daysActive: 0,
-    totalMeals: 0,
-    daysSinceJoining: 0,
-    currentStreak: 0
-  });
-  const [statsLoading, setStatsLoading] = useState(true);
+  const [showWeightModal, setShowWeightModal] = useState(false);
+  const [showHeightModal, setShowHeightModal] = useState(false);
+  const [tempWeight, setTempWeight] = useState('');
+  const [tempFeet, setTempFeet] = useState('');
+  const [tempInches, setTempInches] = useState('');
 
   // Use our new subscription system
   const { isPremium, subscriptionInfo } = useSubscription();
+
+  // Calculate BMI from height and weight
+  const calculateBMI = () => {
+    const weight = currentUser?.user_metadata?.weight; // in pounds
+    const heightInches = currentUser?.user_metadata?.height; // in inches
+    
+    if (!weight || !heightInches) {
+      return null;
+    }
+    
+    // BMI = (weight in pounds / (height in inches)²) × 703
+    const bmi = (weight / (heightInches * heightInches)) * 703;
+    return bmi.toFixed(1);
+  };
+
+  // Get BMI category
+  const getBMICategory = (bmi) => {
+    if (!bmi) return null;
+    const bmiValue = parseFloat(bmi);
+    
+    if (bmiValue < 18.5) return 'Underweight';
+    if (bmiValue < 25) return 'Normal';
+    if (bmiValue < 30) return 'Overweight';
+    return 'Obese';
+  };
 
   // Update current user when prop changes
   useEffect(() => {
@@ -45,60 +66,76 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
     }
   };
 
-  // Load user statistics
-  const loadUserStats = async () => {
-    try {
-      setStatsLoading(true);
-      const result = await userStatsService.getUserStats();
-      
-      if (result.success) {
-        setUserStats(result.stats);
-        console.log('📊 Loaded user stats:', result.stats);
-      } else {
-        console.error('Failed to load user stats:', result.error);
-      }
-    } catch (error) {
-      console.error('Error loading user stats:', error);
-    } finally {
-      setStatsLoading(false);
-    }
-  };
-
-  // Load stats on component mount and when user changes
-  useEffect(() => {
-    if (user) {
-      loadUserStats();
-    }
-  }, [user]);
-
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    await loadUserStats();
+    await refreshUserData();
     setRefreshing(false);
   }, []);
 
-  const userStatsDisplay = [
-    { 
-      value: statsLoading ? '...' : userStats.daysActive.toString(), 
-      label: 'Days Active', 
-      color: AppColors.success 
-    },
-    { 
-      value: statsLoading ? '...' : userStats.currentStreak.toString(), 
-      label: 'Current Streak', 
-      color: AppColors.workout 
-    },
-    { 
-      value: statsLoading ? '...' : userStats.totalMeals.toString(), 
-      label: 'Meals Logged', 
-      color: AppColors.nutrition 
-    },
-    { 
-      value: statsLoading ? '...' : userStats.daysSinceJoining.toString(), 
-      label: 'Days Since Joining', 
-      color: AppColors.warning 
-    },
-  ];
+  // Update user metadata
+  const updateUserMetadata = async (updates) => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          ...currentUser?.user_metadata,
+          ...updates
+        }
+      });
+
+      if (error) throw error;
+      
+      // Refresh user data
+      await refreshUserData();
+      console.log('✅ User metadata updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating user metadata:', error);
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
+    }
+  };
+
+  // Handle weight update
+  const handleWeightUpdate = () => {
+    const weight = parseFloat(tempWeight);
+    if (isNaN(weight) || weight <= 0) {
+      Alert.alert('Invalid Weight', 'Please enter a valid weight in pounds.');
+      return;
+    }
+    
+    updateUserMetadata({ weight });
+    setShowWeightModal(false);
+    setTempWeight('');
+  };
+
+  // Handle height update
+  const handleHeightUpdate = () => {
+    const feet = parseInt(tempFeet);
+    const inches = parseInt(tempInches);
+    
+    if (isNaN(feet) || feet < 0 || isNaN(inches) || inches < 0 || inches >= 12) {
+      Alert.alert('Invalid Height', 'Please enter a valid height (feet and inches).');
+      return;
+    }
+    
+    const totalInches = (feet * 12) + inches;
+    updateUserMetadata({ height: totalInches });
+    setShowHeightModal(false);
+    setTempFeet('');
+    setTempInches('');
+  };
+
+  // Open weight modal with current value
+  const openWeightModal = () => {
+    setTempWeight(currentUser?.user_metadata?.weight?.toString() || '');
+    setShowWeightModal(true);
+  };
+
+  // Open height modal with current value
+  const openHeightModal = () => {
+    const currentHeight = currentUser?.user_metadata?.height || 0;
+    setTempFeet(Math.floor(currentHeight / 12).toString());
+    setTempInches((currentHeight % 12).toString());
+    setShowHeightModal(true);
+  };
 
   const menuItems = [
     {
@@ -159,15 +196,19 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const renderUserProfile = () => (
     <View style={minimalStyles.section}>
       <View style={minimalStyles.profileCard}>
-        <View style={[
-          minimalStyles.avatarContainer,
-          {
-            borderWidth: 3,
-            borderColor: isPremium ? AppColors.primary : AppColors.black, // Olive for premium, black for free
-            borderRadius: 33, // Slightly larger to accommodate border
-            backgroundColor: '#FFFFFF', // White background
-          }
-        ]}>
+        <TouchableOpacity 
+          style={[
+            minimalStyles.avatarContainer,
+            {
+              borderWidth: 3,
+              borderColor: isPremium ? AppColors.primary : AppColors.black, // Olive for premium, black for free
+              borderRadius: 33, // Slightly larger to accommodate border
+              backgroundColor: '#FFFFFF', // White background
+            }
+          ]}
+          activeOpacity={0.8}
+          onPress={() => setShowEditProfileModal(true)}
+        >
           <View style={[minimalStyles.avatar, { backgroundColor: '#FFFFFF' }]}>
             {currentUser?.user_metadata?.profile_image ? (
               <Image 
@@ -180,7 +221,7 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
               </Text>
             )}
           </View>
-        </View>
+        </TouchableOpacity>
         <View style={minimalStyles.profileInfo}>
           <Text style={minimalStyles.profileName}>
             {currentUser?.user_metadata?.first_name || 'User'} {currentUser?.user_metadata?.last_name || ''}
@@ -385,32 +426,183 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   });
 
   return (
-    <View style={[minimalStyles.container, lightStyles.container]}>
-      {renderHeader()}
-      
+    <View style={settingsStyles.container}>
+      {/* Header */}
+      <View style={settingsStyles.header}>
+        <View style={settingsStyles.profileSection}>
+          <TouchableOpacity 
+            style={settingsStyles.avatarContainer}
+            activeOpacity={0.8}
+            onPress={() => setShowEditProfileModal(true)}
+          >
+            {currentUser?.user_metadata?.profile_image ? (
+              <Image 
+                source={{ uri: currentUser.user_metadata.profile_image }}
+                style={settingsStyles.avatar}
+              />
+            ) : (
+              <View style={settingsStyles.avatarPlaceholder}>
+                <Text style={settingsStyles.avatarText}>
+                  {currentUser?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <View style={settingsStyles.profileInfo}>
+            <Text style={settingsStyles.profileName}>
+              {currentUser?.user_metadata?.first_name || 'User'} {currentUser?.user_metadata?.last_name || ''}
+            </Text>
+            <Text style={settingsStyles.profileEmail}>{currentUser?.email}</Text>
+          </View>
+        </View>
+      </View>
+
       <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ flexGrow: 1 }}
+        style={settingsStyles.scrollView}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
+          <RefreshControl 
+            refreshing={refreshing} 
             onRefresh={onRefresh}
             colors={[AppColors.primary]}
             tintColor={AppColors.primary}
           />
         }
+        showsVerticalScrollIndicator={false}
       >
-        {renderUserProfile()}
-        {renderUserStats()}
+        {/* Profile Information Section */}
+        <View style={settingsStyles.section}>
+          <Text style={settingsStyles.sectionTitle}>Profile Information</Text>
+          <View style={settingsStyles.settingsGroup}>
+            <TouchableOpacity style={settingsStyles.settingRow} onPress={openWeightModal}>
+              <View style={settingsStyles.settingLeft}>
+                <Ionicons name="scale-outline" size={20} color="#6C757D" style={settingsStyles.settingIcon} />
+                <Text style={settingsStyles.settingLabel}>Weight</Text>
+              </View>
+              <View style={settingsStyles.settingRight}>
+                <Text style={settingsStyles.settingValue}>
+                  {currentUser?.user_metadata?.weight ? `${currentUser.user_metadata.weight} lbs` : 'Not set'}
+                </Text>
+                <Ionicons name="chevron-forward-outline" size={16} color="#C1C1C6" />
+              </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={[settingsStyles.settingRow, settingsStyles.settingRowBorder]} onPress={openHeightModal}>
+              <View style={settingsStyles.settingLeft}>
+                <Ionicons name="resize-outline" size={20} color="#6C757D" style={settingsStyles.settingIcon} />
+                <Text style={settingsStyles.settingLabel}>Height</Text>
+              </View>
+              <View style={settingsStyles.settingRight}>
+                <Text style={settingsStyles.settingValue}>
+                  {currentUser?.user_metadata?.height ? `${Math.floor(currentUser.user_metadata.height / 12)}'${currentUser.user_metadata.height % 12}"` : 'Not set'}
+                </Text>
+                <Ionicons name="chevron-forward-outline" size={16} color="#C1C1C6" />
+              </View>
+            </TouchableOpacity>
+            
+            <View style={[settingsStyles.settingRow, settingsStyles.settingRowBorder]}>
+              <View style={settingsStyles.settingLeft}>
+                <Ionicons name="fitness-outline" size={20} color="#6C757D" style={settingsStyles.settingIcon} />
+                <Text style={settingsStyles.settingLabel}>BMI</Text>
+              </View>
+              <View style={settingsStyles.bmiContainer}>
+                {(() => {
+                  const bmi = calculateBMI();
+                  const category = getBMICategory(bmi);
+                  return (
+                    <>
+                      <Text style={settingsStyles.settingValue}>
+                        {bmi ? `${bmi}` : 'Not available'}
+                      </Text>
+                      {category && (
+                        <Text style={[
+                          settingsStyles.bmiCategory,
+                          {
+                            color: category === 'Normal' ? '#34C759' : 
+                                   category === 'Underweight' ? '#007AFF' :
+                                   category === 'Overweight' ? '#FF9500' : '#FF3B30'
+                          }
+                        ]}>
+                          {category}
+                        </Text>
+                      )}
+                    </>
+                  );
+                })()}
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Subscription Section */}
+        <View style={settingsStyles.section}>
+          <Text style={settingsStyles.sectionTitle}>Subscription</Text>
+          <View style={settingsStyles.settingsGroup}>
+            <TouchableOpacity 
+              style={settingsStyles.settingRow}
+              onPress={() => setShowUpgradeModal(true)}
+            >
+              <View style={settingsStyles.settingLeft}>
+                <Ionicons 
+                  name={isPremium ? 'diamond' : 'diamond-outline'} 
+                  size={20} 
+                  color={isPremium ? '#6B8E23' : '#6C757D'} 
+                  style={settingsStyles.settingIcon} 
+                />
+                <Text style={settingsStyles.settingLabel}>
+                  {isPremium ? 'Core+ Premium' : 'Upgrade to Premium'}
+                </Text>
+              </View>
+              <View style={settingsStyles.settingRight}>
+                {isPremium && (
+                  <View style={settingsStyles.activeBadge}>
+                    <Text style={settingsStyles.activeBadgeText}>ACTIVE</Text>
+                  </View>
+                )}
+                <Ionicons name="chevron-forward-outline" size={16} color="#C1C1C6" />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Support Section */}
+        <View style={settingsStyles.section}>
+          <Text style={settingsStyles.sectionTitle}>Support</Text>
+          <View style={settingsStyles.settingsGroup}>
+            <TouchableOpacity style={settingsStyles.settingRow}>
+              <View style={settingsStyles.settingLeft}>
+                <Ionicons name="help-circle-outline" size={20} color="#6C757D" style={settingsStyles.settingIcon} />
+                <Text style={settingsStyles.settingLabel}>Help & Support</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={16} color="#C1C1C6" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={[settingsStyles.settingRow, settingsStyles.settingRowBorder]}>
+              <View style={settingsStyles.settingLeft}>
+                <Ionicons name="document-text-outline" size={20} color="#6C757D" style={settingsStyles.settingIcon} />
+                <Text style={settingsStyles.settingLabel}>Privacy Policy</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={16} color="#C1C1C6" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={settingsStyles.settingRow}>
+              <View style={settingsStyles.settingLeft}>
+                <Ionicons name="shield-outline" size={20} color="#6C757D" style={settingsStyles.settingIcon} />
+                <Text style={settingsStyles.settingLabel}>Terms of Service</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={16} color="#C1C1C6" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Sign Out */}
+        <View style={settingsStyles.section}>
+          <TouchableOpacity style={settingsStyles.signOutButton} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
+            <Text style={settingsStyles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
         
-        {/* Monthly Usage Stats */}
-        <UsageStatsCard 
-          onUpgradePress={() => setShowUpgradeModal(true)} 
-        />
-        
-        {renderProfileInfo()}
-        {menuItems.map(renderMenuSection)}
-        {renderLogoutButton()}
+        <View style={{ height: 50 }} />
       </ScrollView>
 
       {/* Upgrade Modal */}
@@ -426,6 +618,81 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
         user={currentUser}
         onProfileUpdate={refreshUserData}
       />
+
+      {/* Weight Modal */}
+      <Modal visible={showWeightModal} transparent={true} animationType="slide">
+        <View style={settingsStyles.modalOverlay}>
+          <View style={settingsStyles.modalContainer}>
+            <View style={settingsStyles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowWeightModal(false)}>
+                <Text style={settingsStyles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={settingsStyles.modalTitle}>Weight</Text>
+              <TouchableOpacity onPress={handleWeightUpdate}>
+                <Text style={settingsStyles.modalSaveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={settingsStyles.modalContent}>
+              <Text style={settingsStyles.modalLabel}>Enter your weight in pounds:</Text>
+              <TextInput
+                style={settingsStyles.modalInput}
+                value={tempWeight}
+                onChangeText={setTempWeight}
+                placeholder="e.g., 165"
+                keyboardType="numeric"
+                autoFocus={true}
+                selectTextOnFocus={true}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Height Modal */}
+      <Modal visible={showHeightModal} transparent={true} animationType="slide">
+        <View style={settingsStyles.modalOverlay}>
+          <View style={settingsStyles.modalContainer}>
+            <View style={settingsStyles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowHeightModal(false)}>
+                <Text style={settingsStyles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={settingsStyles.modalTitle}>Height</Text>
+              <TouchableOpacity onPress={handleHeightUpdate}>
+                <Text style={settingsStyles.modalSaveText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={settingsStyles.modalContent}>
+              <Text style={settingsStyles.modalLabel}>Enter your height:</Text>
+              <View style={settingsStyles.heightInputContainer}>
+                <View style={settingsStyles.heightInputGroup}>
+                  <TextInput
+                    style={settingsStyles.heightInput}
+                    value={tempFeet}
+                    onChangeText={setTempFeet}
+                    placeholder="5"
+                    keyboardType="numeric"
+                    maxLength={1}
+                    selectTextOnFocus={true}
+                  />
+                  <Text style={settingsStyles.heightLabel}>ft</Text>
+                </View>
+                <View style={settingsStyles.heightInputGroup}>
+                  <TextInput
+                    style={settingsStyles.heightInput}
+                    value={tempInches}
+                    onChangeText={setTempInches}
+                    placeholder="10"
+                    keyboardType="numeric"
+                    maxLength={2}
+                    selectTextOnFocus={true}
+                  />
+                  <Text style={settingsStyles.heightLabel}>in</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );
@@ -666,6 +933,256 @@ const minimalStyles = StyleSheet.create({
   profileInfoDivider: {
     height: 0.5,
     marginHorizontal: 16,
+  },
+});
+
+// Clean Settings Layout Styles
+const settingsStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F2F2F7', // iOS system background
+  },
+  header: {
+    backgroundColor: '#FFFFFF',
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#C6C6C8',
+  },
+  profileSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    marginRight: 16,
+  },
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  avatarPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#E5E5EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#6B8E23',
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 22,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 2,
+  },
+  profileEmail: {
+    fontSize: 16,
+    color: '#8E8E93',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  section: {
+    marginTop: 24,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#8E8E93',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    marginLeft: 20,
+  },
+  settingsGroup: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 44,
+  },
+  settingRowBorder: {
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#C6C6C8',
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  settingIcon: {
+    marginRight: 12,
+    width: 20,
+  },
+  settingLabel: {
+    fontSize: 17,
+    color: '#000000',
+    fontWeight: '400',
+  },
+  settingValue: {
+    fontSize: 17,
+    color: '#8E8E93',
+    fontWeight: '400',
+  },
+  settingRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  activeBadge: {
+    backgroundColor: '#34C759',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  activeBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  statsGrid: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    borderRadius: 10,
+    padding: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  statItem: {
+    width: '48%',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#6B8E23',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 13,
+    color: '#8E8E93',
+    textAlign: 'center',
+    fontWeight: '400',
+  },
+  signOutButton: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    minHeight: 44,
+  },
+  signOutText: {
+    fontSize: 17,
+    fontWeight: '400',
+    color: '#FF3B30',
+    marginLeft: 8,
+  },
+  bmiContainer: {
+    alignItems: 'flex-end',
+  },
+  bmiCategory: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 34, // Safe area bottom
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: '#C6C6C8',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  modalCancelText: {
+    fontSize: 17,
+    color: '#FF3B30',
+  },
+  modalSaveText: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#6B8E23',
+  },
+  modalContent: {
+    padding: 20,
+  },
+  modalLabel: {
+    fontSize: 16,
+    color: '#000000',
+    marginBottom: 12,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#C6C6C8',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 17,
+    backgroundColor: '#F8F9FA',
+  },
+  heightInputContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  heightInputGroup: {
+    flex: 1,
+    marginHorizontal: 8,
+    alignItems: 'center',
+  },
+  heightInput: {
+    borderWidth: 1,
+    borderColor: '#C6C6C8',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 17,
+    backgroundColor: '#F8F9FA',
+    textAlign: 'center',
+    width: '100%',
+  },
+  heightLabel: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginTop: 8,
+    fontWeight: '500',
   },
 });
 

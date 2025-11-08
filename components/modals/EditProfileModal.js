@@ -23,13 +23,6 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
-    weight: '',
-    height: '',
-    age: '',
-    gender: '',
-    activityLevel: '',
-    fitnessGoal: '',
-    dietaryPreferences: '',
     profileImage: null
   });
 
@@ -39,13 +32,6 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
       setFormData({
         firstName: user?.user_metadata?.first_name || '',
         lastName: user?.user_metadata?.last_name || '',
-        weight: user?.user_metadata?.weight || '',
-        height: user?.user_metadata?.height || '',
-        age: user?.user_metadata?.age || '',
-        gender: user?.user_metadata?.gender || '',
-        activityLevel: user?.user_metadata?.activity_level || '',
-        fitnessGoal: user?.user_metadata?.fitness_goal || '',
-        dietaryPreferences: user?.user_metadata?.dietary_preferences || '',
         profileImage: user?.user_metadata?.profile_image || null
       });
       
@@ -130,13 +116,6 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
       const updatedMetadata = {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
-        weight: formData.weight ? parseFloat(formData.weight) : null,
-        height: formData.height ? parseFloat(formData.height) : null,
-        age: formData.age ? parseInt(formData.age) : null,
-        gender: formData.gender,
-        activity_level: formData.activityLevel,
-        fitness_goal: formData.fitnessGoal,
-        dietary_preferences: formData.dietaryPreferences,
         profile_image: profileImageUrl
       };
 
@@ -300,29 +279,7 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
     );
   };
 
-  const genderOptions = [
-    { label: 'Male', value: 'male' },
-    { label: 'Female', value: 'female' },
-    { label: 'Other', value: 'other' },
-    { label: 'Prefer not to say', value: 'prefer_not_to_say' }
-  ];
 
-  const activityLevelOptions = [
-    { label: 'Sedentary (little/no exercise)', value: 'sedentary' },
-    { label: 'Lightly active (light exercise 1-3 days/week)', value: 'lightly_active' },
-    { label: 'Moderately active (moderate exercise 3-5 days/week)', value: 'moderately_active' },
-    { label: 'Very active (hard exercise 6-7 days/week)', value: 'very_active' },
-    { label: 'Super active (very hard exercise, physical job)', value: 'super_active' }
-  ];
-
-  const fitnessGoalOptions = [
-    { label: 'Lose weight', value: 'lose_weight' },
-    { label: 'Maintain weight', value: 'maintain_weight' },
-    { label: 'Gain weight', value: 'gain_weight' },
-    { label: 'Build muscle', value: 'build_muscle' },
-    { label: 'Improve fitness', value: 'improve_fitness' },
-    { label: 'General health', value: 'general_health' }
-  ];
 
   return (
     <Modal
@@ -400,68 +357,6 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
               formData.lastName,
               (text) => setFormData(prev => ({ ...prev, lastName: text })),
               'Enter your last name'
-            )}
-
-            {renderInput(
-              'Age',
-              formData.age,
-              (text) => setFormData(prev => ({ ...prev, age: text })),
-              'Enter your age',
-              'numeric'
-            )}
-
-            {renderPicker(
-              'Gender',
-              formData.gender,
-              (value) => setFormData(prev => ({ ...prev, gender: value })),
-              genderOptions
-            )}
-          </View>
-
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: '#212529' }]}>Physical Information</Text>
-            
-            {renderInput(
-              'Weight (lbs)',
-              formData.weight,
-              (text) => setFormData(prev => ({ ...prev, weight: text })),
-              'Enter your weight in pounds',
-              'numeric'
-            )}
-
-            {renderInput(
-              'Height (inches)',
-              formData.height,
-              (text) => setFormData(prev => ({ ...prev, height: text })),
-              'Enter your height in inches (e.g., 70 for 5\'10")',
-              'numeric'
-            )}
-          </View>
-
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: '#212529' }]}>Fitness & Goals</Text>
-            
-            {renderPicker(
-              'Activity Level',
-              formData.activityLevel,
-              (value) => setFormData(prev => ({ ...prev, activityLevel: value })),
-              activityLevelOptions
-            )}
-
-            {renderPicker(
-              'Fitness Goal',
-              formData.fitnessGoal,
-              (value) => setFormData(prev => ({ ...prev, fitnessGoal: value })),
-              fitnessGoalOptions
-            )}
-
-            {renderInput(
-              'Dietary Preferences',
-              formData.dietaryPreferences,
-              (text) => setFormData(prev => ({ ...prev, dietaryPreferences: text })),
-              'e.g., Vegetarian, Vegan, Keto, etc.',
-              'default',
-              true
             )}
           </View>
 

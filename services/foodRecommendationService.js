@@ -22,14 +22,15 @@ class FoodRecommendationService {
       // First, get nutritional analysis of the food
       const nutritionResult = await foodAnalysisService.analyzeFoodImage(imageUri);
       
-      if (!nutritionResult.success || !nutritionResult.food) {
+      if (!nutritionResult.success || !nutritionResult.predictions || nutritionResult.predictions.length === 0) {
         return {
           success: false,
           error: 'Could not identify the food item'
         };
       }
 
-      const food = nutritionResult.food;
+      // Get the highest confidence food item from predictions
+      const food = nutritionResult.predictions[0];
       console.log('📊 Food identified:', food.name);
 
       // Generate AI recommendation based on nutrition and user goals
@@ -39,13 +40,13 @@ class FoodRecommendationService {
         success: true,
         food: {
           name: food.name,
-          calories: food.calories,
-          protein: food.protein,
-          carbs: food.carbs,
-          fat: food.fat,
-          fiber: food.fiber,
-          sugar: food.sugar,
-          sodium: food.sodium,
+          calories: food.nutrition?.calories || food.calories,
+          protein: food.nutrition?.protein || food.protein,
+          carbs: food.nutrition?.carbs || food.carbs,
+          fat: food.nutrition?.fat || food.fat,
+          fiber: food.nutrition?.fiber || food.fiber,
+          sugar: food.nutrition?.sugar || food.sugar,
+          sodium: food.nutrition?.sodium || food.sodium,
           confidence: food.confidence
         },
         recommendation: {
@@ -79,13 +80,13 @@ You are a nutrition expert providing personalized food recommendations. Analyze 
 
 FOOD ITEM:
 - Name: ${food.name}
-- Calories: ${food.calories}
-- Protein: ${food.protein}g
-- Carbs: ${food.carbs}g
-- Fat: ${food.fat}g
-- Fiber: ${food.fiber}g
-- Sugar: ${food.sugar}g
-- Sodium: ${food.sodium}mg
+- Calories: ${food.nutrition?.calories || food.calories}
+- Protein: ${food.nutrition?.protein || food.protein}g
+- Carbs: ${food.nutrition?.carbs || food.carbs}g
+- Fat: ${food.nutrition?.fat || food.fat}g
+- Fiber: ${food.nutrition?.fiber || food.fiber}g
+- Sugar: ${food.nutrition?.sugar || food.sugar}g
+- Sodium: ${food.nutrition?.sodium || food.sodium}mg
 
 USER PROFILE:
 - Goals: ${userProfile.goals || 'General health and wellness'}

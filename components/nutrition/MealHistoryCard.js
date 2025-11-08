@@ -156,11 +156,11 @@ const MealHistoryCard = ({
         <View style={styles.header}>
           <View style={styles.titleRow}>
             <Ionicons name="time-outline" size={18} color="#4682B4" />
-            <Text style={styles.sectionTitle}>Meal History</Text>
+            <Text style={styles.sectionTitle}>Meal Journal</Text>
           </View>
         </View>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading history...</Text>
+          <Text style={styles.loadingText}>Loading journal...</Text>
         </View>
       </View>
     );
@@ -172,12 +172,12 @@ const MealHistoryCard = ({
         <View style={styles.header}>
           <View style={styles.titleRow}>
             <Ionicons name="time-outline" size={18} color="#4682B4" />
-            <Text style={styles.sectionTitle}>Meal History</Text>
+            <Text style={styles.sectionTitle}>Meal Journal</Text>
           </View>
         </View>
         <View style={styles.emptyContainer}>
           <Ionicons name="calendar-outline" size={48} color="#C7C7CC" style={styles.emptyIcon} />
-          <Text style={styles.emptyTitle}>No meal history yet</Text>
+          <Text style={styles.emptyTitle}>No meal journal yet</Text>
           <Text style={styles.emptySubtitle}>
             Your previous meals will appear here once you start logging regularly.
           </Text>
@@ -191,7 +191,7 @@ const MealHistoryCard = ({
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Ionicons name="time-outline" size={18} color="#4682B4" />
-          <Text style={styles.sectionTitle}>Meal History</Text>
+          <Text style={styles.sectionTitle}>Meal Journal</Text>
         </View>
         
         {displayData.totalMeals > 0 && (

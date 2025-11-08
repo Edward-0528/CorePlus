@@ -85,7 +85,7 @@ const MealHistorySection = ({ historicalMeals, historyLoading }) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading meal history...</Text>
+        <Text style={styles.loadingText}>Loading meal journal...</Text>
       </View>
     );
   }
@@ -94,7 +94,7 @@ const MealHistorySection = ({ historicalMeals, historyLoading }) => {
     return (
       <View style={styles.emptyContainer}>
         <Ionicons name="restaurant" size={48} color="#8E8E93" />
-        <Text style={styles.emptyTitle}>No Meal History</Text>
+        <Text style={styles.emptyTitle}>No Meal Journal</Text>
         <Text style={styles.emptySubtitle}>
           Your previous meals will appear here once you start logging food
         </Text>

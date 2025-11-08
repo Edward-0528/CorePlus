@@ -78,7 +78,7 @@ const RecipeBrowserScreen = ({
     { id: 'search', label: 'Search', icon: 'search-outline' },
     { id: 'ingredients', label: 'My Pantry', icon: 'basket-outline' },
     { id: 'favorites', label: 'Favorites', icon: 'heart-outline' },
-    { id: 'history', label: 'History', icon: 'time-outline' }
+    { id: 'history', label: 'Journal', icon: 'time-outline' }
   ];
 
   // Load initial data

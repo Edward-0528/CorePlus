@@ -19,92 +19,94 @@ const FoodRecommendationScreen = ({ recommendation, onClose, onTryAgain }) => {
   const recommendationEmoji = foodRecommendationService.getRecommendationEmoji(rec.shouldEat, rec.score);
   const recommendationTitle = foodRecommendationService.getRecommendationTitle(rec.shouldEat, rec.score);
 
-  const renderScoreBar = () => {
-    const percentage = (rec.score / 10) * 100;
-    
+  const renderScoreSection = () => {
     return (
-      <View style={styles.scoreContainer}>
-        <Text style={styles.scoreLabel}>Health Score</Text>
-        <View style={styles.scoreBarContainer}>
-          <View style={styles.scoreBarBackground}>
-            <View 
-              style={[
-                styles.scoreBarFill, 
-                { 
-                  width: `${percentage}%`,
-                  backgroundColor: recommendationColor 
-                }
-              ]} 
-            />
+      <View style={styles.scoreSection}>
+        <View style={styles.scoreHeader}>
+          <Text style={styles.scoreTitle}>Health Assessment</Text>
+          <View style={styles.scoreValueContainer}>
+            <Text style={[styles.scoreValue, { color: recommendationColor }]}>
+              {rec.score}
+            </Text>
+            <Text style={styles.scoreOutOf}>/10</Text>
           </View>
-          <Text style={[styles.scoreText, { color: recommendationColor }]}>
-            {rec.score}/10
-          </Text>
         </View>
+        <View style={styles.scoreBar}>
+          <View 
+            style={[
+              styles.scoreProgress, 
+              { 
+                width: `${(rec.score / 10) * 100}%`,
+                backgroundColor: recommendationColor 
+              }
+            ]} 
+          />
+        </View>
+        <Text style={[styles.recommendationStatus, { color: recommendationColor }]}>
+          {recommendationTitle}
+        </Text>
       </View>
     );
   };
 
-  const renderProsAndCons = () => (
-    <View style={styles.prosConsContainer}>
+  const renderInsights = () => (
+    <View style={styles.insightsContainer}>
       {rec.pros && rec.pros.length > 0 && (
-        <View style={styles.prosContainer}>
-          <View style={styles.prosHeader}>
-            <Ionicons name="checkmark-circle" size={20} color={AppColors.success} />
-            <Text style={styles.prosTitle}>Benefits</Text>
+        <View style={styles.insightSection}>
+          <Text style={styles.insightTitle}>Nutritional Benefits</Text>
+          <View style={styles.insightList}>
+            {rec.pros.map((pro, index) => (
+              <Text key={index} style={styles.insightText}>
+                {pro}
+              </Text>
+            ))}
           </View>
-          {rec.pros.map((pro, index) => (
-            <View key={index} style={styles.proItem}>
-              <Text style={styles.proText}>• {pro}</Text>
-            </View>
-          ))}
         </View>
       )}
 
       {rec.cons && rec.cons.length > 0 && (
-        <View style={styles.consContainer}>
-          <View style={styles.consHeader}>
-            <Ionicons name="warning" size={20} color={AppColors.warning} />
-            <Text style={styles.consTitle}>Consider</Text>
+        <View style={styles.insightSection}>
+          <Text style={styles.insightTitle}>Considerations</Text>
+          <View style={styles.insightList}>
+            {rec.cons.map((con, index) => (
+              <Text key={index} style={styles.insightText}>
+                {con}
+              </Text>
+            ))}
           </View>
-          {rec.cons.map((con, index) => (
-            <View key={index} style={styles.conItem}>
-              <Text style={styles.conText}>• {con}</Text>
-            </View>
-          ))}
         </View>
       )}
     </View>
   );
 
   const renderNutritionInfo = () => (
-    <View style={styles.nutritionContainer}>
-      <Text style={styles.nutritionTitle}>Nutrition Facts</Text>
+    <View style={styles.nutritionSection}>
+      <Text style={styles.sectionTitle}>Nutrition Facts</Text>
       <View style={styles.nutritionGrid}>
-        <View style={styles.nutritionItem}>
+        <View style={styles.nutritionRow}>
           <Text style={styles.nutritionLabel}>Calories</Text>
           <Text style={styles.nutritionValue}>{food.calories}</Text>
         </View>
-        <View style={styles.nutritionItem}>
+        <View style={styles.nutritionRow}>
           <Text style={styles.nutritionLabel}>Protein</Text>
           <Text style={styles.nutritionValue}>{food.protein}g</Text>
         </View>
-        <View style={styles.nutritionItem}>
-          <Text style={styles.nutritionLabel}>Carbs</Text>
+        <View style={styles.nutritionRow}>
+          <Text style={styles.nutritionLabel}>Carbohydrates</Text>
           <Text style={styles.nutritionValue}>{food.carbs}g</Text>
         </View>
-        <View style={styles.nutritionItem}>
+        <View style={styles.nutritionRow}>
           <Text style={styles.nutritionLabel}>Fat</Text>
           <Text style={styles.nutritionValue}>{food.fat}g</Text>
         </View>
         {food.fiber > 0 && (
-          <View style={styles.nutritionItem}>
+          <View style={styles.nutritionRow}>
             <Text style={styles.nutritionLabel}>Fiber</Text>
             <Text style={styles.nutritionValue}>{food.fiber}g</Text>
           </View>
         )}
         {food.sugar > 0 && (
-          <View style={styles.nutritionItem}>
+          <View style={styles.nutritionRow}>
             <Text style={styles.nutritionLabel}>Sugar</Text>
             <Text style={styles.nutritionValue}>{food.sugar}g</Text>
           </View>
@@ -117,17 +119,15 @@ const FoodRecommendationScreen = ({ recommendation, onClose, onTryAgain }) => {
     if (!rec.betterAlternatives || rec.betterAlternatives.length === 0) return null;
     
     return (
-      <View style={styles.alternativesContainer}>
-        <View style={styles.alternativesHeader}>
-          <Ionicons name="swap-horizontal" size={20} color={AppColors.primary} />
-          <Text style={styles.alternativesTitle}>Better Alternatives</Text>
+      <View style={styles.alternativesSection}>
+        <Text style={styles.sectionTitle}>Better Alternatives</Text>
+        <View style={styles.alternativesList}>
+          {rec.betterAlternatives.map((alternative, index) => (
+            <Text key={index} style={styles.alternativeText}>
+              {alternative}
+            </Text>
+          ))}
         </View>
-        {rec.betterAlternatives.map((alternative, index) => (
-          <View key={index} style={styles.alternativeItem}>
-            <Ionicons name="arrow-forward" size={16} color={AppColors.primary} />
-            <Text style={styles.alternativeText}>{alternative}</Text>
-          </View>
-        ))}
       </View>
     );
   };
@@ -137,48 +137,32 @@ const FoodRecommendationScreen = ({ recommendation, onClose, onTryAgain }) => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerButton} onPress={onClose}>
-          <Ionicons name="close" size={24} color={AppColors.text} />
+          <Ionicons name="arrow-back" size={24} color="#212529" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Food Analysis</Text>
-        <TouchableOpacity style={styles.headerButton} onPress={onTryAgain}>
-          <Ionicons name="camera" size={24} color={AppColors.text} />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Nutrition Analysis</Text>
+        <View style={styles.headerButton} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Main Recommendation */}
-        <LinearGradient
-          colors={[recommendationColor + '20', recommendationColor + '10']}
-          style={styles.recommendationCard}
-        >
-          <View style={styles.recommendationHeader}>
-            <Text style={styles.recommendationEmoji}>{recommendationEmoji}</Text>
-            <View style={styles.recommendationTitleContainer}>
-              <Text style={styles.foodName}>{food.name}</Text>
-              <Text style={[styles.recommendationTitle, { color: recommendationColor }]}>
-                {recommendationTitle}
-              </Text>
-            </View>
-          </View>
-          
-          <Text style={styles.recommendationReason}>{rec.reason}</Text>
-          
-          {renderScoreBar()}
-        </LinearGradient>
+        {/* Food Name & Analysis */}
+        <View style={styles.mainSection}>
+          <Text style={styles.foodName}>{food.name}</Text>
+          <Text style={styles.analysisReason}>{rec.reason}</Text>
+        </View>
+
+        {/* Health Score */}
+        {renderScoreSection()}
 
         {/* Nutrition Facts */}
         {renderNutritionInfo()}
 
-        {/* Pros and Cons */}
-        {renderProsAndCons()}
+        {/* Insights */}
+        {renderInsights()}
 
         {/* Portion Advice */}
         {rec.portionAdvice && (
-          <View style={styles.portionCard}>
-            <View style={styles.portionHeader}>
-              <Ionicons name="restaurant" size={20} color={AppColors.primary} />
-              <Text style={styles.portionTitle}>Portion Advice</Text>
-            </View>
+          <View style={styles.portionSection}>
+            <Text style={styles.sectionTitle}>Portion Guidance</Text>
             <Text style={styles.portionText}>{rec.portionAdvice}</Text>
           </View>
         )}
@@ -192,13 +176,12 @@ const FoodRecommendationScreen = ({ recommendation, onClose, onTryAgain }) => {
 
       {/* Bottom Actions */}
       <View style={styles.bottomActions}>
-        <TouchableOpacity style={styles.tryAgainButton} onPress={onTryAgain}>
-          <Ionicons name="camera" size={20} color={AppColors.primary} />
-          <Text style={styles.tryAgainText}>Analyze Another</Text>
+        <TouchableOpacity style={styles.secondaryButton} onPress={onTryAgain}>
+          <Text style={styles.secondaryButtonText}>Analyze Another</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.doneButton} onPress={onClose}>
-          <Text style={styles.doneText}>Done</Text>
+        <TouchableOpacity style={styles.primaryButton} onPress={onClose}>
+          <Text style={styles.primaryButtonText}>Done</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -208,278 +191,216 @@ const FoodRecommendationScreen = ({ recommendation, onClose, onTryAgain }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: AppColors.white,
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 16,
+    paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: AppColors.border,
+    borderBottomColor: '#F1F3F4',
   },
   headerButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: AppColors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: AppColors.text,
+    color: '#212529',
+    letterSpacing: -0.3,
   },
   content: {
     flex: 1,
     paddingHorizontal: 20,
   },
-  recommendationCard: {
-    marginTop: 20,
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: AppColors.border,
+  mainSection: {
+    paddingTop: 32,
+    paddingBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F3F4',
   },
-  recommendationHeader: {
+  foodName: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#212529',
+    marginBottom: 12,
+    letterSpacing: -0.5,
+  },
+  analysisReason: {
+    fontSize: 16,
+    color: '#6C757D',
+    lineHeight: 24,
+  },
+  scoreSection: {
+    paddingVertical: 32,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F3F4',
+  },
+  scoreHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
-  recommendationEmoji: {
-    fontSize: 40,
-    marginRight: 16,
-  },
-  recommendationTitleContainer: {
-    flex: 1,
-  },
-  foodName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: AppColors.text,
-    marginBottom: 4,
-  },
-  recommendationTitle: {
-    fontSize: 16,
+  scoreTitle: {
+    fontSize: 18,
     fontWeight: '600',
+    color: '#212529',
   },
-  recommendationReason: {
-    fontSize: 16,
-    color: AppColors.textSecondary,
-    lineHeight: 24,
-    marginBottom: 20,
-  },
-  scoreContainer: {
-    marginTop: 10,
-  },
-  scoreLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: AppColors.text,
-    marginBottom: 8,
-  },
-  scoreBarContainer: {
+  scoreValueContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
   },
-  scoreBarBackground: {
-    flex: 1,
-    height: 8,
-    backgroundColor: AppColors.lightGray,
-    borderRadius: 4,
-    marginRight: 12,
+  scoreValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: -1,
   },
-  scoreBarFill: {
-    height: '100%',
-    borderRadius: 4,
+  scoreOutOf: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#6C757D',
+    marginLeft: 2,
   },
-  scoreText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    minWidth: 40,
-  },
-  nutritionContainer: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: AppColors.backgroundSecondary,
-    borderRadius: 12,
-  },
-  nutritionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: AppColors.text,
+  scoreBar: {
+    height: 6,
+    backgroundColor: '#F1F3F4',
+    borderRadius: 3,
     marginBottom: 12,
   },
-  nutritionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  scoreProgress: {
+    height: '100%',
+    borderRadius: 3,
   },
-  nutritionItem: {
-    flex: 1,
-    minWidth: '30%',
+  recommendationStatus: {
+    fontSize: 16,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  nutritionSection: {
+    paddingVertical: 32,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F3F4',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#212529',
+    marginBottom: 20,
+  },
+  nutritionGrid: {
+    gap: 16,
+  },
+  nutritionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 8,
   },
   nutritionLabel: {
-    fontSize: 12,
-    color: AppColors.textSecondary,
-    marginBottom: 4,
+    fontSize: 16,
+    color: '#6C757D',
+    fontWeight: '400',
   },
   nutritionValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: AppColors.text,
+    color: '#212529',
   },
-  prosConsContainer: {
-    marginTop: 24,
+  insightsContainer: {
+    paddingVertical: 32,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F3F4',
+    gap: 32,
+  },
+  insightSection: {
     gap: 16,
   },
-  prosContainer: {
-    padding: 16,
-    backgroundColor: AppColors.success + '10',
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: AppColors.success,
-  },
-  prosHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  prosTitle: {
-    fontSize: 16,
+  insightTitle: {
+    fontSize: 18,
     fontWeight: '600',
-    color: AppColors.success,
-    marginLeft: 8,
+    color: '#212529',
   },
-  proItem: {
-    marginBottom: 4,
+  insightList: {
+    gap: 12,
   },
-  proText: {
-    fontSize: 14,
-    color: AppColors.text,
-    lineHeight: 20,
-  },
-  consContainer: {
-    padding: 16,
-    backgroundColor: AppColors.warning + '10',
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: AppColors.warning,
-  },
-  consHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  consTitle: {
+  insightText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: AppColors.warning,
-    marginLeft: 8,
+    color: '#6C757D',
+    lineHeight: 24,
+    paddingLeft: 16,
   },
-  conItem: {
-    marginBottom: 4,
-  },
-  conText: {
-    fontSize: 14,
-    color: AppColors.text,
-    lineHeight: 20,
-  },
-  portionCard: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: AppColors.primary + '10',
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: AppColors.primary,
-  },
-  portionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  portionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: AppColors.primary,
-    marginLeft: 8,
+
+  portionSection: {
+    paddingVertical: 32,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F3F4',
   },
   portionText: {
-    fontSize: 14,
-    color: AppColors.text,
-    lineHeight: 20,
-  },
-  alternativesContainer: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: AppColors.backgroundSecondary,
-    borderRadius: 12,
-  },
-  alternativesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  alternativesTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: AppColors.primary,
-    marginLeft: 8,
+    color: '#6C757D',
+    lineHeight: 24,
   },
-  alternativeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+  alternativesSection: {
+    paddingVertical: 32,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F3F4',
+  },
+  alternativesList: {
+    gap: 12,
   },
   alternativeText: {
-    fontSize: 14,
-    color: AppColors.text,
-    marginLeft: 8,
-    flex: 1,
+    fontSize: 16,
+    color: '#6C757D',
+    lineHeight: 24,
+    paddingLeft: 16,
   },
   bottomSpacing: {
-    height: 100,
+    height: 32,
   },
   bottomActions: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 24,
     borderTopWidth: 1,
-    borderTopColor: AppColors.border,
-    gap: 12,
+    borderTopColor: '#F1F3F4',
+    gap: 16,
+    backgroundColor: '#FFFFFF',
   },
-  tryAgainButton: {
+  secondaryButton: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: AppColors.primary,
-    backgroundColor: AppColors.white,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+    backgroundColor: '#FFFFFF',
   },
-  tryAgainText: {
+  secondaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: AppColors.primary,
-    marginLeft: 8,
+    color: '#6C757D',
   },
-  doneButton: {
+  primaryButton: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 8,
     backgroundColor: AppColors.primary,
   },
-  doneText: {
+  primaryButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: AppColors.white,
+    color: '#FFFFFF',
   },
 });
 

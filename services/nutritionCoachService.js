@@ -17,68 +17,116 @@ const getGeminiApiUrl = () => {
 
 export const nutritionCoachService = {
   // Generate weekly nutrition analysis and recommendations
-  async generateWeeklyCoachingInsight(user, weeklyNutritionData) {
+  // Generate concise suggestion for banner display
+  async generateConciseSuggestion(user, weeklyNutritionData) {
     try {
-      const prompt = `As a certified nutrition coach, analyze this user's 7-day nutrition data and provide personalized insights:
+      // Check if user has any nutrition data
+      const totalMeals = weeklyNutritionData.reduce((sum, day) => sum + day.mealCount, 0);
+      
+      if (totalMeals === 0) {
+        return {
+          success: true,
+          insight: {
+            suggestion: "Start by logging your next meal to get personalized nutrition tips!"
+          }
+        };
+      }
 
-USER PROFILE:
-- Age: ${user?.age || 'Not specified'}
-- Gender: ${user?.gender || 'Not specified'}
-- Activity Level: ${user?.activity_level || 'Moderate'}
-- Goals: ${user?.fitness_goals || 'General health'}
-- Daily Calorie Goal: ${user?.calorie_goal || 2000}
-- Health Conditions: ${user?.health_conditions || 'None specified'}
+      const prompt = `As a nutrition coach, analyze this user's nutrition data and provide concise, actionable food suggestions:
 
-PAST 7 DAYS NUTRITION DATA:
-${weeklyNutritionData.map((day, index) => `
-Day ${index + 1} (${day.date}):
-- Calories: ${day.calories} / ${user?.calorie_goal || 2000} goal
-- Protein: ${day.protein}g 
-- Carbs: ${day.carbs}g
-- Fat: ${day.fat}g
-- Fiber: ${day.fiber}g
-- Sugar: ${day.sugar}g
-- Sodium: ${day.sodium}mg
-- Meals: ${day.mealCount}
-`).join('')}
+DAILY AVERAGES (last 7 days):
+- Calories: ${Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.calories, 0) / 7)} (goal: ${user?.calorie_goal || 2000})
+- Protein: ${Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.protein, 0) / 7)}g 
+- Carbs: ${Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.carbs, 0) / 7)}g
+- Fat: ${Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.fat, 0) / 7)}g
+- Sugar: ${Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.sugar, 0) / 7)}g
+- Sodium: ${Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.sodium, 0) / 7)}mg
 
-WEEKLY AVERAGES:
-- Average Daily Calories: ${weeklyNutritionData.reduce((sum, day) => sum + day.calories, 0) / 7}
-- Average Protein: ${weeklyNutritionData.reduce((sum, day) => sum + day.protein, 0) / 7}g
-- Average Carbs: ${weeklyNutritionData.reduce((sum, day) => sum + day.carbs, 0) / 7}g
-- Average Fat: ${weeklyNutritionData.reduce((sum, day) => sum + day.fat, 0) / 7}g
-
-Provide analysis in JSON format:
+Provide a single, concise suggestion in JSON format:
 {
-  "weeklyInsight": "2-3 sentence summary of their week",
-  "achievements": ["positive things they did well"],
-  "concerns": ["areas that need attention"],
-  "recommendations": {
-    "calories": "specific calorie guidance",
-    "macros": "macro balance recommendations", 
-    "nutrients": "micronutrient guidance",
-    "behavior": "behavioral/timing recommendations"
-  },
-  "redFlags": ["urgent health concerns to watch"],
-  "encouragement": "motivational message",
-  "weeklyScore": 85
+  "suggestion": "One specific actionable food advice (max 25 words)"
 }
 
-Focus on:
-1. Calorie consistency vs goals
-2. Macro balance (protein adequacy, carb quality, healthy fats)
-3. Nutritional gaps (fiber, excessive sugar/sodium)
-4. Eating patterns and meal frequency
-5. Health red flags (excessive calories, very low protein, etc.)
+Rules:
+- If protein is low (<100g/day): suggest high-protein foods
+- If carbs are excessive (>250g/day): suggest lower-carb alternatives  
+- If fat is too high (>80g/day): suggest lighter alternatives
+- If sugar is high (>50g/day): suggest low-sugar swaps
+- If sodium is high (>2300mg/day): suggest low-sodium alternatives
+- Otherwise: give positive reinforcement or general healthy tip
 
-Be supportive but honest. Provide actionable, specific advice.`;
+Examples:
+"Try Greek yogurt or chicken breast to boost your protein intake."
+"Swap white rice for quinoa to improve fiber and reduce refined carbs."
+"Replace sugary drinks with sparkling water with lemon for less sugar."`;
 
       const result = await this.callGeminiAPI(prompt);
       return this.parseCoachingResponse(result);
       
     } catch (error) {
-      console.error('Error generating coaching insight:', error);
+      console.error('Error generating concise suggestion:', error);
       return this.getFallbackInsight(weeklyNutritionData);
+    }
+  },
+
+  // Generate detailed but concise analysis for expanded view
+  async generateWeeklyCoachingInsight(user, weeklyNutritionData) {
+    try {
+      // Check if user has any nutrition data
+      const totalMeals = weeklyNutritionData.reduce((sum, day) => sum + day.mealCount, 0);
+      
+      if (totalMeals === 0) {
+        return {
+          success: true,
+          insight: {
+            weeklyInsight: "Start tracking your meals to unlock personalized insights!",
+            achievements: ["Signed up for Core+"],
+            concerns: [],
+            recommendations: {
+              calories: "Begin by logging your meals to see calorie patterns",
+              macros: "Track protein, carbs, and fats for balanced nutrition"
+            },
+            redFlags: [],
+            weeklyScore: 75
+          }
+        };
+      }
+
+      const avgCalories = Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.calories, 0) / 7);
+      const avgProtein = Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.protein, 0) / 7);
+      const avgCarbs = Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.carbs, 0) / 7);
+      const avgFat = Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.fat, 0) / 7);
+      const avgSugar = Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.sugar, 0) / 7);
+      const avgSodium = Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.sodium, 0) / 7);
+
+      const calorieGoal = user?.calorie_goal || 2000;
+      const prompt = `As a nutrition coach, provide a concise weekly analysis in JSON format:
+
+WEEKLY AVERAGES:
+- Calories: ${avgCalories} (goal: ${calorieGoal})
+- Protein: ${avgProtein}g, Carbs: ${avgCarbs}g, Fat: ${avgFat}g
+- Sugar: ${avgSugar}g, Sodium: ${avgSodium}mg
+
+{
+  "weeklyInsight": "One sentence summary (max 20 words)",
+  "achievements": ["One positive thing they did well (max 15 words)"],
+  "concerns": ["One area needing attention (max 15 words)" or leave empty if none],
+  "recommendations": {
+    "calories": "Specific calorie advice (max 15 words)",
+    "macros": "Macro balance tip (max 15 words)"
+  },
+  "redFlags": ["Health concern if calories<1200 or >3000" or leave empty],
+  "weeklyScore": 85
+}
+
+Be concise, actionable, and supportive.`;
+
+      const result = await this.callGeminiAPI(prompt);
+      return this.parseDetailedCoachingResponse(result);
+      
+    } catch (error) {
+      console.error('Error generating weekly insight:', error);
+      return this.getDetailedFallbackInsight(weeklyNutritionData);
     }
   },
 
@@ -166,7 +214,7 @@ Be supportive but honest. Provide actionable, specific advice.`;
     return result.candidates?.[0]?.content?.parts?.[0]?.text || '';
   },
 
-  // Parse AI response
+  // Parse AI response for concise suggestion
   parseCoachingResponse(responseText) {
     try {
       // Clean up the response text
@@ -176,14 +224,16 @@ Be supportive but honest. Provide actionable, specific advice.`;
       
       const parsed = JSON.parse(cleanText);
       
-      // Validate required fields
-      if (!parsed.weeklyInsight || !parsed.recommendations) {
-        throw new Error('Invalid response structure');
+      // Validate required fields for new format
+      if (!parsed.suggestion) {
+        throw new Error('Invalid response structure - missing suggestion');
       }
       
       return {
         success: true,
-        insight: parsed
+        insight: {
+          suggestion: parsed.suggestion
+        }
       };
     } catch (error) {
       console.error('Error parsing coaching response:', error);
@@ -191,27 +241,107 @@ Be supportive but honest. Provide actionable, specific advice.`;
     }
   },
 
-  // Fallback insight when AI fails
+  // Parse AI response for detailed analysis
+  parseDetailedCoachingResponse(responseText) {
+    try {
+      // Clean up the response text
+      const cleanText = responseText
+        .replace(/```json|```/g, '')
+        .trim();
+      
+      const parsed = JSON.parse(cleanText);
+      
+      // Validate required fields
+      if (!parsed.weeklyInsight) {
+        throw new Error('Invalid detailed response structure');
+      }
+      
+      return {
+        success: true,
+        insight: parsed
+      };
+    } catch (error) {
+      console.error('Error parsing detailed coaching response:', error);
+      return this.getDetailedFallbackInsight();
+    }
+  },
+
+  // Fallback insight when AI fails (concise)
   getFallbackInsight(weeklyData = []) {
-    const avgCalories = weeklyData.length > 0 
-      ? Math.round(weeklyData.reduce((sum, day) => sum + day.calories, 0) / weeklyData.length)
-      : 0;
+    const totalMeals = weeklyData.reduce((sum, day) => sum + (day.mealCount || 0), 0);
+    
+    if (totalMeals === 0) {
+      // Onboarding suggestions for new users
+      const onboardingSuggestions = [
+        "Start by logging your next meal to get personalized nutrition tips!",
+        "Track your breakfast to begin building healthy habits!",
+        "Log a meal using the camera or search to get started!",
+        "Add your first meal to unlock personalized coaching insights!"
+      ];
+      const randomOnboarding = onboardingSuggestions[Math.floor(Math.random() * onboardingSuggestions.length)];
+      
+      return {
+        success: true,
+        insight: {
+          suggestion: randomOnboarding
+        }
+      };
+    }
+
+    // Regular suggestions for users with some data
+    const suggestions = [
+      "Add more vegetables to your meals for better nutrition.",
+      "Try lean protein sources like chicken, fish, or tofu.",
+      "Stay hydrated with water throughout the day.",
+      "Include whole grains for sustained energy.",
+      "Balance your meals with healthy fats from nuts or avocado."
+    ];
+
+    const randomSuggestion = suggestions[Math.floor(Math.random() * suggestions.length)];
 
     return {
       success: true,
       insight: {
-        weeklyInsight: "Keep up the great work with your nutrition tracking! Consistency is key to reaching your goals.",
-        achievements: ["Consistent meal logging", "Staying engaged with your health"],
+        suggestion: randomSuggestion
+      }
+    };
+  },
+
+  // Detailed fallback insight when AI fails
+  getDetailedFallbackInsight(weeklyData = []) {
+    const totalMeals = weeklyData.reduce((sum, day) => sum + (day.mealCount || 0), 0);
+    
+    if (totalMeals === 0) {
+      return {
+        success: true,
+        insight: {
+          weeklyInsight: "Start tracking meals for personalized insights!",
+          achievements: ["Joined Core+ for better health"],
+          concerns: [],
+          recommendations: {
+            calories: "Log meals to see your calorie patterns",
+            macros: "Track protein, carbs, and fats daily"
+          },
+          redFlags: [],
+          weeklyScore: 75
+        }
+      };
+    }
+
+    const avgCalories = Math.round(weeklyData.reduce((sum, day) => sum + (day.calories || 0), 0) / weeklyData.length);
+    
+    return {
+      success: true,
+      insight: {
+        weeklyInsight: "Keep up the consistent meal tracking!",
+        achievements: ["Maintaining regular meal logging"],
         concerns: avgCalories < 1200 ? ["Low calorie intake detected"] : [],
         recommendations: {
-          calories: avgCalories < 1200 ? "Consider increasing calorie intake for better health" : "Maintain your current approach",
-          macros: "Focus on balanced meals with protein, healthy carbs, and good fats",
-          nutrients: "Ensure adequate fiber and limit processed foods",
-          behavior: "Keep up the consistent tracking habits"
+          calories: avgCalories < 1200 ? "Consider increasing healthy calories" : "Maintain current calorie approach",
+          macros: "Focus on balanced meals with all macros"
         },
-        redFlags: avgCalories < 1000 ? ["Very low calorie intake - consider consulting a healthcare provider"] : [],
-        encouragement: "You're building excellent nutrition awareness habits!",
-        weeklyScore: Math.min(85, Math.max(60, Math.round(avgCalories / 20)))
+        redFlags: avgCalories < 1000 ? ["Very low calories - consult healthcare provider"] : [],
+        weeklyScore: Math.min(90, Math.max(60, Math.round((avgCalories / 2000) * 100)))
       }
     };
   },

@@ -19,7 +19,7 @@ import FoodAnalysisResultsScreen from '../FoodAnalysisResultsScreen';
 import FoodSearchModal from '../../food/FoodSearchModal';
 import ShouldIEatItCamera from '../../food/ShouldIEatItCamera';
 import FoodRecommendationScreen from '../FoodRecommendationScreen';
-import AICoachCard from '../../nutrition/AICoachCard';
+import EditProfileModal from '../../modals/EditProfileModal';
 
 // Define colors directly
 const AppColors = {
@@ -69,6 +69,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading }) => {
   }, []);
   const { 
     dailyCalories, 
+    dailyMacros,
     addCalories, 
     foodEntries = [],
     todaysMeals = [],
@@ -92,6 +93,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading }) => {
   const [showShouldIEatItCamera, setShowShouldIEatItCamera] = useState(false);
   const [showFoodRecommendation, setShowFoodRecommendation] = useState(false);
   const [currentRecommendation, setCurrentRecommendation] = useState(null);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   
   // Food analysis states
   const [showAnalysisResultsScreen, setShowAnalysisResultsScreen] = useState(false);
@@ -213,18 +215,6 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading }) => {
 
   const calorieProgress = (dailyCalories / calorieGoal) * 100;
 
-  // Function to get time-based greeting
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) {
-      return 'Good morning';
-    } else if (hour < 17) {
-      return 'Good afternoon';
-    } else {
-      return 'Good evening';
-    }
-  };
-
   // Handle opening the goal modal
   const handleSetGoal = () => {
     setTempGoal(calorieGoal.toString());
@@ -295,32 +285,103 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading }) => {
     setShowShouldIEatItCamera(true);
   };
 
+  // Simple Nutrition Overview
+  const renderSimpleNutritionOverview = () => {
+    const mealCount = todaysMeals.length;
+    const proteinGoal = currentUser?.protein_goal || 150;
+    const carbGoal = currentUser?.carbs_goal || 225;
+    const fatGoal = currentUser?.fat_goal || 65;
+    
+    // Calculate percentages
+    const proteinPercent = proteinGoal > 0 ? Math.round((dailyMacros.protein / proteinGoal) * 100) : 0;
+    const carbPercent = carbGoal > 0 ? Math.round((dailyMacros.carbs / carbGoal) * 100) : 0;
+    const fatPercent = fatGoal > 0 ? Math.round((dailyMacros.fat / fatGoal) * 100) : 0;
+    const caloriePercent = calorieGoal > 0 ? Math.round((dailyCalories / calorieGoal) * 100) : 0;
+
+    // Generate helpful suggestions based on macro balance
+    const getSuggestion = () => {
+      if (mealCount === 0) {
+        return "Ready to start your day? Log your first meal to track your progress.";
+      }
+
+      if (caloriePercent < 30 && mealCount < 2) {
+        return "You're off to a light start. Consider adding a balanced meal.";
+      }
+
+      if (proteinPercent > 150) {
+        return "High protein intake today! Balance with some vegetables and carbs.";
+      }
+
+      if (carbPercent > 150) {
+        return "Carb-heavy day. Try adding lean protein and healthy fats next.";
+      }
+
+      if (fatPercent > 150) {
+        return "High fat intake today. Consider lighter, veggie-rich meals ahead.";
+      }
+
+      if (caloriePercent > 90 && caloriePercent <= 110) {
+        return "Great calorie balance! You're right on track for your goals.";
+      }
+
+      if (caloriePercent > 120) {
+        return "You've exceeded your calorie goal. Consider lighter options if eating more.";
+      }
+
+      if (mealCount >= 2 && caloriePercent < 60) {
+        return "You might need more fuel. Consider a nutritious snack or meal.";
+      }
+
+      return "Looking good! Keep up the balanced eating throughout the day.";
+    };
+
+    const suggestion = getSuggestion();
+    const isWarning = proteinPercent > 150 || carbPercent > 150 || fatPercent > 150 || caloriePercent > 120;
+
+    return (
+      <View style={enhancedStyles.nutritionOverview}>
+        <View style={enhancedStyles.overviewHeader}>
+          <Ionicons 
+            name={mealCount === 0 ? "restaurant-outline" : isWarning ? "warning" : "checkmark-circle"} 
+            size={20} 
+            color={mealCount === 0 ? AppColors.textSecondary : isWarning ? AppColors.warning : AppColors.success} 
+          />
+          <Text style={enhancedStyles.overviewTitle}>
+            {mealCount === 0 ? "No meals logged" : `${mealCount} meal${mealCount > 1 ? 's' : ''} logged`}
+          </Text>
+        </View>
+        <Text style={[
+          enhancedStyles.overviewSuggestion,
+          { color: isWarning ? AppColors.warning : AppColors.textSecondary }
+        ]}>
+          {suggestion}
+        </Text>
+      </View>
+    );
+  };
+
   const renderHeader = () => (
     <View style={[enhancedStyles.header, { backgroundColor: '#FFFFFF', borderBottomColor: '#E9ECEF' }]}>
       <View style={enhancedStyles.headerContent}>
         <View style={enhancedStyles.greetingSection}>
-          <Text style={[enhancedStyles.greeting, { color: '#6C757D' }]}>{getGreeting()}</Text>
           <Text style={[enhancedStyles.userName, { color: '#212529' }]}>
             {currentUser?.user_metadata?.first_name || 'User'}
-          </Text>
-          <Text style={[enhancedStyles.dateText, { color: '#6C757D' }]}>
-            {new Date().toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
           </Text>
         </View>
         <View style={enhancedStyles.streakSection}>
           {/* Streak badge removed per user request */}
-          <TouchableOpacity style={[
-            enhancedStyles.avatarContainer, 
-            { 
-              borderWidth: 3,
-              borderColor: isPremium ? AppColors.primary : AppColors.black, // Olive for premium, black for free
-              backgroundColor: AppColors.white, // White background
-            }
-          ]}>
+          <TouchableOpacity 
+            style={[
+              enhancedStyles.avatarContainer, 
+              { 
+                borderWidth: 3,
+                borderColor: isPremium ? AppColors.primary : AppColors.black, // Olive for premium, black for free
+                backgroundColor: AppColors.white, // White background
+              }
+            ]}
+            activeOpacity={0.8}
+            onPress={() => setShowEditProfileModal(true)}
+          >
             <View style={[enhancedStyles.avatar, { backgroundColor: AppColors.white, position: 'relative' }]}>
               {/* Render Image component if profile image exists */}
               {currentUser?.user_metadata?.profile_image ? (
@@ -415,6 +476,16 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading }) => {
 
         <TouchableOpacity 
           style={enhancedStyles.actionButton}
+          onPress={() => setShowShouldIEatItCamera(true)}
+        >
+          <View style={[enhancedStyles.actionIcon, { backgroundColor: '#FF8C00' }]}>
+            <Ionicons name="star" size={24} color="#FFFFFF" />
+          </View>
+          <Text style={enhancedStyles.actionLabel}>Scan to Rate</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={enhancedStyles.actionButton}
           onPress={() => {
             setNutritionSubTab('meals');
             setActiveTab('nutrition');
@@ -463,10 +534,10 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading }) => {
           />
         }
       >
+        {renderSimpleNutritionOverview()}
         {renderPrimaryCalorieProgress()}
         {renderQuickActions()}
         {renderWeeklyProgress()}
-        <AICoachCard />
       </ScrollView>
 
       {/* Calorie Goal Setting Modal */}
@@ -677,6 +748,12 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading }) => {
           />
         </Modal>
       )}
+
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        visible={showEditProfileModal}
+        onClose={() => setShowEditProfileModal(false)}
+      />
     </View>
   );
 };
@@ -1139,19 +1216,19 @@ const enhancedStyles = StyleSheet.create({
   header: {
     backgroundColor: AppColors.white,
     paddingHorizontal: 20,
-    paddingTop: 16, // Reduced from 60 to 16 since SafeAreaView handles status bar spacing
-    paddingBottom: 20,
+    paddingTop: 12, // Further reduced for more compact header
+    paddingBottom: 12, // Reduced from 20 to 12 for more compact look
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border,
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start', // Keep flex-start for proper layout
+    alignItems: 'center', // Changed to center for vertical centering
   },
   greetingSection: {
     flex: 1,
-    justifyContent: 'flex-start',
+    justifyContent: 'center', // Center the content vertically
   },
   greeting: {
     fontSize: 16,
@@ -1163,7 +1240,6 @@ const enhancedStyles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: AppColors.textPrimary,
-    marginBottom: 4,
   },
   dateText: {
     fontSize: 14,
@@ -1171,7 +1247,6 @@ const enhancedStyles = StyleSheet.create({
   },
   streakSection: {
     alignItems: 'center',
-    marginTop: 14, // Fine-tuned to align avatar center with user name center
   },
   avatarContainer: {
     width: 48,
@@ -1359,6 +1434,36 @@ const enhancedStyles = StyleSheet.create({
     fontWeight: 'bold',
     color: AppColors.textPrimary,
     marginBottom: 4,
+  },
+  // Nutrition Overview Styles
+  nutritionOverview: {
+    backgroundColor: AppColors.white,
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 6,
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  overviewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  overviewTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: AppColors.textPrimary,
+    marginLeft: 8,
+  },
+  overviewSuggestion: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: AppColors.textSecondary,
   },
 });
 
