@@ -15,7 +15,6 @@ import UsageStatsCard from '../../ui/UsageStatsCard';
 const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [notifications, setNotifications] = useState(true);
-  const [biometrics, setBiometrics] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [currentUser, setCurrentUser] = useState(user);
@@ -111,8 +110,6 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
       section: 'Profile',
       items: [
         { icon: 'person-outline', title: 'Edit Profile', subtitle: 'Name, email, preferences' },
-        { icon: 'fitness-outline', title: 'Health Goals', subtitle: 'Weight, activity level' },
-        { icon: 'star-outline', title: 'Achievements', subtitle: 'View your progress' },
       ]
     },
     {
@@ -140,14 +137,6 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
           toggle: true,
           value: notifications,
           onToggle: setNotifications
-        },
-        { 
-          icon: 'finger-print-outline', 
-          title: 'Biometric Login', 
-          subtitle: 'Face ID, Touch ID',
-          toggle: true,
-          value: biometrics,
-          onToggle: setBiometrics
         },
         { 
           icon: 'moon-outline', 
@@ -247,19 +236,9 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
         icon: 'resize-outline'
       },
       { 
-        label: 'Age', 
-        value: currentUser?.user_metadata?.age || 'Not set',
-        icon: 'calendar-outline'
-      },
-      { 
         label: 'Gender', 
         value: currentUser?.user_metadata?.gender ? currentUser.user_metadata.gender.charAt(0).toUpperCase() + currentUser.user_metadata.gender.slice(1) : 'Not set',
         icon: 'person-outline'
-      },
-      { 
-        label: 'Activity Level', 
-        value: currentUser?.user_metadata?.activity_level ? currentUser.user_metadata.activity_level.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not set',
-        icon: 'barbell-outline'
       },
       { 
         label: 'Fitness Goal', 
