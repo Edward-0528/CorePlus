@@ -13,7 +13,6 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const AuthScreen = memo(({ 
   // General props
   loading,
-  styles,
   currentRoute, // NEW: The route from App.js ('Landing', 'Login', 'SignUp')
   // Landing props
   onGetStarted,

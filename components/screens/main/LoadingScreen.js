@@ -5,7 +5,7 @@ import AnimatedLoader from '../../ui/AnimatedLoader';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-const LoadingScreen = ({ styles, message = "Loading...", onForceExit }) => {
+const LoadingScreen = ({ message = "Loading...", onForceExit }) => {
   const [loadingTime, setLoadingTime] = useState(0);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   
@@ -26,11 +26,11 @@ const LoadingScreen = ({ styles, message = "Loading...", onForceExit }) => {
   }, []);
 
   return (
-    <SafeAreaView style={[styles.landingContainer, { backgroundColor: '#000000' }]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#000000' }}>
       {/* Simple Black Background - No Video for Better Performance */}
-      <View style={styles.overlay}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.8)' }}>
         {/* Centered Loading Content */}
-        <View style={styles.loadingContainer}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
           <AnimatedLoader 
             message={message}
             background="transparent"

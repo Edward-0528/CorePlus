@@ -7,14 +7,12 @@ import { AppColors, validateColor } from '../../../constants/AppColors';
 import UpgradeModal from '../subscription/UpgradeModal';
 import EditProfileModal from '../../modals/EditProfileModal';
 import { userStatsService } from '../../../services/userStatsService';
-import { useTheme } from '../../../contexts/ThemeContext';
 import { supabase } from '../../../supabaseConfig';
 import UsageStatsCard from '../../ui/UsageStatsCard';
 
 
 const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const [refreshing, setRefreshing] = useState(false);
-  const [notifications, setNotifications] = useState(true);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [currentUser, setCurrentUser] = useState(user);
@@ -26,9 +24,6 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   });
   const [statsLoading, setStatsLoading] = useState(true);
 
-  // Use theme context for dark mode
-  const { isDarkMode, toggleTheme, colors } = useTheme();
-  
   // Use our new subscription system
   const { isPremium, subscriptionInfo } = useSubscription();
 
@@ -127,27 +122,7 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
         },
       ]
     },
-    {
-      section: 'Preferences',
-      items: [
-        { 
-          icon: 'notifications-outline', 
-          title: 'Notifications', 
-          subtitle: 'Meal reminders, updates',
-          toggle: true,
-          value: notifications,
-          onToggle: setNotifications
-        },
-        { 
-          icon: 'moon-outline', 
-          title: 'Dark Mode', 
-          subtitle: 'Change app appearance',
-          toggle: true,
-          value: isDarkMode,
-          onToggle: toggleTheme
-        },
-      ]
-    },
+
     {
       section: 'Support',
       items: [
@@ -211,13 +186,6 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
             {currentUser?.user_metadata?.first_name || 'User'} {currentUser?.user_metadata?.last_name || ''}
           </Text>
           <Text style={minimalStyles.profileEmail}>{currentUser?.email}</Text>
-          <TouchableOpacity 
-            style={minimalStyles.editButton}
-            onPress={() => setShowEditProfileModal(true)}
-          >
-            <Text style={minimalStyles.editButtonText}>Edit Profile</Text>
-            <View style={minimalStyles.editButtonUnderline} />
-          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -239,22 +207,17 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
         label: 'Gender', 
         value: currentUser?.user_metadata?.gender ? currentUser.user_metadata.gender.charAt(0).toUpperCase() + currentUser.user_metadata.gender.slice(1) : 'Not set',
         icon: 'person-outline'
-      },
-      { 
-        label: 'Fitness Goal', 
-        value: currentUser?.user_metadata?.fitness_goal ? currentUser.user_metadata.fitness_goal.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not set',
-        icon: 'trophy-outline'
       }
     ];
 
     return (
       <View style={minimalStyles.section}>
         <View style={minimalStyles.sectionHeader}>
-          <Text style={[minimalStyles.sectionTitle, dynamicStyles.sectionTitle]}>Profile Information</Text>
+          <Text style={[minimalStyles.sectionTitle, lightStyles.sectionTitle]}>Profile Information</Text>
         </View>
         <View style={minimalStyles.sectionLine} />
         
-        <View style={[minimalStyles.card, dynamicStyles.card]}>
+        <View style={[minimalStyles.card, lightStyles.card]}>
           {profileData.map((item, index) => (
             <View key={index}>
               <View style={minimalStyles.profileInfoItem}>
@@ -262,22 +225,22 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
                   <Ionicons 
                     name={item.icon} 
                     size={20} 
-                    color={colors.textSecondary} 
+                    color="#6C757D" 
                     style={minimalStyles.profileInfoIcon}
                   />
-                  <Text style={[minimalStyles.profileInfoLabel, { color: colors.text }]}>
+                  <Text style={[minimalStyles.profileInfoLabel, { color: '#212529' }]}>
                     {item.label}
                   </Text>
                 </View>
                 <Text style={[
-                  minimalStyles.profileInfoValue, 
-                  { color: item.value === 'Not set' ? colors.textSecondary : colors.text }
+                  minimalStyles.profileInfoValue,
+                  { color: item.value === 'Not set' ? '#6C757D' : '#212529' }
                 ]}>
                   {item.value}
                 </Text>
               </View>
               {index < profileData.length - 1 && (
-                <View style={[minimalStyles.profileInfoDivider, { backgroundColor: colors.border }]} />
+                <View style={[minimalStyles.profileInfoDivider, { backgroundColor: '#E9ECEF' }]} />
               )}
             </View>
           ))}
@@ -303,11 +266,11 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const renderMenuSection = (section) => (
     <View key={section.section} style={minimalStyles.section}>
       <View style={minimalStyles.sectionHeader}>
-        <Text style={[minimalStyles.sectionTitle, dynamicStyles.sectionTitle]}>{section.section}</Text>
+        <Text style={[minimalStyles.sectionTitle, lightStyles.sectionTitle]}>{section.section}</Text>
       </View>
       <View style={minimalStyles.sectionLine} />
       
-      <View style={[minimalStyles.card, dynamicStyles.card]}>
+      <View style={[minimalStyles.card, lightStyles.card]}>
         {section.items.map((item, index) => (
           <View key={index}>
             <TouchableOpacity 
@@ -326,12 +289,12 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
                 <View style={minimalStyles.menuItemText}>
                   <Text style={[
                     minimalStyles.menuItemTitle,
-                    dynamicStyles.menuItemTitle,
+                    lightStyles.menuItemTitle,
                     item.premium && isPremium && { color: AppColors.warning }
                   ]}>
                     {item.title}
                   </Text>
-                  <Text style={[minimalStyles.menuItemSubtitle, dynamicStyles.menuItemSubtitle]}>{item.subtitle}</Text>
+                  <Text style={[minimalStyles.menuItemSubtitle, lightStyles.menuItemSubtitle]}>{item.subtitle}</Text>
                 </View>
                 {item.premium && isPremium && (
                   <View style={minimalStyles.premiumBadge}>
@@ -366,22 +329,22 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
     </View>
   );
 
-  // Create dynamic styles based on current theme
-  const dynamicStyles = StyleSheet.create({
+  // Static styles using light theme colors
+  const lightStyles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.backgroundSecondary,
+      backgroundColor: '#F8F9FA',
     },
     headerSection: {
-      backgroundColor: colors.white,
+      backgroundColor: '#FFFFFF',
       paddingHorizontal: 20,
       paddingVertical: 24,
       borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      borderBottomColor: '#E9ECEF',
     },
     content: {
       flex: 1,
-      backgroundColor: colors.backgroundSecondary,
+      backgroundColor: '#F8F9FA',
     },
     section: {
       marginBottom: 24,
@@ -389,12 +352,12 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
     sectionTitle: {
       fontSize: 14,
       fontWeight: '600',
-      color: colors.textSecondary,
+      color: '#6C757D',
       textTransform: 'uppercase',
       letterSpacing: 0.5,
     },
     card: {
-      backgroundColor: colors.white,
+      backgroundColor: '#FFFFFF',
       marginHorizontal: 20,
       borderRadius: 12,
       overflow: 'hidden',
@@ -402,27 +365,27 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
     menuItemTitle: {
       fontSize: 16,
       fontWeight: '500',
-      color: colors.textPrimary,
+      color: '#212529',
       marginBottom: 2,
     },
     menuItemSubtitle: {
       fontSize: 14,
-      color: colors.textSecondary,
+      color: '#6C757D',
     },
     userName: {
       fontSize: 24,
       fontWeight: 'bold',
-      color: colors.textPrimary,
+      color: '#212529',
       marginBottom: 4,
     },
     userEmail: {
       fontSize: 16,
-      color: colors.textSecondary,
+      color: '#6C757D',
     },
   });
 
   return (
-    <View style={[minimalStyles.container, dynamicStyles.container]}>
+    <View style={[minimalStyles.container, lightStyles.container]}>
       {renderHeader()}
       
       <ScrollView

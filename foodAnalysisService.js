@@ -25,7 +25,7 @@ const getGeminiApiUrl = () => {
   return url;
 };
 
-// Function to construct text API URL (uses 2.5 Flash for better text analysis)
+// Function to construct text API URL (uses 2.5 Pro for highest accuracy testing)
 const getGeminiTextApiUrl = () => {
   const apiKey = getGeminiApiKey();
   console.log('🔧 getGeminiTextApiUrl debug:', {
@@ -39,9 +39,9 @@ const getGeminiTextApiUrl = () => {
     throw new Error('Gemini API key not available');
   }
   
-  // Use 2.5 Flash for text analysis (works perfectly for manual search)
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-  console.log('✅ getGeminiTextApiUrl: Text analysis URL constructed (2.5 Flash), length:', url.length);
+  // Use 2.5 Pro for text analysis (testing higher accuracy vs cost)
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
+  console.log('✅ getGeminiTextApiUrl: Text analysis URL constructed (2.5 Pro - testing mode), length:', url.length);
   return url;
 };
 
@@ -868,9 +868,9 @@ CRITICAL: For fast food, prioritize EXACT official nutrition data over estimates
       if (result.usageMetadata) {
         const usage = result.usageMetadata;
         
-        // Gemini 2.5 Flash pricing (approximate)
-        const INPUT_COST_PER_MILLION = 0.075; // $0.075 per 1M input tokens
-        const OUTPUT_COST_PER_MILLION = 0.30;  // $0.30 per 1M output tokens
+        // Gemini 2.5 Pro pricing (testing mode)
+        const INPUT_COST_PER_MILLION = 1.25; // $1.25 per 1M input tokens
+        const OUTPUT_COST_PER_MILLION = 5.00;  // $5.00 per 1M output tokens
         
         const inputTokens = usage.promptTokenCount || 0;
         const outputTokens = usage.candidatesTokenCount || 0;
@@ -880,7 +880,7 @@ CRITICAL: For fast food, prioritize EXACT official nutrition data over estimates
         const outputCost = (outputTokens / 1000000) * OUTPUT_COST_PER_MILLION;
         const totalCost = inputCost + outputCost;
         
-        console.log('💰 TEXT SEARCH COST BREAKDOWN:');
+        console.log('💰 TEXT SEARCH COST BREAKDOWN (GEMINI 2.5 PRO - TESTING):');
         console.log(`📊 Token Usage:`, {
           inputTokens: inputTokens.toLocaleString(),
           outputTokens: outputTokens.toLocaleString(),
@@ -1786,9 +1786,9 @@ CRITICAL: For fast food, prioritize EXACT official nutrition data over estimates
       OUTPUT_COST_PER_MILLION: 5.00,
       modelName: 'Gemini 2.5 Pro'
     } : {
-      INPUT_COST_PER_MILLION: 0.075,  // Gemini 2.5 Flash for text
-      OUTPUT_COST_PER_MILLION: 0.30,
-      modelName: 'Gemini 2.5 Flash'
+      INPUT_COST_PER_MILLION: 1.25,  // Gemini 2.5 Pro for text (TESTING)
+      OUTPUT_COST_PER_MILLION: 5.00,
+      modelName: 'Gemini 2.5 Pro (Testing)'
     };
 
     const inputTokens = usage.promptTokenCount || 0;

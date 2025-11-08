@@ -15,12 +15,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../supabaseConfig';
-import { useTheme } from '../../contexts/ThemeContext';
 import { AppColors } from '../../constants/AppColors';
 import profilePictureService from '../../services/profilePictureService';
 
 const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
-  const { isDarkMode, colors } = useTheme();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -198,21 +196,21 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
 
   const renderInput = (label, value, onChangeText, placeholder, keyboardType = 'default', multiline = false) => (
     <View style={styles.inputContainer}>
-      <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+      <Text style={[styles.label, { color: '#212529' }]}>{label}</Text>
       <TextInput
         style={[
           styles.input,
           {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-            color: colors.text
+            backgroundColor: '#FFFFFF',
+            borderColor: '#E9ECEF',
+            color: '#212529'
           },
           multiline && styles.multilineInput
         ]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={colors.textSecondary}
+        placeholderTextColor="#6C757D"
         keyboardType={keyboardType}
         multiline={multiline}
       />
@@ -225,14 +223,14 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
     
     return (
       <View style={styles.inputContainer}>
-        <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+        <Text style={[styles.label, { color: '#212529' }]}>{label}</Text>
         <TouchableOpacity 
           style={[
             styles.input,
             {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              color: colors.text,
+              backgroundColor: '#FFFFFF',
+              borderColor: '#E9ECEF',
+              color: '#212529',
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center'
@@ -241,7 +239,7 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
           onPress={() => setIsOpen(!isOpen)}
         >
           <Text style={[
-            { color: selectedOption ? colors.text : colors.textSecondary },
+            { color: selectedOption ? '#212529' : '#6C757D' },
             styles.dropdownText
           ]}>
             {selectedOption ? selectedOption.label : 'Select...'}
@@ -249,7 +247,7 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
           <Ionicons 
             name={isOpen ? "chevron-up" : "chevron-down"} 
             size={20} 
-            color={colors.textSecondary} 
+            color="#6C757D" 
           />
         </TouchableOpacity>
         
@@ -257,9 +255,9 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
           <View style={[
             styles.dropdownOptions, 
             { 
-              backgroundColor: colors.surface, 
-              borderColor: colors.border,
-              shadowColor: colors.text 
+              backgroundColor: '#FFFFFF', 
+              borderColor: '#E9ECEF',
+              shadowColor: '#212529' 
             }
           ]}>
             <ScrollView style={styles.dropdownScroll} showsVerticalScrollIndicator={false}>
@@ -270,7 +268,7 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
                   setIsOpen(false);
                 }}
               >
-                <Text style={[styles.dropdownOptionText, { color: colors.textSecondary }]}>
+                <Text style={[styles.dropdownOptionText, { color: '#6C757D' }]}>
                   Select...
                 </Text>
               </TouchableOpacity>
@@ -288,7 +286,7 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
                 >
                   <Text style={[
                     styles.dropdownOptionText, 
-                    { color: colors.text },
+                    { color: '#212529' },
                     value === option.value && styles.selectedDropdownOptionText
                   ]}>
                     {option.label}
@@ -334,15 +332,15 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView 
-        style={[styles.container, { backgroundColor: colors.background }]}
+        style={[styles.container, { backgroundColor: '#FFFFFF' }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <View style={[styles.header, { borderBottomColor: '#E9ECEF' }]}>
           <TouchableOpacity onPress={onClose} style={styles.headerButton}>
-            <Text style={[styles.headerButtonText, { color: colors.primary }]}>Cancel</Text>
+            <Text style={[styles.headerButtonText, { color: '#007AFF' }]}>Cancel</Text>
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Edit Profile</Text>
+          <Text style={[styles.headerTitle, { color: '#212529' }]}>Edit Profile</Text>
           <TouchableOpacity 
             onPress={handleSave} 
             style={styles.headerButton}
@@ -350,7 +348,7 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
           >
             <Text style={[
               styles.headerButtonText, 
-              { color: loading ? colors.textSecondary : colors.primary }
+              { color: loading ? '#6C757D' : '#6B8E23' }
             ]}>
               {loading ? 'Saving...' : 'Save'}
             </Text>
@@ -361,17 +359,17 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
           {/* Profile Image Section */}
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Profile Picture</Text>
+            <Text style={[styles.sectionTitle, { color: '#212529' }]}>Profile Picture</Text>
             
             <View style={styles.imageContainer}>
               <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
                 {formData.profileImage ? (
                   <Image source={{ uri: formData.profileImage }} style={styles.profileImage} />
                 ) : (
-                  <View style={[styles.placeholderImage, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <Ionicons name="camera" size={40} color={colors.textSecondary} />
-                    <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
-                      Add Photo
+                  <View style={[styles.placeholderImage, { backgroundColor: '#FFFFFF', borderColor: '#E9ECEF' }]}>
+                    <Ionicons name="camera" size={40} color="#6C757D" />
+                    <Text style={[styles.placeholderText, { color: '#6C757D' }]}>
+                      Tap to add photo
                     </Text>
                   </View>
                 )}
@@ -381,14 +379,14 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
                   style={styles.removeImageButton}
                   onPress={() => setFormData(prev => ({ ...prev, profileImage: null }))}
                 >
-                  <Ionicons name="close-circle" size={24} color={colors.danger} />
+                  <Ionicons name="close-circle" size={24} color="#DC3545" />
                 </TouchableOpacity>
               )}
             </View>
           </View>
           
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Basic Information</Text>
+            <Text style={[styles.sectionTitle, { color: '#212529' }]}>Basic Information</Text>
             
             {renderInput(
               'First Name *',
@@ -421,7 +419,7 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
           </View>
 
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Physical Information</Text>
+            <Text style={[styles.sectionTitle, { color: '#212529' }]}>Physical Information</Text>
             
             {renderInput(
               'Weight (lbs)',
@@ -441,7 +439,7 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
           </View>
 
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Fitness & Goals</Text>
+            <Text style={[styles.sectionTitle, { color: '#212529' }]}>Fitness & Goals</Text>
             
             {renderPicker(
               'Activity Level',

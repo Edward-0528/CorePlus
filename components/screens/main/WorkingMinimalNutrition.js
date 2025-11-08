@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDailyCalories } from '../../../contexts/DailyCaloriesContext';
 import { useSubscription } from '../../../contexts/SubscriptionContext';
 import { useAppContext } from '../../../contexts/AppContext';
-import { useTheme } from '../../../contexts/ThemeContext';
+// Theme context removed - using light theme only
 
 // Components
 import FoodCameraScreen from '../../food/FoodCameraScreen';
@@ -52,7 +52,6 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
     deleteMeal,
     clearCache
   } = useDailyCalories();
-  const { isDarkMode, colors } = useTheme();
 
   // Define nutritional goals (can be made user-configurable later)
   const nutritionGoals = {
@@ -924,7 +923,7 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
   };
 
   return (
-    <View style={[minimalStyles.container, { backgroundColor: colors.backgroundSecondary }]}>
+    <View style={[minimalStyles.container, { backgroundColor: '#F8F9FA' }]}>
       {renderHeader()}
       {renderTabs()}
       

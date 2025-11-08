@@ -33,7 +33,6 @@ import { AppProvider, useAppContext } from './contexts/AppContext';
 import { DailyCaloriesProvider } from './contexts/DailyCaloriesContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { WorkoutSessionProvider } from './contexts/WorkoutSessionContext';
-import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 
 // Design System
 import { configureDesignSystem } from './components/design/Theme';
@@ -56,7 +55,6 @@ const GENDER_OPTIONS = [
 ];
 
 function AppContent() {
-  const { isDarkMode, colors } = useTheme();
   const {
     showLanding,
     showLogin,
@@ -823,18 +821,18 @@ function AppContent() {
     if (route === 'Landing') {
       return 'light';
     }
-    // Use theme-appropriate status bar style
-    return isDarkMode ? 'light' : 'dark';
+    // Always use dark style for light theme
+    return 'dark';
   }
 
   const renderAuthenticatedScreen = () => {
     switch (activeTab) {
       case 'home':
-        return <WorkingMinimalDashboard user={user} onLogout={handleLogout} loading={loading} styles={styles} />;
+        return <WorkingMinimalDashboard user={user} onLogout={handleLogout} loading={loading} />;
       case 'nutrition':
-        return <EnhancedNutrition user={user} loading={loading} styles={styles} />;
+        return <EnhancedNutrition user={user} loading={loading} />;
       case 'account':
-        return <WorkingMinimalAccount user={user} onLogout={handleLogout} loading={loading} styles={styles} />;
+        return <WorkingMinimalAccount user={user} onLogout={handleLogout} loading={loading} />;
       default:
         return null;
     }
@@ -848,7 +846,6 @@ function AppContent() {
         return (
           <AuthScreen
             loading={loading}
-            styles={styles}
             currentRoute={route} // Pass the current route so AuthScreen knows what to show
             // Landing props
             onGetStarted={handleGetStarted}
@@ -870,7 +867,6 @@ function AppContent() {
             user={user}
             onLogout={handleLogout}
             loading={loading}
-            styles={styles}
           />
         );
       case 'Authenticated':
@@ -916,7 +912,7 @@ function AppContent() {
       : isAuthenticated 
         ? 'Setting up your personalized experience...' 
         : 'Logging you in...';
-    return <LoadingScreen styles={styles} message={message} onForceExit={handleForceExit} />;
+    return <LoadingScreen message={message} onForceExit={handleForceExit} />;
   }
 
   // Simple page transitions without animation
@@ -935,17 +931,15 @@ export default function App() {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <ThemeProvider>
-            <AppProvider>
-              <SubscriptionProvider>
-                <DailyCaloriesProvider>
-                  <WorkoutSessionProvider>
-                    <AppContent />
-                  </WorkoutSessionProvider>
-                </DailyCaloriesProvider>
-              </SubscriptionProvider>
-            </AppProvider>
-          </ThemeProvider>
+          <AppProvider>
+            <SubscriptionProvider>
+              <DailyCaloriesProvider>
+                <WorkoutSessionProvider>
+                  <AppContent />
+                </WorkoutSessionProvider>
+              </DailyCaloriesProvider>
+            </SubscriptionProvider>
+          </AppProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>

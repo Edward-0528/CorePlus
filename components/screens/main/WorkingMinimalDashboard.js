@@ -5,7 +5,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDailyCalories } from '../../../contexts/DailyCaloriesContext';
 import { useSubscription } from '../../../contexts/SubscriptionContext';
 import { useAppContext } from '../../../contexts/AppContext';
-import { useTheme } from '../../../contexts/ThemeContext';
 
 // Utils  
 import { getLocalDateString } from '../../../utils/dateUtils';
@@ -40,7 +39,7 @@ const AppColors = {
   black: '#000000',
 };
 
-const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
+const WorkingMinimalDashboard = ({ user, onLogout, loading }) => {
   // State for refreshed user data
   const [currentUser, setCurrentUser] = useState(user);
 
@@ -80,7 +79,6 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   } = useDailyCalories();
   const { isPremium } = useSubscription();
   const { setActiveTab, setNutritionSubTab } = useAppContext();
-  const { isDarkMode, colors } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [calorieGoal, setCalorieGoal] = useState(2000);
@@ -298,14 +296,14 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   };
 
   const renderHeader = () => (
-    <View style={[enhancedStyles.header, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
+    <View style={[enhancedStyles.header, { backgroundColor: '#FFFFFF', borderBottomColor: '#E9ECEF' }]}>
       <View style={enhancedStyles.headerContent}>
         <View style={enhancedStyles.greetingSection}>
-          <Text style={[enhancedStyles.greeting, { color: colors.textSecondary }]}>{getGreeting()}</Text>
-          <Text style={[enhancedStyles.userName, { color: colors.textPrimary }]}>
+          <Text style={[enhancedStyles.greeting, { color: '#6C757D' }]}>{getGreeting()}</Text>
+          <Text style={[enhancedStyles.userName, { color: '#212529' }]}>
             {currentUser?.user_metadata?.first_name || 'User'}
           </Text>
-          <Text style={[enhancedStyles.dateText, { color: colors.textSecondary }]}>
+          <Text style={[enhancedStyles.dateText, { color: '#6C757D' }]}>
             {new Date().toLocaleDateString('en-US', { 
               weekday: 'long', 
               month: 'long', 
@@ -450,7 +448,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading, styles }) => {
   };
 
   return (
-    <View style={[minimalStyles.container, { backgroundColor: colors.backgroundSecondary }]}>
+    <View style={[minimalStyles.container, { backgroundColor: '#F8F9FA' }]}>
       {renderHeader()}
       
       <ScrollView
