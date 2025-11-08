@@ -2,7 +2,7 @@
   "expo": {
     "name": "Core+",
     "slug": "core-plus",
-    "version": "1.0.65",
+    "version": "1.0.66",
     "orientation": "portrait",
     "icon": "./assets/ios-icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.coreplus.app",
-      "buildNumber": "47",
+      "buildNumber": "48",
       "statusBarStyle": "dark",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
@@ -26,7 +26,7 @@
     },
     "android": {
       "package": "com.anonymous.coreplus",
-      "versionCode": 80,
+      "versionCode": 81,
       "icon": "./assets/ios-icon.png",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
