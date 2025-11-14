@@ -7,6 +7,8 @@ import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, fonts } from '../../utils/responsive';
 import { foodAnalysisService } from '../../foodAnalysisService';
+import useFeatureAccess from '../../hooks/useFeatureAccess';
+import UpgradeModal from '../screens/subscription/UpgradeModal';
 
 // Define colors directly to match the minimal design
 // Define colors directly
@@ -25,7 +27,7 @@ const AppColors = {
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
+const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete, user }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [facing, setFacing] = useState('back');
@@ -33,10 +35,41 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
   const [shutterSound, setShutterSound] = useState(null);
   const [captureButtonScale] = useState(new Animated.Value(1));
   const [focusFrameOpacity] = useState(new Animated.Value(0.6));
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const cameraRef = useRef(null);
+  
+  // Feature access management for usage limits
+  const { 
+    useCameraScanning, 
+    canUseCameraScanning, 
+    getUsageInfo,
+    showUpgradePrompt 
+  } = useFeatureAccess();
   
   // Use refs to maintain callback references
   const callbacksRef = useRef({ onPhotoTaken, onClose, onAnalysisComplete });
+
+  // Usage Indicator Component
+  const UsageIndicator = () => {
+    const usageInfo = getUsageInfo();
+    
+    if (!usageInfo || usageInfo.isUnlimited) {
+      return (
+        <Text style={styles.usageText}>
+          ✨ Unlimited
+        </Text>
+      );
+    }
+
+    const { aiScans } = usageInfo;
+    const isLow = aiScans.remaining <= 1;
+    
+    return (
+      <Text style={[styles.usageText, isLow && styles.usageTextLow]}>
+        {aiScans.remaining} scans left
+      </Text>
+    );
+  };
   
   // Update refs when callbacks change
   useEffect(() => {
@@ -207,6 +240,31 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
   const takePicture = async () => {
     if (cameraRef.current) {
       try {
+        // Check usage limits before taking photo
+        if (!user?.id) {
+          Alert.alert('Error', 'Please log in to use AI food scanning.');
+          return;
+        }
+
+        // Check if user can use camera scanning (handles usage limits and paywall)
+        const usageResult = await useCameraScanning(user.id);
+        
+        if (!usageResult.success) {
+          if (usageResult.reason === 'limit_reached') {
+            // Usage limit reached, show custom upgrade modal
+            console.log('📵 Camera scanning limit reached - showing upgrade modal');
+            setShowUpgradeModal(true);
+            return;
+          } else if (usageResult.reason === 'error' && usageResult.error) {
+            // Only show error alert for actual errors, not limit reached
+            Alert.alert('Error', `Unable to use camera scanning: ${usageResult.error}`);
+            return;
+          }
+          // For any other reason, just return silently (user cancelled)
+          return;
+        }
+
+        console.log('✅ Camera scanning authorized:', usageResult);
         setIsAnalyzing(true);
         
         // Animate capture button press
@@ -364,6 +422,7 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Scan Food</Text>
+          <UsageIndicator />
         </View>
         <TouchableOpacity style={styles.headerButton} onPress={flipCamera}>
           <Ionicons name="camera-reverse-outline" size={24} color={AppColors.white} />
@@ -399,6 +458,13 @@ const FoodCameraScreen = ({ onPhotoTaken, onClose, onAnalysisComplete }) => {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        triggerFeature="unlimited AI food scanning"
+      />
     </View>
   );
 };
@@ -501,6 +567,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: AppColors.white,
+  },
+  usageText: {
+    fontSize: 12,
+    color: AppColors.white,
+    opacity: 0.8,
+    marginTop: 2,
+  },
+  usageTextLow: {
+    color: AppColors.warning,
+    opacity: 1,
+    fontWeight: '600',
   },
   focusContainer: {
     position: 'absolute',

@@ -1,5 +1,4 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { searchProductByText } from './barcodeService';
 
 // Function to get API key dynamically (ensures availability in production)
 const getGeminiApiKey = () => process.env.EXPO_PUBLIC_GEMINI_API_KEY;
@@ -32,8 +31,8 @@ class FoodSearchService {
     }
     
     if (!this.model) {
-      // Try multiple models in order of preference (most cost-effective first)
-      const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-pro'];
+      // Try multiple models in order of preference (only models available with your API key)
+      const modelsToTry = ['gemini-2.5-flash-lite', 'gemini-2.5-flash'];
       
       for (const modelName of modelsToTry) {
         try {
@@ -50,8 +49,14 @@ class FoodSearchService {
           
           // Test the model with a simple query
           const testResult = await this.model.generateContent("Test");
-          console.log(`✅ Gemini model initialized for food search with ${modelName} (cost-optimized)`);
-          console.log('💰 Using most cost-effective model available');
+          
+          if (modelName.includes('lite')) {
+            console.log(`✅ Gemini model initialized with ${modelName} (speed-optimized)`);
+            console.log('⚡ Using Gemini 2.5 Flash Lite for faster manual search responses');
+          } else {
+            console.log(`✅ Gemini model initialized with ${modelName} (standard mode)`);
+            console.log('💰 Using cost-effective model for manual searches');
+          }
           break;
         } catch (error) {
           console.warn(`⚠️ Model ${modelName} failed:`, error.message);
@@ -85,53 +90,80 @@ class FoodSearchService {
       this.requestCount++;
 
       console.log(`🔍 Searching for food: "${query}" (Request #${this.requestCount})`);
-
+      
+      const searchStartTime = Date.now();
       const model = await this.initializeModel();
       if (!model) {
         return this.getFallbackFoodData(query);
       }
 
       const prompt = `
-You are a USDA nutrition database expert. Analyze this food query and provide precise nutritional data based on standard serving sizes.
+You are a USDA nutrition database expert. Analyze this food query and provide precise nutritional data.
 
 Food Query: "${query}"
 
-CRITICAL REQUIREMENTS:
-1. Use realistic, commonly consumed portion sizes (not restaurant portions)
-2. Base nutritional values on USDA nutrition database standards
-3. Be specific about preparation method (raw, cooked, fried, etc.)
-4. Account for actual weight/volume of the serving
+CRITICAL INSTRUCTIONS:
+1. DETECT QUANTITIES: Look for numbers indicating quantity (e.g., "2 apples", "6 slices", "3 cups")
+2. MULTIPLY NUTRITION: If quantity is specified, multiply ALL nutrition values by that quantity
+3. USE REALISTIC PORTIONS: Base on USDA standards for single servings
+4. SPECIFY PREPARATION: Include cooking method (raw, cooked, fried, grilled, etc.)
 
-PORTION SIZE GUIDELINES:
-- Fruits: 1 medium piece (apple=180g, banana=120g, orange=130g)
-- Vegetables: 1 cup raw or 1/2 cup cooked
-- Proteins: 100g cooked portion (palm-sized)
-- Grains: 1/2 cup cooked (rice, pasta) or 1 slice bread
-- Nuts/seeds: 1 ounce (28g)
-- Oils/fats: 1 tablespoon (14g)
+QUANTITY DETECTION EXAMPLES:
+- "6 slices of pepperoni pizza" → Calculate for 6 slices (1 slice ≈ 300 cal → 6 slices ≈ 1800 cal)
+- "2 eggs" → Calculate for 2 eggs (1 egg ≈ 70 cal → 2 eggs ≈ 140 cal)
+- "3 bananas" → Calculate for 3 bananas (1 banana ≈ 105 cal → 3 bananas ≈ 315 cal)
+- "slice of pizza" → Calculate for 1 slice only (≈ 300 cal)
+- "pizza" → Assume 1 slice if no quantity specified (≈ 300 cal)
+
+PORTION SIZE STANDARDS (per single serving):
+- Pizza slice (regular crust, 1/8 of 14"): 285-350 calories depending on toppings
+  * Cheese: ~285 cal
+  * Pepperoni: ~300-330 cal
+  * Supreme: ~350 cal
+- Egg (large): 70 calories
+- Banana (medium, 120g): 105 calories
+- Apple (medium, 180g): 95 calories
+- Chicken breast (100g cooked): 165 calories
+- Rice (1/2 cup cooked): 100 calories
 
 Return ONLY valid JSON:
 
 {
-  "name": "Specific food name with exact portion",
-  "calories": number,
-  "carbs": number,
-  "protein": number,
-  "fat": number,
-  "fiber": number,
-  "sugar": number,
-  "sodium": number,
-  "confidence": number (0.8+ for common foods, 0.6+ for estimates),
-  "serving_size": "precise serving description with weight/volume",
-  "notes": "preparation method and key assumptions"
+  "name": "Food name with TOTAL quantity",
+  "calories": number (TOTAL for all items),
+  "carbs": number (TOTAL grams),
+  "protein": number (TOTAL grams),
+  "fat": number (TOTAL grams),
+  "fiber": number (TOTAL grams),
+  "sugar": number (TOTAL grams),
+  "sodium": number (TOTAL mg),
+  "confidence": number (0.8+ for common foods),
+  "serving_size": "Total quantity description",
+  "notes": "Single serving details and multiplication"
 }
 
-ACCURACY EXAMPLES:
-"chicken breast" → "Grilled chicken breast, 100g" (165 cal, 31g protein)
-"apple" → "Medium Fuji apple, 180g" (95 cal, 25g carbs)
-"pizza" → "Cheese pizza slice, 1/8 of 14-inch, 107g" (285 cal, 36g carbs)
+CRITICAL EXAMPLES:
+Query: "6 slices of pepperoni pizza"
+Response: {
+  "name": "6 slices of pepperoni pizza",
+  "calories": 1980,
+  "carbs": 216,
+  "protein": 72,
+  "fat": 84,
+  "notes": "1 slice = 330 cal × 6 slices"
+}
 
-Use precise portions and verified nutrition data. Return only JSON.
+Query: "slice of pepperoni pizza"
+Response: {
+  "name": "1 slice of pepperoni pizza",
+  "calories": 330,
+  "carbs": 36,
+  "protein": 12,
+  "fat": 14,
+  "notes": "1 slice, regular crust, 1/8 of 14-inch pizza"
+}
+
+Return only JSON with TOTAL nutrition for the COMPLETE quantity specified.
 `;
 
       const result = await model.generateContent(prompt);
@@ -275,30 +307,9 @@ Use precise portions and verified nutrition data. Return only JSON.
   // Search multiple food suggestions
   async searchFoodSuggestions(query) {
     try {
-      // If no API key, fall back to OpenFoodFacts multi-result search
+      // If no API key, return estimated fallback only
       if (!this.hasApiKey()) {
-        console.log('🔎 Using OpenFoodFacts fallback for suggestions (no Gemini key)');
-        const off = await searchProductByText(query, 10);
-        if (off.success && off.products?.length) {
-          const foods = off.products.map((p) => ({
-            name: p.name,
-            calories: p.calories,
-            carbs: p.carbs,
-            protein: p.protein,
-            fat: p.fat,
-            fiber: p.fiber ?? 0,
-            sugar: p.sugar ?? 0,
-            sodium: p.sodium ?? 0,
-            confidence: 0.7,
-            serving_size: p.servingSize && p.servingUnit ? `${p.servingSize}${p.servingUnit}` : 'per serving',
-            notes: 'OpenFoodFacts data',
-            searchQuery: query,
-            searchTimestamp: new Date().toISOString(),
-            method: 'search',
-          }));
-          return { success: true, foods };
-        }
-        // If OFF fails, return a single estimated fallback
+        console.log('🔎 No Gemini API key - using estimated fallback only');
         const fallback = this.createFallbackFood(query);
         fallback.serving_size = fallback.serving_size || 'estimated portion';
         return { success: true, foods: [fallback], fallback: true };
@@ -375,33 +386,8 @@ Return only the JSON array, no additional text.
         if (!food.serving_size) food.serving_size = 'per serving';
       });
 
-      // If Gemini returned only one result, try to augment with OFF suggestions
-      if (foods.length < 2) {
-        try {
-          const off = await searchProductByText(query, 5);
-          if (off.success && off.products?.length) {
-            const offFoods = off.products.slice(0, 4).map((p) => ({
-              name: p.name,
-              calories: p.calories,
-              carbs: p.carbs,
-              protein: p.protein,
-              fat: p.fat,
-              fiber: p.fiber ?? 0,
-              sugar: p.sugar ?? 0,
-              sodium: p.sodium ?? 0,
-              confidence: 0.65,
-              serving_size: p.servingSize && p.servingUnit ? `${p.servingSize}${p.servingUnit}` : 'per serving',
-              notes: 'OpenFoodFacts data',
-              searchQuery: query,
-              searchTimestamp: new Date().toISOString(),
-              method: 'search',
-            }));
-            foods = [...foods, ...offFoods];
-          }
-        } catch (e) {
-          console.warn('OFF augmentation failed:', e?.message);
-        }
-      }
+      // Note: Removed OpenFoodFacts augmentation to prevent result skewing
+      // Gemini Flash Lite provides more accurate, consistent results
 
       return {
         success: true,
@@ -410,40 +396,9 @@ Return only the JSON array, no additional text.
 
     } catch (error) {
       console.error('❌ Food suggestions error:', error);
-      // Fallback to OpenFoodFacts multi-result search
-      try {
-        const off = await searchProductByText(query, 10);
-        if (off.success && off.products?.length) {
-          const foods = off.products.map((p) => ({
-            name: p.name,
-            calories: p.calories,
-            carbs: p.carbs,
-            protein: p.protein,
-            fat: p.fat,
-            fiber: p.fiber ?? 0,
-            sugar: p.sugar ?? 0,
-            sodium: p.sodium ?? 0,
-            confidence: 0.7,
-            serving_size: p.servingSize && p.servingUnit ? `${p.servingSize}${p.servingUnit}` : 'per serving',
-            notes: 'OpenFoodFacts data',
-            searchQuery: query,
-            searchTimestamp: new Date().toISOString(),
-            method: 'search',
-          }));
-          return { success: true, foods };
-        }
-      } catch (e) {
-        console.warn('OFF fallback failed:', e?.message);
-      }
-
-      // Final single-item fallback
+      // Return estimated fallback only for clean, consistent results
       const fallback = this.createFallbackFood(query);
-      fallback.serving_size = fallback.serving_size || 'estimated portion';
-      return {
-        success: true,
-        foods: [fallback],
-        fallback: true
-      };
+      return { success: true, foods: [fallback], fallback: true };
     }
   }
 

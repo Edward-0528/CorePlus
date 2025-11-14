@@ -12,6 +12,8 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { getNutritionFromBarcode } from '../services/barcodeService';
+import useFeatureAccess from '../../hooks/useFeatureAccess';
+import UpgradeModal from '../screens/subscription/UpgradeModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -19,14 +21,24 @@ const BarcodeScanner = ({
   onBarcodeScanned, 
   onClose, 
   onError,
-  isVisible = true 
+  isVisible = true,
+  user
 }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   
   const scannerRef = useRef(null);
+  
+  // Feature access management for usage limits
+  const { 
+    useCameraScanning, 
+    canUseCameraScanning, 
+    getUsageInfo,
+    showUpgradePrompt 
+  } = useFeatureAccess();
 
   useEffect(() => {
     if (!permission?.granted && permission !== null) {
@@ -65,6 +77,28 @@ const BarcodeScanner = ({
     setLoading(true);
     
     try {
+      // Check usage limits before processing barcode
+      if (user?.id) {
+        const usageResult = await useCameraScanning(user.id);
+        
+        if (!usageResult.success) {
+          if (usageResult.reason === 'limit_reached') {
+            console.log('📵 Barcode scanning limit reached - showing upgrade modal');
+            setShowUpgradeModal(true);
+            setScanned(false);
+            setLoading(false);
+            return;
+          } else if (usageResult.error) {
+            Alert.alert('Error', `Unable to use barcode scanning: ${usageResult.error}`);
+            setScanned(false);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        console.log('✅ Barcode scanning authorized:', usageResult);
+      }
+      
       console.log(`📱 Scanned barcode: ${data} (${type})`);
       
       // Get nutrition data from barcode
@@ -222,6 +256,13 @@ const BarcodeScanner = ({
           </View>
         </View>
       </View>
+
+      {/* Custom Upgrade Modal */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        triggerFeature="unlimited barcode scanning"
+      />
     </View>
   );
 };

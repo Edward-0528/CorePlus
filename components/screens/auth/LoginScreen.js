@@ -14,7 +14,6 @@ const LoginScreen = memo(({
   onLogin,
   onBackToLanding,
   onSwitchToSignUp,
-  onSocialLogin,
   onBiometricLogin,
   styles 
 }) => {
@@ -163,27 +162,6 @@ const LoginScreen = memo(({
                       />
                     </TouchableOpacity>
                   )}
-                </View>
-
-                {/* Social Login */}
-                <View style={styles.socialLoginContainer}>
-                  <View style={styles.socialButtonsContainer}>
-                    <TouchableOpacity 
-                      style={styles.socialButton}
-                      onPress={() => onSocialLogin('apple')}
-                    >
-                      <Ionicons name="logo-apple" size={20} color="#ffffff" />
-                      <Text style={styles.socialButtonText}>Apple</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                      style={styles.socialButton}
-                      onPress={() => onSocialLogin('google')}
-                    >
-                      <Ionicons name="logo-google" size={20} color="#ffffff" />
-                      <Text style={styles.socialButtonText}>Google</Text>
-                    </TouchableOpacity>
-                  </View>
                 </View>
 
                 {/* Sign Up Link */}

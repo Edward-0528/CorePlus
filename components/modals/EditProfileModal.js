@@ -21,17 +21,20 @@ import profilePictureService from '../../services/profilePictureService';
 const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     profileImage: null
   });
 
   // Initialize form data when user prop changes
   useEffect(() => {
     if (user) {
+      // Combine first_name and last_name if they exist, or use the full name
+      const fullName = user?.user_metadata?.full_name || 
+                       `${user?.user_metadata?.first_name || ''} ${user?.user_metadata?.last_name || ''}`.trim() || 
+                       '';
+      
       setFormData({
-        firstName: user?.user_metadata?.first_name || '',
-        lastName: user?.user_metadata?.last_name || '',
+        name: fullName,
         profileImage: user?.user_metadata?.profile_image || null
       });
       
@@ -86,13 +89,13 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
 
       console.log('💾 Starting profile save process...');
       console.log('📊 Form data:', {
-        firstName: formData.firstName,
+        name: formData.name,
         profileImage: formData.profileImage ? formData.profileImage.substring(0, 50) + '...' : 'none'
       });
 
       // Validate required fields
-      if (!formData.firstName.trim()) {
-        Alert.alert('Error', 'First name is required');
+      if (!formData.name.trim()) {
+        Alert.alert('Error', 'Name is required');
         return;
       }
 
@@ -114,8 +117,7 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
 
       // Prepare the updated user metadata
       const updatedMetadata = {
-        first_name: formData.firstName.trim(),
-        last_name: formData.lastName.trim(),
+        full_name: formData.name.trim(),
         profile_image: profileImageUrl
       };
 
@@ -346,17 +348,10 @@ const EditProfileModal = ({ visible, onClose, user, onProfileUpdate }) => {
             <Text style={[styles.sectionTitle, { color: '#212529' }]}>Basic Information</Text>
             
             {renderInput(
-              'First Name *',
-              formData.firstName,
-              (text) => setFormData(prev => ({ ...prev, firstName: text })),
-              'Enter your first name'
-            )}
-
-            {renderInput(
-              'Last Name',
-              formData.lastName,
-              (text) => setFormData(prev => ({ ...prev, lastName: text })),
-              'Enter your last name'
+              'Name *',
+              formData.name,
+              (text) => setFormData(prev => ({ ...prev, name: text })),
+              'Enter your full name'
             )}
           </View>
 

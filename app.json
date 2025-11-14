@@ -2,7 +2,7 @@
   "expo": {
     "name": "Core+",
     "slug": "core-plus",
-    "version": "1.0.69",
+    "version": "1.0.83",
     "orientation": "portrait",
     "icon": "./assets/ios-icon.png",
     "userInterfaceStyle": "light",
@@ -26,16 +26,15 @@
     },
     "android": {
       "package": "com.anonymous.coreplus",
-      "versionCode": 84,
+      "versionCode": 98,
       "icon": "./assets/ios-icon.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
       "allowBackup": false,
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
         "com.google.android.gms.permission.ACTIVITY_RECOGNITION",
         "android.permission.ACTIVITY_RECOGNITION",

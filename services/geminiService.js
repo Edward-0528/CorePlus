@@ -11,13 +11,14 @@ class GeminiService {
       securityService.validateGeminiKey(this.apiKey);
       console.log('🤖 Initializing Gemini 2.5 Flash (advanced reasoning model)');
       this.genAI = new GoogleGenerativeAI(this.apiKey);
-      // Use Gemini 2.5 Flash for enhanced reasoning capabilities
+      // Use available Gemini models (based on API key test results)
       try {
-        this.model = this.genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        console.log('✅ Using gemini-2.5-flash (hybrid reasoning, enhanced accuracy)');
+        this.model = this.genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+        console.log('✅ Using gemini-2.5-flash-lite (speed-optimized for recipes)');
       } catch (error) {
-        console.log('⚠️ Gemini 2.5 Flash unavailable, falling back to 2.0 Flash');
-        this.model = this.genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        console.log('⚠️ Flash Lite unavailable, falling back to standard Flash');
+        this.model = this.genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        console.log('✅ Using gemini-2.5-flash (standard speed)');
       }
     }
   }

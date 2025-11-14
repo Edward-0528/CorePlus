@@ -25,8 +25,8 @@ export const PRODUCT_IDS = {
 // Feature Limits by Tier
 export const FEATURE_LIMITS = {
   [SUBSCRIPTION_TIERS.FREE]: {
-    aiScansPerMonth: 20,
-    aiManualSearchesPerMonth: 20,
+    aiScansPerMonth: 5, // TEMPORARY: Set to 5 for paywall testing
+    aiManualSearchesPerMonth: 5, // TEMPORARY: Set to 5 for paywall testing
     mealHistoryDays: 7,
     workoutPlans: 1,
     canExportData: false,
@@ -113,7 +113,10 @@ class SubscriptionService {
   // Get current subscription status
   async refreshSubscriptionStatus(userId) {
     try {
-      console.log('🔄 Refreshing subscription status via RevenueCat for user:', userId);
+      console.log('🔄 ========================================');
+      console.log('🔄 REFRESHING SUBSCRIPTION STATUS');
+      console.log('🔄 User ID:', userId);
+      console.log('🔄 ========================================');
       
       // Use our centralized RevenueCat service
       const customerInfo = await revenueCatService.refreshCustomerInfo();
@@ -127,8 +130,14 @@ class SubscriptionService {
         return null;
       }
       
+      console.log('✅ Got customer info from RevenueCat, validating...');
+      
       // CRITICAL: Validate this user should have access to the subscription
       await this.validateUserSubscriptionAccess(customerInfo, userId);
+      
+      console.log('🔄 Refresh complete. Current tier:', this.userTier);
+      console.log('🔄 ========================================');
+      
       return this.currentSubscription;
     } catch (error) {
       console.error('❌ Error refreshing subscription status:', error);
@@ -162,32 +171,57 @@ class SubscriptionService {
    */
   async validateUserSubscriptionAccess(customerInfo, userId) {
     try {
-      console.log('🔒 Validating subscription access for user:', userId);
+      console.log('🔒 ========================================');
+      console.log('🔒 VALIDATING SUBSCRIPTION ACCESS');
+      console.log('🔒 User ID:', userId);
+      console.log('🔒 ========================================');
+
+      // CRITICAL DEBUG: Log the entire customerInfo object
+      console.log('📊 Full CustomerInfo:', JSON.stringify(customerInfo, null, 2));
+      console.log('📊 All entitlements:', JSON.stringify(customerInfo.entitlements, null, 2));
+      console.log('📊 Active entitlements keys:', Object.keys(customerInfo.entitlements.active));
+      console.log('📊 All entitlements keys:', Object.keys(customerInfo.entitlements.all || {}));
 
       let newTier = SUBSCRIPTION_TIERS.FREE;
       let subscriptionDetails = null;
 
       // Check active entitlements from RevenueCat
-      if (customerInfo.entitlements.active['Pro']) {
-        subscriptionDetails = customerInfo.entitlements.active['Pro'];
+      // According to RevenueCat docs, check if there are ANY active entitlements
+      const activeEntitlementKeys = Object.keys(customerInfo.entitlements.active);
+      
+      console.log('🔍 Checking for active entitlements...');
+      console.log('🔍 Number of active entitlements:', activeEntitlementKeys.length);
+      
+      if (activeEntitlementKeys.length > 0) {
+        // Get the first active entitlement (or check for specific one)
+        const entitlementKey = activeEntitlementKeys[0];
+        subscriptionDetails = customerInfo.entitlements.active[entitlementKey];
+        
+        console.log('✅ Found active entitlement:', entitlementKey);
+        console.log('✅ Entitlement details:', JSON.stringify(subscriptionDetails, null, 2));
+        console.log('✅ isActive:', subscriptionDetails.isActive);
+        console.log('✅ willRenew:', subscriptionDetails.willRenew);
+        console.log('✅ productIdentifier:', subscriptionDetails.productIdentifier);
         
         // Step 1: Check if this purchase belongs to this user in our database
         const isValidSubscription = await this.validateSubscriptionOwnership(userId, subscriptionDetails);
         
         if (isValidSubscription) {
           newTier = SUBSCRIPTION_TIERS.PRO;
-          console.log('✅ Subscription validated for user:', userId);
+          console.log('✅✅✅ SUBSCRIPTION VALIDATED - USER HAS PRO ACCESS');
         } else {
           console.log('❌ Subscription found but not owned by current user:', userId);
           // This is a security issue - someone else's purchase is active on this device
           newTier = SUBSCRIPTION_TIERS.FREE;
           subscriptionDetails = null;
         }
+      } else {
+        console.log('❌ No active entitlements found');
+        console.log('📊 User has free tier');
       }
 
       // Debug: Show all available entitlements
-      console.log('📊 Available entitlements:', Object.keys(customerInfo.entitlements.active));
-      console.log('📊 Validated tier for user:', newTier);
+      console.log('📊 Final validated tier for user:', newTier);
 
       // Store previous tier for comparison
       const previousTier = this.userTier;
@@ -545,9 +579,18 @@ class SubscriptionService {
 
   // Get subscription details for display
   getSubscriptionInfo() {
+    // User is active if they have PRO tier OR have a current subscription
+    const isActive = this.userTier === SUBSCRIPTION_TIERS.PRO || this.currentSubscription !== null;
+    
+    console.log('📊 [getSubscriptionInfo] Current state:', {
+      tier: this.userTier,
+      isActive,
+      hasSubscription: this.currentSubscription !== null
+    });
+    
     return {
       tier: this.userTier,
-      isActive: this.currentSubscription !== null,
+      isActive,
       expiresAt: this.currentSubscription?.expirationDate,
       productId: this.currentSubscription?.productIdentifier,
       limits: FEATURE_LIMITS[this.userTier]

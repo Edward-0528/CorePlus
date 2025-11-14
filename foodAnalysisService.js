@@ -2,47 +2,49 @@
 
 import * as FileSystem from 'expo-file-system';
 
+// Model configuration with smart fallback system and pricing transparency
+const GEMINI_MODELS = [
+  {
+    name: 'gemini-2.5-flash-lite',
+    inputCostPerMillion: 0.075,  // $0.075 per 1M input tokens
+    outputCostPerMillion: 0.30,  // $0.30 per 1M output tokens
+    description: 'Flash Lite (Fastest & Cheapest)'
+  },
+  {
+    name: 'gemini-2.5-flash', 
+    inputCostPerMillion: 0.15,   // $0.15 per 1M input tokens
+    outputCostPerMillion: 0.60,  // $0.60 per 1M output tokens
+    description: 'Flash (Balanced Speed & Cost)'
+  },
+  {
+    name: 'gemini-2.5-pro',
+    inputCostPerMillion: 1.25,   // $1.25 per 1M input tokens
+    outputCostPerMillion: 5.00,  // $5.00 per 1M output tokens
+    description: 'Pro (Highest Accuracy & Most Expensive)'
+  }
+];
+
 // Get API key directly from environment (more reliable in production)
 const getGeminiApiKey = () => process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
-// Function to construct API URL dynamically (ensures API key is available)
+// Legacy function to construct API URL (deprecated - use callGeminiWithFallback instead)
 const getGeminiApiUrl = () => {
   const apiKey = getGeminiApiKey();
-  console.log('🔧 getGeminiApiUrl debug:', {
-    hasApiKey: !!apiKey,
-    apiKeyLength: apiKey ? apiKey.length : 0,
-    apiKeyStart: apiKey ? apiKey.substring(0, 8) + '***' : 'NONE'
-  });
-  
   if (!apiKey) {
-    console.error('🚨 getGeminiApiUrl: No API key available');
     throw new Error('Gemini API key not available');
   }
-  
-  // Use 2.5 Pro for image analysis (most accurate model available)
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
-  console.log('✅ getGeminiApiUrl: Image analysis URL constructed (2.5 Pro - highest accuracy), length:', url.length);
-  return url;
+  // Fallback to Pro model for legacy usage
+  return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
 };
 
-// Function to construct text API URL (uses 2.5 Pro for highest accuracy testing)
+// Legacy function to construct text API URL (deprecated - use callGeminiWithFallback instead)
 const getGeminiTextApiUrl = () => {
   const apiKey = getGeminiApiKey();
-  console.log('🔧 getGeminiTextApiUrl debug:', {
-    hasApiKey: !!apiKey,
-    apiKeyLength: apiKey ? apiKey.length : 0,
-    apiKeyStart: apiKey ? apiKey.substring(0, 8) + '***' : 'NONE'
-  });
-  
   if (!apiKey) {
-    console.error('🚨 getGeminiTextApiUrl: No API key available');
     throw new Error('Gemini API key not available');
   }
-  
-  // Use 2.5 Pro for text analysis (testing higher accuracy vs cost)
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
-  console.log('✅ getGeminiTextApiUrl: Text analysis URL constructed (2.5 Pro - testing mode), length:', url.length);
-  return url;
+  // Fallback to Pro model for legacy usage
+  return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`;
 };
 
 // Validate API key availability (but don't fail at module load)
@@ -53,6 +55,108 @@ const validateApiKey = () => {
     return false;
   }
   return true;
+};
+
+// Smart Gemini API call with model fallback and cost transparency
+const callGeminiWithFallback = async (requestBody, operation = 'analysis') => {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('Gemini API key not available');
+  }
+
+  let responseData;
+  let usedModel;
+  let lastError;
+  
+  for (let modelIndex = 0; modelIndex < GEMINI_MODELS.length; modelIndex++) {
+    const model = GEMINI_MODELS[modelIndex];
+    
+    try {
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model.name}:generateContent?key=${apiKey}`;
+      
+      console.log(`🔄 Attempting ${model.description} (${model.name}) for ${operation}:`, {
+        attempt: modelIndex + 1,
+        totalModels: GEMINI_MODELS.length,
+        requestSize: JSON.stringify(requestBody).length
+      });
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log(`🔍 ${model.name} API response status:`, response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ ${model.name} API error:`, response.status, errorText);
+        
+        // If it's a quota/rate limit error, try next model
+        if (response.status === 429 || response.status === 403) {
+          lastError = `${model.name} quota exceeded (${response.status})`;
+          console.log(`⚠️ ${model.name} quota exceeded, trying next model...`);
+          continue;
+        }
+        
+        // For other errors, throw immediately  
+        throw new Error(`${model.name} API error (${response.status}): ${errorText}`);
+      }
+
+      responseData = await response.json();
+      usedModel = model;
+      console.log(`✅ ${model.name} ${operation} successful`);
+      break; // Success! Exit the loop
+      
+    } catch (error) {
+      lastError = error.message;
+      console.error(`❌ ${model.name} failed:`, error.message);
+      
+      // If this is the last model, throw the error
+      if (modelIndex === GEMINI_MODELS.length - 1) {
+        throw new Error(`All Gemini models failed for ${operation}. Last error: ${error.message}`);
+      }
+      
+      console.log(`⚠️ Trying next model (${GEMINI_MODELS[modelIndex + 1].name})...`);
+    }
+  }
+
+  if (!responseData || !usedModel) {
+    throw new Error(`Smart fallback failed for ${operation}. Last error: ${lastError}`);
+  }
+
+  // Log cost transparency
+  if (responseData.usageMetadata) {
+    const usage = responseData.usageMetadata;
+    const inputTokens = usage.promptTokenCount || 0;
+    const outputTokens = usage.candidatesTokenCount || 0;
+    const totalTokens = usage.totalTokenCount || 0;
+    
+    const inputCost = (inputTokens / 1000000) * usedModel.inputCostPerMillion;
+    const outputCost = (outputTokens / 1000000) * usedModel.outputCostPerMillion;
+    const totalCost = inputCost + outputCost;
+    
+    console.log(`💰 ${operation.toUpperCase()} COST BREAKDOWN - ${usedModel.name.toUpperCase()}:`);
+    console.log(`🎯 Model Used: ${usedModel.description} (${usedModel.name})`);
+    console.log(`📊 Token Usage:`, {
+      inputTokens: inputTokens.toLocaleString(),
+      outputTokens: outputTokens.toLocaleString(), 
+      totalTokens: totalTokens.toLocaleString()
+    });
+    console.log(`💵 Cost Breakdown:`, {
+      model: usedModel.name,
+      inputRate: `$${usedModel.inputCostPerMillion}/M tokens`,
+      outputRate: `$${usedModel.outputCostPerMillion}/M tokens`,
+      inputCost: `$${inputCost.toFixed(6)}`,
+      outputCost: `$${outputCost.toFixed(6)}`,
+      totalCost: `$${totalCost.toFixed(6)}`,
+      costPer1000Ops: `$${(totalCost * 1000).toFixed(2)}`
+    });
+  }
+
+  return { responseData, usedModel };
 };
 
 // Enhanced nutrition database with realistic serving sizes and accurate nutrition values
@@ -149,7 +253,8 @@ const NUTRITION_DATABASE = {
   'wine': { calories: 85, carbs: 2.6, protein: 0.1, fat: 0, portion: 150 },
 };
 
-// Enhanced fast food and restaurant database for accurate nutrition facts
+// DEPRECATED: Fast food database - no longer used as AI handles all food analysis
+// Kept for reference only. Gemini AI now provides accurate fast food data directly.
 const FAST_FOOD_DATABASE = {
   // McDonald's
   'mcdonalds 10 piece chicken nuggets': { calories: 420, carbs: 25, protein: 23, fat: 25, portion: '10 pieces', fiber: 2, sugar: 0, sodium: 540 },
@@ -315,17 +420,6 @@ export const foodAnalysisService = {
         isDev: __DEV__
       });
       
-      // First check our fast food database for exact matches
-      const fastFoodMatch = this.checkFastFoodDatabase(textDescription);
-      if (fastFoodMatch.length > 0) {
-        console.log('✅ Found exact fast food match, skipping AI call');
-        return {
-          success: true,
-          predictions: fastFoodMatch,
-          source: 'fast-food-database'
-        };
-      }
-      
       // Check if API key is available before making AI call
       if (!apiKey) {
         console.warn('⚠️ Gemini API key not available, using basic fallback');
@@ -337,8 +431,8 @@ export const foodAnalysisService = {
         };
       }
       
-      // If no exact match, use Gemini AI for intelligent analysis
-      console.log('🔍 No fast food match found, using Gemini AI...');
+      // Use Gemini AI for intelligent analysis (it has fast food data built into the prompt)
+      console.log('🔍 Using Gemini AI for food analysis...');
       const geminiResponse = await this.callGeminiText(textDescription);
       
       // Extract food items from Gemini response
@@ -417,6 +511,7 @@ export const foodAnalysisService = {
   },
 
   // Check fast food database for exact matches (saves API calls and improves accuracy)
+  // DEPRECATED: No longer used - AI handles all food matching now
   checkFastFoodDatabase(textDescription) {
     const normalizedInput = textDescription.toLowerCase().trim();
     console.log('🍔 Checking fast food database for:', normalizedInput);
@@ -498,12 +593,17 @@ export const foodAnalysisService = {
     // Exact match
     if (normalizedSearch === normalizedKey) return true;
     
-    // Key contains all important words from search
+    // Check if the database key contains the search term (for partial matches like "big mac" matching "mcdonalds big mac")
+    if (normalizedKey.includes(normalizedSearch)) return true;
+    
+    // STRICT MATCHING: All significant words from search must appear in the database key
+    // This prevents "lasagna" from matching random fast food items
     const searchWords = normalizedSearch.split(' ').filter(word => word.length > 2);
     const keyWords = normalizedKey.split(' ');
     
+    // Each search word must exactly match OR be contained in a key word (but not vice versa)
     return searchWords.every(word => 
-      keyWords.some(keyWord => keyWord.includes(word) || word.includes(keyWord))
+      keyWords.some(keyWord => keyWord === word || keyWord.includes(word))
     );
   },
 
@@ -614,12 +714,32 @@ export const foodAnalysisService = {
       throw new Error('Gemini API key not available for image analysis');
     }
 
-    const prompt = `Identify the specific foods in this image. Be precise about food names and portions.
+    const prompt = `Analyze this food image and identify all items with accurate nutrition data.
 
-Return only JSON:
-{"foods":[{"name":"specific food name","portion":"realistic serving","confidence":0.9,"nutrition":{"calories":200,"carbs":20,"protein":15,"fat":8,"fiber":3,"sugar":5,"sodium":100}}]}
+CRITICAL INSTRUCTIONS:
+1. COUNT ITEMS: If you see multiple pieces (e.g., 3 pizza slices, 2 eggs), count them
+2. MULTIPLY NUTRITION: Calculate TOTAL nutrition for ALL items visible
+3. USE USDA STANDARDS: Base on standard portions, then multiply by count
 
-Example: {"foods":[{"name":"grilled chicken breast","portion":"4 oz","confidence":0.95,"nutrition":{"calories":185,"carbs":0,"protein":35,"fat":4,"fiber":0,"sugar":0,"sodium":74}}]}`;
+PORTION STANDARDS (per single item):
+- Pizza slice: 285-350 cal (cheese=285, pepperoni=330, supreme=350)
+- Egg: 70 cal
+- Chicken breast (6oz): 165 cal
+- Burger patty (4oz): 250 cal
+
+COUNTING EXAMPLES:
+- Image shows 3 pizza slices → 3 × 330 cal = 990 cal total
+- Image shows 2 eggs → 2 × 70 cal = 140 cal total
+- Image shows 1 burger → 1 × 250 cal = 250 cal total
+
+Return JSON with TOTAL nutrition for ALL items:
+{"foods":[{"name":"[count] [food name]","portion":"[total count] [unit]","confidence":0.9,"nutrition":{"calories":[total],"carbs":[total],"protein":[total],"fat":[total],"fiber":[total],"sugar":[total],"sodium":[total]}}]}
+
+Example responses:
+- 3 slices: {"foods":[{"name":"3 slices of pepperoni pizza","portion":"3 slices","confidence":0.95,"nutrition":{"calories":990,"carbs":108,"protein":36,"fat":42,"fiber":6,"sugar":9,"sodium":1050}}]}
+- 1 slice: {"foods":[{"name":"pepperoni pizza","portion":"1 slice","confidence":0.95,"nutrition":{"calories":330,"carbs":36,"protein":12,"fat":14,"fiber":2,"sugar":3,"sodium":350}}]}
+
+Return TOTAL nutrition for COMPLETE quantity visible in image.`;
 
     const requestBody = {
       contents: [
@@ -646,83 +766,8 @@ Example: {"foods":[{"name":"grilled chicken breast","portion":"4 oz","confidence
       },
     };
 
-    // Build API URL safely
-    let apiUrl;
-    try {
-      apiUrl = getGeminiApiUrl();
-      console.log('✅ API URL obtained successfully');
-    } catch (urlError) {
-      console.error('❌ Failed to get Gemini API URL:', urlError.message);
-      throw new Error(`API URL generation failed: ${urlError.message}`);
-    }
-    
-    console.log('🔄 Making Gemini API request with:', {
-      apiUrl: apiUrl && typeof apiUrl === 'string' ? apiUrl.substring(0, 50) + '...' : 'INVALID_URL',
-      imageSize: base64Image.length,
-      promptLength: prompt.length
-    });
-
-    if (!apiUrl) {
-      throw new Error('Failed to get Gemini API URL - API key may not be available');
-    }
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    console.log('🔍 Gemini API response status:', response.status);
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('❌ Gemini API error response:', errorData);
-      throw new Error(`Gemini API error (${response.status}): ${JSON.stringify(errorData)}`);
-    }
-
-    const responseData = await response.json();
-    console.log('✅ Gemini API response successful:', {
-      hasCandidates: !!responseData.candidates,
-      candidatesCount: responseData.candidates?.length || 0
-    });
-
-    // Log token usage and cost for image analysis
-    if (responseData.usageMetadata) {
-      const usage = responseData.usageMetadata;
-      
-      // Gemini 2.5 Pro pricing (approximate)
-      const INPUT_COST_PER_MILLION = 1.25; // $1.25 per 1M input tokens
-      const OUTPUT_COST_PER_MILLION = 5.00; // $5.00 per 1M output tokens
-      
-      const inputTokens = usage.promptTokenCount || 0;
-      const outputTokens = usage.candidatesTokenCount || 0;
-      const totalTokens = usage.totalTokenCount || 0;
-      
-      const inputCost = (inputTokens / 1000000) * INPUT_COST_PER_MILLION;
-      const outputCost = (outputTokens / 1000000) * OUTPUT_COST_PER_MILLION;
-      const totalCost = inputCost + outputCost;
-      
-      console.log('💰 IMAGE ANALYSIS COST BREAKDOWN:');
-      console.log(`📊 Token Usage:`, {
-        inputTokens: inputTokens.toLocaleString(),
-        outputTokens: outputTokens.toLocaleString(),
-        totalTokens: totalTokens.toLocaleString(),
-        thoughtsTokens: usage.thoughtsTokenCount?.toLocaleString() || 'N/A'
-      });
-      console.log(`💵 Cost Breakdown:`, {
-        inputCost: `$${inputCost.toFixed(6)}`,
-        outputCost: `$${outputCost.toFixed(6)}`,
-        totalCost: `$${totalCost.toFixed(6)}`,
-        costPer1000Scans: `$${(totalCost * 1000).toFixed(2)}`
-      });
-      console.log(`📈 Scaling Estimates:`, {
-        per100Users: `$${(totalCost * 100).toFixed(4)}`,
-        per1000Users: `$${(totalCost * 1000).toFixed(2)}`,
-        per10000Users: `$${(totalCost * 10000).toFixed(2)}`
-      });
-    }
+    // Smart model fallback: Flash Lite → Flash → Pro with cost transparency
+    const { responseData } = await callGeminiWithFallback(requestBody, 'image analysis');
 
     return responseData;
   },
@@ -736,94 +781,95 @@ Example: {"foods":[{"name":"grilled chicken breast","portion":"4 oz","confidence
       throw new Error('API key not configured. Please check your environment variables.');
     }
 
-    const prompt = `Analyze this food description and provide detailed nutritional information: "${textDescription}"
+    const prompt = `TASK: Analyze the food description "${textDescription}" and return accurate nutritional information.
 
-PRIORITY INSTRUCTIONS:
-1. For RESTAURANT/FAST FOOD items, use EXACT official nutrition data:
-   - McDonald's 10-piece chicken nuggets = 420 calories, 25g carbs, 23g protein, 25g fat
-   - McDonald's Big Mac = 550 calories, 45g carbs, 25g protein, 31g fat
-   - McDonald's medium fries = 320 calories, 43g carbs, 4g protein, 15g fat
-   - Burger King Whopper = 657 calories, 49g carbs, 28g protein, 40g fat
-   - Subway 6-inch turkey = 280 calories, 46g carbs, 18g protein, 4g fat
-   - Pizza Hut medium cheese slice = 220 calories, 26g carbs, 10g protein, 8g fat
-   - Taco Bell Crunchy Taco = 170 calories, 13g carbs, 8g protein, 10g fat
-   - KFC Original Recipe breast = 320 calories, 8g carbs, 29g protein, 19g fat
-   - Chipotle chicken burrito bowl = 630 calories, 40g carbs, 45g protein, 24g fat
+CRITICAL RULES:
+1. Analyze ONLY what the user typed
+2. DETECT QUANTITIES: Look for numbers (e.g., "2", "6 slices", "3 cups") 
+3. MULTIPLY NUTRITION: If quantity detected, multiply ALL nutrition values by that quantity
+4. Use USDA standard portions for base calculations
 
-2. For COMBO MEALS, include ALL items:
-   - "10 piece nugget combo" = nuggets + medium fries + medium drink
-   - Total calories = 420 (nuggets) + 320 (fries) + 210 (medium coke) = 950 calories
+QUANTITY DETECTION EXAMPLES:
+✓ "6 slices of pepperoni pizza" → 6 × (1 slice nutrition) = ~1800-1980 total calories
+✓ "2 chicken breasts" → 2 × (1 breast nutrition) = ~330 total calories
+✓ "3 eggs" → 3 × (1 egg nutrition) = ~210 total calories
+✓ "slice of pizza" → 1 slice only = ~300 calories
+✓ "pizza" → Assume 1 slice if not specified = ~300 calories
 
-3. BRAND RECOGNITION - Look for these patterns:
-   - "mcdonalds", "mcdonald's", "mcd", "mc d" → McDonald's
-   - "burger king", "bk", "whopper" → Burger King  
-   - "kfc", "kentucky fried" → KFC
-   - "taco bell", "tb" → Taco Bell
-   - "subway", "sub" → Subway
-   - "pizza hut", "dominos", "papa johns" → Pizza chains
-   - "chipotle", "qdoba", "moe's" → Mexican chains
-   - "starbucks", "dunkin" → Coffee chains
+STANDARD PORTIONS (per single item):
+- Pizza slice (1/8 of 14", regular crust):
+  * Cheese: 285 cal, 36g carbs, 12g protein, 10g fat
+  * Pepperoni: 330 cal, 36g carbs, 12g protein, 14g fat
+  * Supreme: 350 cal, 38g carbs, 13g protein, 16g fat
+- Egg (large): 70 cal, 0.6g carbs, 6g protein, 5g fat
+- Chicken breast (6oz/170g): 165 cal, 0g carbs, 31g protein, 3.6g fat
+- Banana (medium): 105 cal, 27g carbs, 1.3g protein, 0.4g fat
 
-4. PORTION INTELLIGENCE:
-   - If quantities mentioned (like "10 piece", "large fries"), use EXACTLY
-   - For restaurant items, use STANDARD serving sizes
-   - For homemade items, use realistic typical servings
+CALCULATION PROCESS:
+1. Identify base food and type
+2. Find single serving nutrition
+3. Detect quantity in user input
+4. Multiply nutrition by quantity
+5. Return TOTAL nutrition for complete quantity
 
-5. ACCURACY PRIORITY:
-   - Restaurant/fast food = Use official nutrition data (HIGH priority)
-   - Packaged foods = Use label data when possible
-   - Homemade = Use USDA standard recipes
-
-FAST FOOD EXAMPLES:
-- "10 piece chicken nuggets mcdonalds" = McDonald's 10-piece nuggets (420 cal)
-- "big mac combo" = Big Mac (550) + medium fries (320) + medium drink (210) = 1080 cal
-- "whopper meal" = Whopper (657) + medium fries (320) + medium drink (210) = 1187 cal
-
-Format response as JSON:
+RESPONSE FORMAT (JSON ONLY):
 {
   "foods": [
     {
-      "name": "McDonald's 10-piece Chicken McNuggets",
-      "portion": "10 pieces",
-      "confidence": 0.95,
+      "name": "[Quantity + Food Name]",
+      "portion": "[Total quantity description]",
+      "confidence": 0.90,
       "nutrition": {
-        "calories": 420,
-        "carbs": 25,
-        "protein": 23,
-        "fat": 25,
-        "fiber": 2,
-        "sugar": 0,
-        "sodium": 540
+        "calories": [TOTAL calories for all items],
+        "carbs": [TOTAL grams],
+        "protein": [TOTAL grams],
+        "fat": [TOTAL grams],
+        "fiber": [TOTAL grams],
+        "sugar": [TOTAL grams],
+        "sodium": [TOTAL mg]
       }
     }
   ]
 }
 
-For COMBO MEALS, list each item separately:
-{
-  "foods": [
-    {
-      "name": "McDonald's 10-piece Chicken McNuggets",
-      "portion": "10 pieces",
-      "confidence": 0.95,
-      "nutrition": {...}
-    },
-    {
-      "name": "McDonald's Medium French Fries", 
-      "portion": "medium (115g)",
-      "confidence": 0.95,
-      "nutrition": {...}
-    },
-    {
-      "name": "McDonald's Medium Coca-Cola",
-      "portion": "medium (21 fl oz)", 
-      "confidence": 0.95,
-      "nutrition": {...}
+EXAMPLE RESPONSES:
+Input: "6 slices of pepperoni pizza"
+Output: {
+  "foods": [{
+    "name": "6 slices of pepperoni pizza",
+    "portion": "6 slices (642g total)",
+    "confidence": 0.95,
+    "nutrition": {
+      "calories": 1980,
+      "carbs": 216,
+      "protein": 72,
+      "fat": 84,
+      "fiber": 12,
+      "sugar": 18,
+      "sodium": 2100
     }
-  ]
+  }]
 }
 
-CRITICAL: For fast food, prioritize EXACT official nutrition data over estimates.`;
+Input: "slice of pepperoni pizza"
+Output: {
+  "foods": [{
+    "name": "1 slice of pepperoni pizza",
+    "portion": "1 slice (107g)",
+    "confidence": 0.95,
+    "nutrition": {
+      "calories": 330,
+      "carbs": 36,
+      "protein": 12,
+      "fat": 14,
+      "fiber": 2,
+      "sugar": 3,
+      "sodium": 350
+    }
+  }]
+}
+
+Analyze: "${textDescription}" - Return TOTAL nutrition for COMPLETE quantity specified.`;
 
     const requestBody = {
       contents: [
@@ -845,60 +891,8 @@ CRITICAL: For fast food, prioritize EXACT official nutrition data over estimates
     };
 
     try {
-      console.log('🔍 Making Gemini API request for text analysis...');
-      const apiUrl = getGeminiTextApiUrl();
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Gemini API error response:', response.status, errorText);
-        throw new Error(`Gemini API error (${response.status}): ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ Gemini API response received successfully');
-
-      // Log token usage and cost for text analysis
-      if (result.usageMetadata) {
-        const usage = result.usageMetadata;
-        
-        // Gemini 2.5 Pro pricing (testing mode)
-        const INPUT_COST_PER_MILLION = 1.25; // $1.25 per 1M input tokens
-        const OUTPUT_COST_PER_MILLION = 5.00;  // $5.00 per 1M output tokens
-        
-        const inputTokens = usage.promptTokenCount || 0;
-        const outputTokens = usage.candidatesTokenCount || 0;
-        const totalTokens = usage.totalTokenCount || 0;
-        
-        const inputCost = (inputTokens / 1000000) * INPUT_COST_PER_MILLION;
-        const outputCost = (outputTokens / 1000000) * OUTPUT_COST_PER_MILLION;
-        const totalCost = inputCost + outputCost;
-        
-        console.log('💰 TEXT SEARCH COST BREAKDOWN (GEMINI 2.5 PRO - TESTING):');
-        console.log(`📊 Token Usage:`, {
-          inputTokens: inputTokens.toLocaleString(),
-          outputTokens: outputTokens.toLocaleString(),
-          totalTokens: totalTokens.toLocaleString(),
-          thoughtsTokens: usage.thoughtsTokenCount?.toLocaleString() || 'N/A'
-        });
-        console.log(`💵 Cost Breakdown:`, {
-          inputCost: `$${inputCost.toFixed(6)}`,
-          outputCost: `$${outputCost.toFixed(6)}`,
-          totalCost: `$${totalCost.toFixed(6)}`,
-          costPer1000Searches: `$${(totalCost * 1000).toFixed(2)}`
-        });
-        console.log(`📈 Scaling Estimates:`, {
-          per100Users: `$${(totalCost * 100).toFixed(4)}`,
-          per1000Users: `$${(totalCost * 1000).toFixed(2)}`,
-          per10000Users: `$${(totalCost * 10000).toFixed(2)}`
-        });
-      }
+      // Smart model fallback for text analysis: Flash Lite → Flash → Pro
+      const { responseData: result } = await callGeminiWithFallback(requestBody, 'text analysis');
       
       return result;
       

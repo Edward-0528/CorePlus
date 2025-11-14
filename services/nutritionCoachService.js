@@ -32,33 +32,58 @@ export const nutritionCoachService = {
         };
       }
 
-      const prompt = `As a nutrition coach, analyze this user's nutrition data and provide concise, actionable food suggestions:
+      // Calculate averages and trends
+      const avgCalories = Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.calories, 0) / 7);
+      const avgProtein = Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.protein, 0) / 7);
+      const avgCarbs = Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.carbs, 0) / 7);
+      const avgFat = Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.fat, 0) / 7);
+      const avgSugar = Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.sugar, 0) / 7);
+      const avgSodium = Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.sodium, 0) / 7);
+      
+      const calorieGoal = user?.calorie_goal || 2000;
+      const daysOverGoal = weeklyNutritionData.filter(day => day.calories > calorieGoal).length;
+      const daysWayOver = weeklyNutritionData.filter(day => day.calories > calorieGoal * 1.2).length;
+      const daysTracked = weeklyNutritionData.filter(day => day.mealCount > 0).length;
+      
+      // Calculate macro percentages
+      const totalCaloriesFromMacros = (avgProtein * 4) + (avgCarbs * 4) + (avgFat * 9);
+      const proteinPercent = Math.round((avgProtein * 4 / totalCaloriesFromMacros) * 100);
+      const carbsPercent = Math.round((avgCarbs * 4 / totalCaloriesFromMacros) * 100);
+      const fatPercent = Math.round((avgFat * 9 / totalCaloriesFromMacros) * 100);
 
-DAILY AVERAGES (last 7 days):
-- Calories: ${Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.calories, 0) / 7)} (goal: ${user?.calorie_goal || 2000})
-- Protein: ${Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.protein, 0) / 7)}g 
-- Carbs: ${Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.carbs, 0) / 7)}g
-- Fat: ${Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.fat, 0) / 7)}g
-- Sugar: ${Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.sugar, 0) / 7)}g
-- Sodium: ${Math.round(weeklyNutritionData.reduce((sum, day) => sum + day.sodium, 0) / 7)}mg
+      const prompt = `As a nutrition coach, analyze this 7-day nutrition data and provide ONE concise, specific suggestion:
 
-Provide a single, concise suggestion in JSON format:
+WEEKLY SUMMARY:
+- Days tracked: ${daysTracked}/7
+- Days over calorie goal: ${daysOverGoal}/7
+- Days significantly over (>20%): ${daysWayOver}/7
+
+DAILY AVERAGES:
+- Calories: ${avgCalories} (goal: ${calorieGoal}, ${avgCalories > calorieGoal ? 'OVER by ' + (avgCalories - calorieGoal) : 'under by ' + (calorieGoal - avgCalories)})
+- Protein: ${avgProtein}g (${proteinPercent}% of calories)
+- Carbs: ${avgCarbs}g (${carbsPercent}% of calories)
+- Fat: ${avgFat}g (${fatPercent}% of calories)
+- Sugar: ${avgSugar}g/day
+- Sodium: ${avgSodium}mg/day
+
+ANALYSIS PRIORITIES:
+1. If consistently over calories (${daysOverGoal}+ days): Address calorie intake
+2. If protein is low (<20% of calories): Suggest high-protein foods
+3. If carbs are very high (>50% of calories): Suggest better balance
+4. If fat is excessive (>35% of calories): Suggest lighter alternatives
+5. If sugar is high (>50g/day): Suggest low-sugar swaps
+6. If sodium is high (>2500mg/day): Suggest low-sodium options
+7. If tracking is inconsistent (<5 days): Encourage consistency
+
+Provide ONE specific, actionable suggestion in JSON:
 {
-  "suggestion": "One specific actionable food advice (max 25 words)"
+  "suggestion": "Specific food advice addressing the #1 priority (max 30 words)"
 }
 
-Rules:
-- If protein is low (<100g/day): suggest high-protein foods
-- If carbs are excessive (>250g/day): suggest lower-carb alternatives  
-- If fat is too high (>80g/day): suggest lighter alternatives
-- If sugar is high (>50g/day): suggest low-sugar swaps
-- If sodium is high (>2300mg/day): suggest low-sodium alternatives
-- Otherwise: give positive reinforcement or general healthy tip
-
-Examples:
-"Try Greek yogurt or chicken breast to boost your protein intake."
-"Swap white rice for quinoa to improve fiber and reduce refined carbs."
-"Replace sugary drinks with sparkling water with lemon for less sugar."`;
+Be direct about issues but constructive. Examples:
+"You're averaging ${avgCalories - calorieGoal}cal over your goal daily. Try smaller portions or replace snacks with vegetables."
+"Boost protein to 25%+ of calories with Greek yogurt, chicken, or eggs at each meal."
+"Cut sugar from ${avgSugar}g to <40g by swapping soda for sparkling water and fruit for dessert."`;
 
       const result = await this.callGeminiAPI(prompt);
       return this.parseCoachingResponse(result);

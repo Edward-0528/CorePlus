@@ -161,13 +161,13 @@ class UsageTrackingService {
       const stats = {
         aiScans: {
           used: aiScansUsage,
-          limit: limits.aiScansPerMonth || 20,
-          remaining: limits.aiScansPerMonth === -1 ? -1 : Math.max(0, (limits.aiScansPerMonth || 20) - aiScansUsage)
+          limit: limits.aiScansPerMonth || 5,
+          remaining: limits.aiScansPerMonth === -1 ? -1 : Math.max(0, (limits.aiScansPerMonth || 5) - aiScansUsage)
         },
         manualSearches: {
           used: manualSearchesUsage,
-          limit: limits.aiManualSearchesPerMonth || 20,
-          remaining: limits.aiManualSearchesPerMonth === -1 ? -1 : Math.max(0, (limits.aiManualSearchesPerMonth || 20) - manualSearchesUsage)
+          limit: limits.aiManualSearchesPerMonth || 5,
+          remaining: limits.aiManualSearchesPerMonth === -1 ? -1 : Math.max(0, (limits.aiManualSearchesPerMonth || 5) - manualSearchesUsage)
         }
       };
       
@@ -176,8 +176,8 @@ class UsageTrackingService {
     } catch (error) {
       console.error('Error getting usage stats:', error);
       return {
-        aiScans: { used: 0, limit: 20, remaining: 20 },
-        manualSearches: { used: 0, limit: 20, remaining: 20 }
+        aiScans: { used: 0, limit: 5, remaining: 5 },
+        manualSearches: { used: 0, limit: 5, remaining: 5 }
       };
     }
   }

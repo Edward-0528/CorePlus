@@ -903,16 +903,75 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
 
   
 
+  const renderHealthScoreCard = () => {
+    // Simple health score based on today's progress
+    const calorieGoal = user?.calorie_goal || 2400;
+    const caloriesConsumed = dailyCalories;
+    const isOnTrack = caloriesConsumed <= calorieGoal && caloriesConsumed >= calorieGoal * 0.8;
+    const progressPercentage = (caloriesConsumed / calorieGoal) * 100;
+    
+    // Calculate today's health score (0-100)
+    let todayScore = 75; // Base score
+    if (isOnTrack) todayScore += 20;
+    if (caloriesConsumed > calorieGoal * 1.2) todayScore -= 25;
+    if (caloriesConsumed === 0) todayScore = 50;
+    
+    const getScoreColor = () => {
+      if (todayScore >= 80) return '#34C759';
+      if (todayScore >= 60) return '#FFB800';
+      if (todayScore >= 40) return '#FF9500';
+      return '#FF3B30';
+    };
+
+    return (
+      <View style={[modernCardStyles.container, { marginHorizontal: 20, marginBottom: 16 }]}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 12, color: AppColors.textSecondary, fontWeight: '500', marginBottom: 4 }}>
+              TODAY'S HEALTH SCORE
+            </Text>
+            <Text style={[modernCardStyles.mainValue, { fontSize: 32 }]}>
+              {caloriesConsumed.toLocaleString()}
+              <Text style={{ fontSize: 18, color: AppColors.textSecondary }}> / {calorieGoal.toLocaleString()}</Text>
+            </Text>
+            <Text style={[modernCardStyles.unit, { marginTop: 4 }]}>
+              {Math.max(0, calorieGoal - caloriesConsumed)} kcal remaining
+            </Text>
+          </View>
+          <View style={{ alignItems: 'center' }}>
+            <View style={{
+              width: 70,
+              height: 70,
+              borderRadius: 35,
+              backgroundColor: getScoreColor(),
+              justifyContent: 'center',
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.15,
+              shadowRadius: 4,
+              elevation: 3,
+            }}>
+              <Text style={{ fontSize: 28, fontWeight: '800', color: '#FFFFFF' }}>
+                {todayScore}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 11, color: AppColors.textSecondary, fontWeight: '500', marginTop: 6 }}>
+              Score
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   const renderContent = () => {
     switch (nutritionSubTab) {
       case 'today':
         return (
           <>
-            <View style={{ marginHorizontal: 20, marginBottom: 12, backgroundColor: '#FFE4B5', padding: 12, borderRadius: 8 }}>
-              <Text style={{ fontSize: 14, color: '#8B4513', fontWeight: '500' }}>🤖 AI Nutrition Coach: Start logging meals to get personalized tips!</Text>
-            </View>
+            {renderHealthScoreCard()}
             <ConciseAICoach />
-            {renderCalorieProgress()}
             {/* Today's Meals Section Title */}
             <View style={modernCardStyles.titleSection}>
               <Text style={modernCardStyles.sectionTitle}>Today's Meals</Text>
@@ -964,6 +1023,7 @@ const WorkingMinimalNutrition = ({ user, onLogout, loading, styles }) => {
             onPhotoTaken={handlePhotoTaken}
             onClose={handleCameraClose}
             onAnalysisComplete={handleFoodAnalysisComplete}
+            user={user}
           />
         </Modal>
       )}

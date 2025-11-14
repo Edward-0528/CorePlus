@@ -75,7 +75,7 @@ const TodayNutritionView = ({ user, calorieGoal = 2000, onOpenFoodSearch }) => {
     };
 
     return (
-      <View style={styles.section}>
+      <View style={[styles.section, { marginTop: 20 }]}>
         <TouchableOpacity 
           style={[styles.macroCard, macroExpanded && styles.macroCardExpanded]}
           onPress={() => setMacroExpanded(!macroExpanded)}
@@ -178,7 +178,6 @@ const TodayNutritionView = ({ user, calorieGoal = 2000, onOpenFoodSearch }) => {
         />
       }
     >
-      {renderCalorieProgress()}
       {renderMacroProgress()}
       
       <View style={styles.section}>

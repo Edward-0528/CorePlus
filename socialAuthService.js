@@ -5,7 +5,7 @@ export const socialAuthService = {
   // Google Sign In
   signInWithGoogle: async () => {
     try {
-      console.log('🔐 Initiating Google OAuth with Supabase...');
+      console.log('🔐 Initiating Google OAuth for Core Plus...');
       const startTime = Date.now();
       
       // Check if we're in production and handle gracefully
@@ -21,8 +21,11 @@ export const socialAuthService = {
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
+            hd: '', // Optional: restrict to specific domain
           },
           scopes: 'openid email profile',
+          // Additional options to improve user experience
+          skipBrowserRedirect: false,
         },
       });
       

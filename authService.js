@@ -27,6 +27,27 @@ class RobustAuthService {
     this.appStateSubscription = null;
     this.authStateSubscription = null;
     this.initializeAppStateHandling();
+    this.initializeAuthStateListener();
+  }
+
+  // Initialize Supabase auth state listener for automatic token refresh
+  // This ensures tokens are automatically refreshed in the background
+  initializeAuthStateListener() {
+    this.authStateSubscription = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log(`🔐 Auth state changed: ${event}`);
+      
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (session) {
+          console.log('✅ Session updated via auth state change');
+          await this.cacheUserSession(session.user, session);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        console.log('🚪 User signed out via auth state change');
+        await this.clearLocalSession();
+      }
+    });
+    
+    console.log('✅ Supabase auth state listener initialized');
   }
 
   // Initialize app state handling for background/foreground detection
@@ -529,29 +550,12 @@ class RobustAuthService {
   }
 
   // Improved session restoration for app startup
+  // Following best practices from: https://stackoverflow.com/questions/72341305/keep-user-logged-in-while-using-supabase-in-react-native
   async restoreSession() {
     try {
-      console.log('🔄 Attempting to restore session...');
+      console.log('🔄 Attempting to restore session from AsyncStorage...');
       
-      // First check cached session
-      const cachedSession = await this.hasValidCachedSession();
-      
-      if (cachedSession === false) {
-        console.log('ℹ️ No valid cached session found');
-        return { success: false, error: 'No cached session' };
-      }
-      
-      if (cachedSession === 'needs_validation') {
-        console.log('🔍 Cached session needs validation...');
-        const isValid = await this.validateAndRefreshSession();
-        
-        if (!isValid) {
-          console.log('❌ Session validation failed');
-          return { success: false, error: 'Session validation failed' };
-        }
-      }
-      
-      // Get current session from Supabase
+      // Get current session from Supabase (which reads from AsyncStorage automatically)
       const sessionOperation = async () => {
         const { data: { session }, error } = await supabase.auth.getSession();
         
@@ -562,20 +566,59 @@ class RobustAuthService {
         return session;
       };
 
-      const session = await this.withTimeout(sessionOperation(), 8000);
+      const session = await this.withTimeout(sessionOperation(), 10000);
       
       if (session && session.user) {
-        console.log('✅ Session restored successfully');
+        console.log('✅ Session restored successfully from AsyncStorage');
+        console.log('👤 User ID:', session.user.id);
+        console.log('📧 Email:', session.user.email);
+        
+        // Check if token needs refresh
+        const expiresAt = session.expires_at * 1000;
+        const now = Date.now();
+        const timeUntilExpiry = expiresAt - now;
+        const hoursUntilExpiry = timeUntilExpiry / (1000 * 60 * 60);
+        
+        console.log(`⏰ Token expires in ${hoursUntilExpiry.toFixed(1)} hours`);
+        
+        // If token expires in less than 1 hour, refresh it proactively
+        if (timeUntilExpiry < AUTH_CONFIG.TOKEN_REFRESH_BUFFER) {
+          console.log('🔄 Token expiring soon, refreshing proactively...');
+          const refreshed = await this.validateAndRefreshSession();
+          if (refreshed) {
+            const { data: { session: newSession } } = await supabase.auth.getSession();
+            if (newSession) {
+              await this.cacheUserSession(newSession.user, newSession);
+              return { 
+                success: true, 
+                user: newSession.user, 
+                session: newSession,
+                restored: true 
+              };
+            }
+          }
+        }
+        
         await this.cacheUserSession(session.user, session);
-        return { success: true, data: { user: session.user, session } };
+        return { 
+          success: true, 
+          user: session.user, 
+          session,
+          restored: true 
+        };
       } else {
-        console.log('ℹ️ No active session found');
+        console.log('ℹ️ No active session found in AsyncStorage');
         await this.clearLocalSession();
         return { success: false, error: 'No active session' };
       }
     } catch (error) {
       console.error('❌ Session restoration failed:', error.message);
-      await this.clearLocalSession();
+      
+      // Don't clear local session on network errors - user might be offline
+      if (!error.message.includes('network') && !error.message.includes('timeout')) {
+        await this.clearLocalSession();
+      }
+      
       return { success: false, error: error.message };
     }
   }

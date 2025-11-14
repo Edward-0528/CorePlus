@@ -8,7 +8,8 @@ const BarcodeScannerModal = ({
   visible, 
   onClose, 
   onBarcodeScanned, 
-  onError 
+  onError,
+  user
 }) => {
   const [mode, setMode] = useState('scan'); // 'scan' | 'search'
   const [query, setQuery] = useState('');
@@ -74,6 +75,7 @@ const BarcodeScannerModal = ({
             onClose={onClose}
             onError={handleError}
             isVisible={visible}
+            user={user}
           />
         ) : (
           <View style={styles.searchWrapper}>

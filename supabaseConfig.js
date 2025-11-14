@@ -25,14 +25,15 @@ if (__DEV__) {
 }
 
 // Create Supabase client with enhanced session persistence and timeout settings
+// Following best practices from: https://stackoverflow.com/questions/72341305/keep-user-logged-in-while-using-supabase-in-react-native
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false, // Helps prevent auth loops
-    // Add timeout settings to prevent hanging
-    flowType: 'implicit',
+    detectSessionInUrl: false, // Helps prevent auth loops in React Native
+    // flowType: 'pkce' is more secure than 'implicit' for mobile apps
+    flowType: 'pkce',
   },
   global: {
     headers: {

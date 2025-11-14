@@ -12,6 +12,7 @@ const WeeklyProgressCard = ({ onPress, calorieGoal = 2000 }) => {
   const [loading, setLoading] = useState(true);
   const [avgCalories, setAvgCalories] = useState(0);
   const [onGoalStreak, setOnGoalStreak] = useState(0);
+  const [healthScore, setHealthScore] = useState(0);
 
   // Get last 7 days of data
   useEffect(() => {
@@ -75,6 +76,31 @@ const WeeklyProgressCard = ({ onPress, calorieGoal = 2000 }) => {
       }
       setOnGoalStreak(streak);
       
+      // Calculate Health Score (0-100)
+      const daysWithMeals = last7Days.filter(day => day.calories > 0).length;
+      const daysOnGoal = last7Days.filter(day => day.isOnGoal).length;
+      const daysUnderGoal = last7Days.filter(day => day.calories > 0 && day.calories < calorieGoal * 0.85).length;
+      const daysOverGoal = last7Days.filter(day => day.isOverGoal).length;
+      
+      let score = 0;
+      // Base score: tracking consistency (40 points max)
+      score += (daysWithMeals / 7) * 40;
+      
+      // On-goal days (40 points max)
+      score += (daysOnGoal / 7) * 40;
+      
+      // Penalty for being way over goal (up to -20 points)
+      const severeOverGoalDays = last7Days.filter(day => day.calories > calorieGoal * 1.2).length;
+      score -= (severeOverGoalDays / 7) * 20;
+      
+      // Bonus for consistency (20 points max)
+      if (daysWithMeals >= 5) score += 10; // Tracking 5+ days
+      if (streak >= 3) score += 10; // 3+ day streak
+      
+      // Ensure score is between 0-100
+      score = Math.max(0, Math.min(100, Math.round(score)));
+      setHealthScore(score);
+      
     } catch (error) {
       console.error('Error loading weekly data:', error);
     } finally {
@@ -102,9 +128,18 @@ const WeeklyProgressCard = ({ onPress, calorieGoal = 2000 }) => {
   };
 
   const getBarHeight = (percentage) => {
-    const minHeight = 12;
-    const maxHeight = 60;
-    return Math.max(minHeight, percentage * maxHeight);
+    const minHeight = 16;
+    const maxHeight = 100;
+    // Cap the percentage at 1.0 (100%) so bars don't exceed maxHeight
+    const cappedPercentage = Math.min(percentage, 1.0);
+    return Math.max(minHeight, cappedPercentage * maxHeight);
+  };
+
+  const getHealthScoreColor = () => {
+    if (healthScore >= 80) return '#34C759'; // Green - Excellent
+    if (healthScore >= 60) return '#FFB800'; // Yellow - Good
+    if (healthScore >= 40) return '#FF9500'; // Orange - Fair
+    return '#FF3B30'; // Red - Needs improvement
   };
 
   if (loading) {
@@ -120,13 +155,15 @@ const WeeklyProgressCard = ({ onPress, calorieGoal = 2000 }) => {
 
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
+      {/* Header with Title */}
       <View style={styles.header}>
-        <Text style={styles.title}>Last 7 days</Text>
-        <Text style={styles.subtitle}>
-          Green for under goal, red for over goal
-        </Text>
+        <Text style={styles.title}>Weekly Progress</Text>
+        <View style={[styles.healthScoreBadge, { backgroundColor: getHealthScoreColor() }]}>
+          <Text style={styles.healthScoreValue}>{healthScore}</Text>
+        </View>
       </View>
       
+      {/* Chart */}
       <View style={styles.chartContainer}>
         <View style={styles.barsContainer}>
           {weeklyData.map((day, index) => (
@@ -146,15 +183,33 @@ const WeeklyProgressCard = ({ onPress, calorieGoal = 2000 }) => {
         </View>
       </View>
       
+      {/* Stats Row */}
       <View style={styles.statsContainer}>
         <View style={styles.statBox}>
-          <Text style={styles.statLabel}>Avg kcal</Text>
           <Text style={styles.statValue}>{avgCalories}</Text>
+          <Text style={styles.statLabel}>avg kcal</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statBox}>
-          <Text style={styles.statLabel}>On-goal streak</Text>
-          <Text style={styles.statValue}>{onGoalStreak} day{onGoalStreak !== 1 ? 's' : ''}</Text>
+          <Text style={styles.statValue}>{onGoalStreak}</Text>
+          <Text style={styles.statLabel}>day streak</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statBox}>
+          <Text style={styles.statValue}>{weeklyData.filter(d => d.calories > 0).length}/7</Text>
+          <Text style={styles.statLabel}>tracked</Text>
+        </View>
+      </View>
+      
+      {/* Legend */}
+      <View style={styles.legend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: AppColors.success }]} />
+          <Text style={styles.legendText}>On target</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: AppColors.danger }]} />
+          <Text style={styles.legendText}>Over goal</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -187,49 +242,69 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 20,
   },
   title: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: AppColors.textPrimary,
-    marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 14,
-    color: AppColors.textSecondary,
-    lineHeight: 18,
+  healthScoreBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    minWidth: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  healthScoreValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   chartContainer: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   barsContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    height: 80,
+    height: 120,
     paddingHorizontal: 8,
   },
   barColumn: {
     alignItems: 'center',
     flex: 1,
+    justifyContent: 'flex-end',
   },
   bar: {
-    width: 20,
-    borderRadius: 10,
-    marginBottom: 8,
-    minHeight: 12,
+    width: 24,
+    borderRadius: 12,
+    marginBottom: 10,
+    minHeight: 16,
   },
   dayLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: AppColors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   statsContainer: {
     flexDirection: 'row',
     backgroundColor: AppColors.backgroundSecondary,
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
+    marginBottom: 12,
   },
   statBox: {
     flex: 1,
@@ -238,17 +313,40 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     backgroundColor: AppColors.border,
-    marginHorizontal: 16,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: AppColors.textSecondary,
-    marginBottom: 4,
+    marginHorizontal: 12,
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: AppColors.textPrimary,
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: AppColors.textSecondary,
+    fontWeight: '500',
+  },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 4,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 12,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  legendText: {
+    fontSize: 12,
+    color: AppColors.textSecondary,
+    fontWeight: '500',
   },
 });
 

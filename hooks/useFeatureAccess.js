@@ -1,159 +1,218 @@
 import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
-import userSubscriptionService from '../services/userSubscriptionService';
-import { useAppContext } from '../contexts/AppContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import usageTrackingService from '../services/usageTrackingService';
+import { presentPaywallIfNeeded } from '../services/paywallService';
 
 /**
- * Hook for checking feature access and showing paywalls
+ * Enhanced Feature Access Hook
+ * Manages premium features, usage limits, and subscription prompts
  */
 export const useFeatureAccess = () => {
-  const { user } = useAppContext();
-  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { subscriptionInfo, refreshSubscription } = useSubscription();
+  const [usageStats, setUsageStats] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
+  // Load usage stats when component mounts or subscription changes
   useEffect(() => {
-    if (user) {
-      // Initialize and listen for subscription changes
-      const initializeSubscription = async () => {
-        try {
-          await userSubscriptionService.initializeForUser(user);
-          const status = userSubscriptionService.getSubscriptionStatus();
-          setSubscriptionStatus(status);
-        } catch (error) {
-          console.error('Failed to initialize subscription:', error);
-        } finally {
-          setIsLoading(false);
-        }
-      };
+    loadUsageStats();
+  }, [subscriptionInfo]);
 
-      initializeSubscription();
-
-      // Listen for subscription changes
-      const unsubscribe = userSubscriptionService.onSubscriptionStatusChange((status) => {
-        setSubscriptionStatus(status);
-      });
-
-      return unsubscribe;
-    } else {
-      setSubscriptionStatus(null);
+  const loadUsageStats = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const stats = await usageTrackingService.getUsageStats(subscriptionInfo.limits);
+      setUsageStats(stats);
+    } catch (err) {
+      console.error('Failed to load usage stats:', err);
+      setError(err.message);
+    } finally {
       setIsLoading(false);
     }
-  }, [user]);
-
-  /**
-   * Check if user can access a feature
-   */
-  const canAccessFeature = async (featureName) => {
-    try {
-      return await userSubscriptionService.canAccessFeature(featureName);
-    } catch (error) {
-      console.error('Error checking feature access:', error);
-      return false;
-    }
   };
 
   /**
-   * Check daily usage limit and show paywall if exceeded
+   * Check if user can access camera scanning features
    */
-  const checkFeatureUsage = async (featureName, options = {}) => {
-    const {
-      showPaywall = true,
-      onPaywallShow,
-      onUpgrade,
-      featureDescription = '',
-    } = options;
+  const canUseCameraScanning = () => {
+    if (subscriptionInfo.isActive) return true;
+    if (!usageStats) return false;
+    
+    return usageStats.aiScans.remaining > 0;
+  };
 
+  /**
+   * Check if user can access manual search (always available)
+   */
+  const canUseManualSearch = () => {
+    return true; // Always available for all users
+  };
+
+  /**
+   * Check if user can access premium features
+   */
+  const canAccessPremiumFeature = (featureName) => {
+    if (subscriptionInfo.isActive) return true;
+    
+    // Define which features require premium
+    const premiumFeatures = [
+      'advanced_analytics',
+      'meal_planning',
+      'export_data',
+      'unlimited_history',
+      'custom_macros',
+      'ai_coach'
+    ];
+    
+    return !premiumFeatures.includes(featureName);
+  };
+
+  /**
+   * Attempt to use camera scanning with usage tracking
+   */
+  const useCameraScanning = async (userId) => {
     try {
-      // Check if user has premium access
-      const hasAccess = await canAccessFeature(featureName);
-      if (hasAccess) {
-        return { canUse: true, isPremium: true };
+      // If user is subscribed, allow unlimited access
+      if (subscriptionInfo.isActive) {
+        return { success: true, unlimited: true };
       }
 
-      // Check daily usage for free users
-      const usageInfo = await userSubscriptionService.checkDailyUsageLimit(featureName, user.id);
-      
-      if (!usageInfo.canUse && showPaywall) {
-        if (onPaywallShow) {
-          onPaywallShow({
-            featureName,
-            featureDescription,
-            usageInfo,
-            onUpgrade: onUpgrade || (() => navigateToSubscription())
-          });
-        } else {
-          // Show default alert
+      // Check if user has scans remaining
+      if (!canUseCameraScanning()) {
+        try {
+          const wasDismissed = await presentPaywallIfNeeded('camera_scanning');
+          
+          if (wasDismissed) {
+            // User cancelled paywall or there was an error
+            console.log('🔄 User dismissed paywall, refreshing subscription status...');
+            await refreshSubscription();
+            return { success: false, reason: 'limit_reached', showedPaywall: true };
+          } else {
+            // User completed purchase, allow the scan
+            console.log('🎉 Purchase completed! Force refreshing subscription status...');
+            await refreshSubscription();
+            
+            // Wait a moment for RevenueCat to sync
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Reload usage stats to get updated limits
+            await loadUsageStats();
+            
+            // Double check if subscription is now active
+            if (subscriptionInfo.isActive) {
+              console.log('✅ Subscription confirmed active after purchase');
+              return { success: true, purchased: true, unlimited: true };
+            } else {
+              console.log('⚠️ Subscription not yet active, allowing scan anyway');
+              return { success: true, purchased: true };
+            }
+          }
+        } catch (paywallError) {
+          console.error('❌❌❌ PAYWALL ERROR - THIS IS WHY ALERT IS SHOWING:', paywallError);
+          console.error('❌ Error message:', paywallError.message);
+          console.error('❌ Error stack:', paywallError.stack);
+          // Show fallback alert if paywall fails to display
           Alert.alert(
-            'Daily Limit Reached',
-            `You've used ${usageInfo.used}/${usageInfo.limit} ${featureName} today. Upgrade to Core+ Pro for unlimited access!`,
+            'Scan Limit Reached',
+            'You\'ve used all your free scans this month. Upgrade to Core+ Premium for unlimited AI food scanning!',
             [
-              { text: 'Maybe Later', style: 'cancel' },
-              { text: 'Upgrade Now', onPress: () => navigateToSubscription() }
+              { text: 'Not Now', style: 'cancel' },
+              { text: 'Learn More', onPress: () => console.log('Paywall unavailable') }
             ]
           );
+          return { success: false, reason: 'limit_reached', showedPaywall: false };
         }
       }
 
-      return {
-        canUse: usageInfo.canUse,
-        isPremium: false,
-        usageInfo
-      };
-
+      // Increment usage for free users
+      await usageTrackingService.incrementUsage('ai_scans', userId);
+      await loadUsageStats(); // Refresh stats
+      
+      return { success: true, remaining: usageStats.aiScans.remaining - 1 };
     } catch (error) {
-      console.error('Error checking feature usage:', error);
-      return { canUse: false, isPremium: false };
+      console.error('Error using camera scanning:', error);
+      return { success: false, reason: 'error', error: error.message };
     }
   };
 
   /**
-   * Navigate to subscription screen
+   * Show upgrade prompt for premium features
    */
-  const navigateToSubscription = () => {
-    // You'll need to implement navigation to your subscription screen
-    console.log('Navigate to subscription screen');
+  const showUpgradePrompt = async (featureName, customMessage) => {
+    const defaultMessages = {
+      camera_scanning: 'You\'ve reached your monthly scan limit. Upgrade to Core+ Premium for unlimited AI food scanning!',
+      meal_planning: 'Unlock meal planning with Core+ Premium and plan your nutrition goals!',
+      export_data: 'Export your nutrition data with Core+ Premium subscription!',
+      advanced_analytics: 'Get detailed analytics with Core+ Premium!',
+      default: 'This feature requires Core+ Premium. Upgrade now to unlock all features!'
+    };
+
+    const message = customMessage || defaultMessages[featureName] || defaultMessages.default;
+
+    Alert.alert(
+      'Upgrade to Premium',
+      message,
+      [
+        { text: 'Not Now', style: 'cancel' },
+        { 
+          text: 'Upgrade', 
+          onPress: async () => {
+            const purchased = await presentPaywallIfNeeded(featureName);
+            if (purchased) {
+              await refreshSubscription();
+            }
+          }
+        }
+      ]
+    );
   };
 
   /**
-   * Check if user has any active subscription
+   * Get usage information for display
    */
-  const isPremiumUser = () => {
-    return subscriptionStatus?.tier === 'pro' && subscriptionStatus?.status === 'active';
-  };
-
-  /**
-   * Get subscription tier
-   */
-  const getSubscriptionTier = () => {
-    return subscriptionStatus?.tier || 'free';
-  };
-
-  /**
-   * Get days until subscription expires
-   */
-  const getDaysUntilExpiration = () => {
-    if (!subscriptionStatus?.expiresAt) return null;
+  const getUsageInfo = () => {
+    if (!usageStats) return null;
     
-    const expiryDate = new Date(subscriptionStatus.expiresAt);
-    const today = new Date();
-    const diffTime = expiryDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    
-    return diffDays > 0 ? diffDays : 0;
+    return {
+      aiScans: {
+        used: usageStats.aiScans.used,
+        limit: usageStats.aiScans.limit,
+        remaining: usageStats.aiScans.remaining,
+        percentage: (usageStats.aiScans.used / usageStats.aiScans.limit) * 100
+      },
+      isUnlimited: subscriptionInfo.isActive
+    };
   };
 
   return {
-    // Status
-    subscriptionStatus,
+    // Subscription Info
+    subscriptionInfo,
+    usageStats,
     isLoading,
-    isPremiumUser: isPremiumUser(),
-    subscriptionTier: getSubscriptionTier(),
-    daysUntilExpiration: getDaysUntilExpiration(),
+    error,
     
-    // Functions
-    canAccessFeature,
-    checkFeatureUsage,
-    navigateToSubscription,
+    // Core Functions
+    refreshSubscription,
+    presentPaywallIfNeeded,
+    
+    // Feature Access Checks
+    canUseCameraScanning,
+    canUseManualSearch,
+    canAccessPremiumFeature,
+    
+    // Usage Management
+    useCameraScanning,
+    getUsageInfo,
+    
+    // UI Helpers
+    showUpgradePrompt,
+    loadUsageStats,
+    
+    // Legacy Support (if needed)
+    isPremiumUser: () => subscriptionInfo.isActive,
+    getSubscriptionTier: () => subscriptionInfo.isActive ? 'premium' : 'free'
   };
 };
 

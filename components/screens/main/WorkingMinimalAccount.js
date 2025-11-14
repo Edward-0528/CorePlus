@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, RefreshControl, Alert, StyleSheet, Switch, Image, TextInput } from 'react-native';
+import { ScrollView, RefreshControl, Alert, StyleSheet, Switch, Image, TextInput, Clipboard } from 'react-native';
 import { View, Modal, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSubscription } from '../../../contexts/SubscriptionContext';
@@ -7,6 +7,7 @@ import { AppColors, validateColor } from '../../../constants/AppColors';
 import UpgradeModal from '../subscription/UpgradeModal';
 import EditProfileModal from '../../modals/EditProfileModal';
 import { supabase } from '../../../supabaseConfig';
+import * as Clipboard2 from 'expo-clipboard';
 
 
 const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
@@ -19,9 +20,27 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   const [tempWeight, setTempWeight] = useState('');
   const [tempFeet, setTempFeet] = useState('');
   const [tempInches, setTempInches] = useState('');
+  const [affiliateCode, setAffiliateCode] = useState(null);
+  const [loadingAffiliate, setLoadingAffiliate] = useState(true);
+  const [showSuggestionModal, setShowSuggestionModal] = useState(false);
+  const [suggestionText, setSuggestionText] = useState('');
+  const [sendingSuggestion, setSendingSuggestion] = useState(false);
 
   // Use our new subscription system
   const { isPremium, subscriptionInfo } = useSubscription();
+  
+  // isPremium is a function, so call it to get the actual value
+  const userIsPremium = isPremium();
+  
+  // Debug subscription status
+  useEffect(() => {
+    console.log('🔍 [WorkingMinimalAccount] Subscription Debug:', {
+      userIsPremium,
+      subscriptionInfo,
+      tier: subscriptionInfo?.tier,
+      isActive: subscriptionInfo?.isActive
+    });
+  }, [userIsPremium, subscriptionInfo]);
 
   // Calculate BMI from height and weight
   const calculateBMI = () => {
@@ -51,7 +70,34 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
   // Update current user when prop changes
   useEffect(() => {
     setCurrentUser(user);
+    if (user?.id) {
+      fetchAffiliateCode(user.id);
+    }
   }, [user]);
+
+  // Fetch user's affiliate code if they have one
+  const fetchAffiliateCode = async (userId) => {
+    try {
+      setLoadingAffiliate(true);
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('affiliate_code')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.log('No affiliate code found or error:', error.message);
+        setAffiliateCode(null);
+      } else if (data?.affiliate_code) {
+        setAffiliateCode(data.affiliate_code);
+        console.log('✅ User has affiliate code:', data.affiliate_code);
+      }
+    } catch (error) {
+      console.error('Error fetching affiliate code:', error);
+    } finally {
+      setLoadingAffiliate(false);
+    }
+  };
 
   // Refresh user data from Supabase
   const refreshUserData = async () => {
@@ -137,6 +183,69 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
     setShowHeightModal(true);
   };
 
+  // Copy affiliate code to clipboard
+  const copyAffiliateCode = async () => {
+    if (affiliateCode) {
+      try {
+        await Clipboard2.setStringAsync(affiliateCode);
+        Alert.alert('Copied!', `Affiliate code "${affiliateCode}" copied to clipboard`);
+      } catch (error) {
+        console.error('Error copying to clipboard:', error);
+        Alert.alert('Error', 'Failed to copy code to clipboard');
+      }
+    }
+  };
+
+  // Handle sending suggestion
+  const handleSendSuggestion = async () => {
+    if (!suggestionText.trim()) {
+      Alert.alert('Empty Suggestion', 'Please enter your suggestion before sending.');
+      return;
+    }
+
+    setSendingSuggestion(true);
+    
+    try {
+      const userEmail = currentUser?.email || 'Anonymous';
+      const userId = currentUser?.id || 'Unknown';
+      
+      // Store feedback in Supabase database
+      const { data, error } = await supabase
+        .from('user_feedback')
+        .insert({
+          user_id: userId,
+          user_email: userEmail,
+          subscription_tier: userIsPremium ? 'pro' : 'free',
+          feedback_type: 'feature_suggestion',
+          message: suggestionText.trim(),
+          created_at: new Date().toISOString()
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      Alert.alert(
+        'Thank You! 🎉',
+        'Your suggestion has been received. We appreciate your feedback!',
+        [{ text: 'OK', onPress: () => {
+          setShowSuggestionModal(false);
+          setSuggestionText('');
+        }}]
+      );
+
+    } catch (error) {
+      console.error('Error sending suggestion:', error);
+      Alert.alert(
+        'Unable to Send',
+        'There was an error sending your suggestion. Please try again later.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setSendingSuggestion(false);
+    }
+  };
+
   const menuItems = [
     {
       section: 'Profile',
@@ -148,24 +257,39 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
       section: 'Subscription',
       items: [
         { 
-          icon: isPremium ? 'diamond' : 'diamond-outline', 
-          title: isPremium ? 'Core+ Premium' : 'Upgrade to Premium', 
-          subtitle: isPremium ? 'Manage your subscription' : 'Unlock all features',
+          icon: userIsPremium ? 'diamond' : 'diamond-outline', 
+          title: userIsPremium ? 'Core+ Pro' : 'Core+ Free', 
+          subtitle: userIsPremium ? 'Active subscription' : 'Tap to upgrade to Pro',
           onPress: () => {
-            console.log('🔔 Subscription button pressed, isPremium:', isPremium);
+            console.log('🔔 Subscription button pressed, isPremium:', userIsPremium);
             setShowUpgradeModal(true);
           },
-          premium: true
+          showSubscriptionBadge: true,
+          isPremium: userIsPremium
         },
       ]
     },
-
-    {
-      section: 'Support',
+    ...(affiliateCode ? [{
+      section: 'Affiliate',
       items: [
-        { icon: 'help-circle-outline', title: 'Help & Support', subtitle: 'FAQ, contact us' },
-        { icon: 'document-text-outline', title: 'Privacy Policy', subtitle: 'How we protect your data' },
-        { icon: 'shield-outline', title: 'Terms of Service', subtitle: 'Usage terms and conditions' },
+        { 
+          icon: 'gift-outline', 
+          title: 'My Affiliate Code', 
+          subtitle: affiliateCode,
+          onPress: copyAffiliateCode,
+          affiliate: true
+        },
+      ]
+    }] : []),
+    {
+      section: 'Feedback',
+      items: [
+        { 
+          icon: 'bulb-outline', 
+          title: 'Suggest a Feature', 
+          subtitle: 'Help us improve Core+',
+          onPress: () => setShowSuggestionModal(true)
+        },
       ]
     }
   ];
@@ -217,14 +341,15 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
               />
             ) : (
               <Text style={[minimalStyles.avatarText, { color: AppColors.primary }]}>
-                {currentUser?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}
+                {(currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.first_name)?.[0]?.toUpperCase() || 'U'}
               </Text>
             )}
           </View>
         </TouchableOpacity>
         <View style={minimalStyles.profileInfo}>
           <Text style={minimalStyles.profileName}>
-            {currentUser?.user_metadata?.first_name || 'User'} {currentUser?.user_metadata?.last_name || ''}
+            {currentUser?.user_metadata?.full_name || 
+             `${currentUser?.user_metadata?.first_name || 'User'} ${currentUser?.user_metadata?.last_name || ''}`.trim()}
           </Text>
           <Text style={minimalStyles.profileEmail}>{currentUser?.email}</Text>
         </View>
@@ -317,7 +442,7 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
             <TouchableOpacity 
               style={[
                 minimalStyles.menuItem,
-                item.premium && isPremium && minimalStyles.premiumMenuItem
+                item.premium && userIsPremium && minimalStyles.premiumMenuItem
               ]}
               onPress={item.onPress || (() => console.log(`Pressed ${item.title}`))}
             >
@@ -325,21 +450,39 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
                 <Ionicons 
                   name={item.icon} 
                   size={20} 
-                  color={item.premium && isPremium ? AppColors.warning : AppColors.textSecondary} 
+                  color={item.premium && userIsPremium ? AppColors.warning : item.affiliate ? AppColors.primary : AppColors.textSecondary} 
                 />
                 <View style={minimalStyles.menuItemText}>
                   <Text style={[
                     minimalStyles.menuItemTitle,
                     lightStyles.menuItemTitle,
-                    item.premium && isPremium && { color: AppColors.warning }
+                    item.premium && userIsPremium && { color: AppColors.warning },
+                    item.affiliate && { color: AppColors.primary }
                   ]}>
                     {item.title}
                   </Text>
-                  <Text style={[minimalStyles.menuItemSubtitle, lightStyles.menuItemSubtitle]}>{item.subtitle}</Text>
+                  <Text style={[
+                    minimalStyles.menuItemSubtitle, 
+                    lightStyles.menuItemSubtitle,
+                    item.affiliate && { fontFamily: 'monospace', fontWeight: '600', fontSize: 14, color: '#212529' }
+                  ]}>{item.subtitle}</Text>
                 </View>
-                {item.premium && isPremium && (
-                  <View style={minimalStyles.premiumBadge}>
-                    <Text style={minimalStyles.premiumBadgeText}>ACTIVE</Text>
+                {item.showSubscriptionBadge && (
+                  <View style={[
+                    minimalStyles.subscriptionBadge,
+                    item.isPremium ? minimalStyles.proBadge : minimalStyles.freeBadge
+                  ]}>
+                    <Text style={[
+                      minimalStyles.subscriptionBadgeText,
+                      item.isPremium ? minimalStyles.proBadgeText : minimalStyles.freeBadgeText
+                    ]}>
+                      {item.isPremium ? 'PRO' : 'FREE'}
+                    </Text>
+                  </View>
+                )}
+                {item.affiliate && (
+                  <View style={minimalStyles.affiliateBadge}>
+                    <Text style={minimalStyles.affiliateBadgeText}>TAP TO COPY</Text>
                   </View>
                 )}
               </View>
@@ -350,6 +493,8 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
                   thumbColor={item.value ? AppColors.primary : AppColors.textLight}
                   trackColor={{ false: AppColors.border, true: AppColors.primary + '40' }}
                 />
+              ) : item.affiliate ? (
+                <Ionicons name="copy-outline" size={20} color={AppColors.primary} />
               ) : (
                 <Ionicons name="chevron-forward-outline" size={16} color={AppColors.textLight} />
               )}
@@ -443,14 +588,15 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
             ) : (
               <View style={settingsStyles.avatarPlaceholder}>
                 <Text style={settingsStyles.avatarText}>
-                  {currentUser?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}
+                  {(currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.first_name)?.[0]?.toUpperCase() || 'U'}
                 </Text>
               </View>
             )}
           </TouchableOpacity>
           <View style={settingsStyles.profileInfo}>
             <Text style={settingsStyles.profileName}>
-              {currentUser?.user_metadata?.first_name || 'User'} {currentUser?.user_metadata?.last_name || ''}
+              {currentUser?.user_metadata?.full_name || 
+               `${currentUser?.user_metadata?.first_name || 'User'} ${currentUser?.user_metadata?.last_name || ''}`.trim()}
             </Text>
             <Text style={settingsStyles.profileEmail}>{currentUser?.email}</Text>
           </View>
@@ -543,51 +689,97 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
             >
               <View style={settingsStyles.settingLeft}>
                 <Ionicons 
-                  name={isPremium ? 'diamond' : 'diamond-outline'} 
+                  name={userIsPremium ? 'diamond' : 'diamond-outline'} 
                   size={20} 
-                  color={isPremium ? '#6B8E23' : '#6C757D'} 
+                  color={userIsPremium ? '#6B8E23' : '#6C757D'} 
                   style={settingsStyles.settingIcon} 
                 />
-                <Text style={settingsStyles.settingLabel}>
-                  {isPremium ? 'Core+ Premium' : 'Upgrade to Premium'}
-                </Text>
+                <View>
+                  <Text style={settingsStyles.settingLabel}>
+                    {userIsPremium ? 'Core+ Pro' : 'Core+ Free'}
+                  </Text>
+                  {!userIsPremium && (
+                    <Text style={settingsStyles.settingSubtitle}>
+                      Tap to upgrade to Pro
+                    </Text>
+                  )}
+                </View>
               </View>
               <View style={settingsStyles.settingRight}>
-                {isPremium && (
-                  <View style={settingsStyles.activeBadge}>
-                    <Text style={settingsStyles.activeBadgeText}>ACTIVE</Text>
-                  </View>
-                )}
+                <View style={[
+                  settingsStyles.statusBadge,
+                  { backgroundColor: userIsPremium ? '#E8F5E9' : '#F5F5F5' }
+                ]}>
+                  <Text style={[
+                    settingsStyles.statusBadgeText,
+                    { color: userIsPremium ? '#2E7D32' : '#6C757D' }
+                  ]}>
+                    {userIsPremium ? 'PRO' : 'FREE'}
+                  </Text>
+                </View>
                 <Ionicons name="chevron-forward-outline" size={16} color="#C1C1C6" />
               </View>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Support Section */}
+        {/* Affiliate Section - Only show if user has affiliate code */}
+        {affiliateCode && (
+          <View style={settingsStyles.section}>
+            <Text style={settingsStyles.sectionTitle}>Affiliate</Text>
+            <View style={settingsStyles.settingsGroup}>
+              <TouchableOpacity 
+                style={settingsStyles.settingRow}
+                onPress={copyAffiliateCode}
+              >
+                <View style={settingsStyles.settingLeft}>
+                  <Ionicons 
+                    name="gift-outline" 
+                    size={20} 
+                    color="#6B8E23" 
+                    style={settingsStyles.settingIcon} 
+                  />
+                  <View>
+                    <Text style={settingsStyles.settingLabel}>My Affiliate Code</Text>
+                    <Text style={[settingsStyles.settingSubtitle, { fontFamily: 'monospace', fontWeight: '600' }]}>
+                      {affiliateCode}
+                    </Text>
+                  </View>
+                </View>
+                <View style={settingsStyles.settingRight}>
+                  <View style={[
+                    settingsStyles.statusBadge,
+                    { backgroundColor: '#E8F5E9', paddingHorizontal: 8 }
+                  ]}>
+                    <Text style={[settingsStyles.statusBadgeText, { color: '#2E7D32', fontSize: 10 }]}>
+                      TAP TO COPY
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Feedback Section */}
         <View style={settingsStyles.section}>
-          <Text style={settingsStyles.sectionTitle}>Support</Text>
+          <Text style={settingsStyles.sectionTitle}>Feedback</Text>
           <View style={settingsStyles.settingsGroup}>
-            <TouchableOpacity style={settingsStyles.settingRow}>
+            <TouchableOpacity 
+              style={settingsStyles.settingRow}
+              onPress={() => setShowSuggestionModal(true)}
+            >
               <View style={settingsStyles.settingLeft}>
-                <Ionicons name="help-circle-outline" size={20} color="#6C757D" style={settingsStyles.settingIcon} />
-                <Text style={settingsStyles.settingLabel}>Help & Support</Text>
-              </View>
-              <Ionicons name="chevron-forward-outline" size={16} color="#C1C1C6" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={[settingsStyles.settingRow, settingsStyles.settingRowBorder]}>
-              <View style={settingsStyles.settingLeft}>
-                <Ionicons name="document-text-outline" size={20} color="#6C757D" style={settingsStyles.settingIcon} />
-                <Text style={settingsStyles.settingLabel}>Privacy Policy</Text>
-              </View>
-              <Ionicons name="chevron-forward-outline" size={16} color="#C1C1C6" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity style={settingsStyles.settingRow}>
-              <View style={settingsStyles.settingLeft}>
-                <Ionicons name="shield-outline" size={20} color="#6C757D" style={settingsStyles.settingIcon} />
-                <Text style={settingsStyles.settingLabel}>Terms of Service</Text>
+                <Ionicons 
+                  name="bulb-outline" 
+                  size={20} 
+                  color="#6C757D" 
+                  style={settingsStyles.settingIcon} 
+                />
+                <View>
+                  <Text style={settingsStyles.settingLabel}>Suggest a Feature</Text>
+                  <Text style={settingsStyles.settingSubtitle}>Help us improve Core+</Text>
+                </View>
               </View>
               <Ionicons name="chevron-forward-outline" size={16} color="#C1C1C6" />
             </TouchableOpacity>
@@ -689,6 +881,64 @@ const WorkingMinimalAccount = ({ user, onLogout, loading, styles }) => {
                   <Text style={settingsStyles.heightLabel}>in</Text>
                 </View>
               </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Suggestion Modal */}
+      <Modal visible={showSuggestionModal} transparent={true} animationType="slide">
+        <View style={settingsStyles.modalOverlay}>
+          <View style={[settingsStyles.modalContainer, { height: '70%' }]}>
+            <View style={settingsStyles.modalHeader}>
+              <TouchableOpacity onPress={() => {
+                setShowSuggestionModal(false);
+                setSuggestionText('');
+              }}>
+                <Text style={settingsStyles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <Text style={settingsStyles.modalTitle}>Suggest a Feature</Text>
+              <TouchableOpacity 
+                onPress={handleSendSuggestion}
+                disabled={sendingSuggestion}
+              >
+                <Text style={[
+                  settingsStyles.modalSaveText,
+                  sendingSuggestion && { opacity: 0.5 }
+                ]}>
+                  {sendingSuggestion ? 'Sending...' : 'Send'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <View style={[settingsStyles.modalContent, { flex: 1 }]}>
+              <Text style={settingsStyles.modalLabel}>
+                What would you like to see in Core+?
+              </Text>
+              <Text style={[settingsStyles.modalLabel, { fontSize: 14, color: '#6C757D', marginTop: 8 }]}>
+                Your feedback helps us build a better app!
+              </Text>
+              <TextInput
+                style={[settingsStyles.modalInput, { 
+                  height: 200, 
+                  textAlignVertical: 'top',
+                  paddingTop: 12,
+                  marginTop: 16
+                }]}
+                value={suggestionText}
+                onChangeText={setSuggestionText}
+                placeholder="Describe your idea or suggestion here..."
+                multiline={true}
+                autoFocus={true}
+                maxLength={1000}
+              />
+              <Text style={[settingsStyles.modalLabel, { 
+                fontSize: 12, 
+                color: '#6C757D', 
+                marginTop: 8,
+                textAlign: 'right' 
+              }]}>
+                {suggestionText.length}/1000
+              </Text>
             </View>
           </View>
         </View>
@@ -906,6 +1156,40 @@ const minimalStyles = StyleSheet.create({
     fontWeight: 'bold',
     color: AppColors.white,
   },
+  affiliateBadge: {
+    backgroundColor: AppColors.primary + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  affiliateBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: AppColors.primary,
+  },
+  subscriptionBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  proBadge: {
+    backgroundColor: '#28A745',
+  },
+  freeBadge: {
+    backgroundColor: '#6C757D',
+  },
+  subscriptionBadgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  proBadgeText: {
+    color: AppColors.white,
+  },
+  freeBadgeText: {
+    color: AppColors.white,
+  },
   profileInfoItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1035,6 +1319,12 @@ const settingsStyles = StyleSheet.create({
     color: '#000000',
     fontWeight: '400',
   },
+  settingSubtitle: {
+    fontSize: 13,
+    color: '#8E8E93',
+    fontWeight: '400',
+    marginTop: 2,
+  },
   settingValue: {
     fontSize: 17,
     color: '#8E8E93',
@@ -1044,17 +1334,16 @@ const settingsStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  activeBadge: {
-    backgroundColor: '#34C759',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 6,
     marginRight: 8,
   },
-  activeBadgeText: {
+  statusBadgeText: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   statsGrid: {
     backgroundColor: '#FFFFFF',

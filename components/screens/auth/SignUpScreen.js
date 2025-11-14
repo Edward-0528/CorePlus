@@ -13,7 +13,6 @@ function SignUpScreenComponent({
   onSignUp,
   onBackToLanding,
   onSwitchToLogin,
-  onSocialLogin,
   onGenderSelect,
   styles 
 }) {
@@ -136,27 +135,6 @@ function SignUpScreenComponent({
                       {loading ? "Creating Account..." : "Create Account"}
                     </Text>
                   </TouchableOpacity>
-                </View>
-
-                {/* Social Login */}
-                <View style={styles.socialLoginContainer}>
-                  <View style={styles.socialButtonsContainer}>
-                    <TouchableOpacity 
-                      style={styles.socialButton}
-                      onPress={() => onSocialLogin('apple')}
-                    >
-                      <Ionicons name="logo-apple" size={20} color="#ffffff" />
-                      <Text style={styles.socialButtonText}>Apple</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                      style={styles.socialButton}
-                      onPress={() => onSocialLogin('google')}
-                    >
-                      <Ionicons name="logo-google" size={20} color="#ffffff" />
-                      <Text style={styles.socialButtonText}>Google</Text>
-                    </TouchableOpacity>
-                  </View>
                 </View>
 
                 {/* Login Link */}

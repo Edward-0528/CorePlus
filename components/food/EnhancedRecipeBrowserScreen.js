@@ -1069,6 +1069,7 @@ const RecipeBrowserScreen = ({
           onScan={handleIngredientScan}
           onClose={() => setShowIngredientScanner(false)}
           title="Scan Ingredient Barcode"
+          user={userProp}
         />
       </Modal>
 

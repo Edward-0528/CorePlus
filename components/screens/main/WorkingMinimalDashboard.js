@@ -365,7 +365,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading }) => {
       <View style={enhancedStyles.headerContent}>
         <View style={enhancedStyles.greetingSection}>
           <Text style={[enhancedStyles.userName, { color: '#212529' }]}>
-            {currentUser?.user_metadata?.first_name || 'User'}
+            {currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.first_name || 'User'}
           </Text>
         </View>
         <View style={enhancedStyles.streakSection}>
@@ -405,7 +405,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading }) => {
                 />
               ) : (
                 <Text style={[enhancedStyles.avatarText, { color: AppColors.primary }]}>
-                  {currentUser?.user_metadata?.first_name?.[0]?.toUpperCase() || 'U'}
+                  {(currentUser?.user_metadata?.full_name || currentUser?.user_metadata?.first_name)?.[0]?.toUpperCase() || 'U'}
                 </Text>
               )}
             </View>
@@ -652,6 +652,7 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading }) => {
               console.log('Photo taken:', imageUri);
             }}
             onClose={() => setShowFoodCamera(false)}
+            user={user}
             onAnalysisComplete={(predictions, imageUri, isLoading, errorMessage, action) => {
               console.log('🔥🔥🔥 Dashboard analysis complete:', { 
                 predictions: predictions?.length || 0, 
@@ -753,6 +754,8 @@ const WorkingMinimalDashboard = ({ user, onLogout, loading }) => {
       <EditProfileModal
         visible={showEditProfileModal}
         onClose={() => setShowEditProfileModal(false)}
+        user={currentUser}
+        onProfileUpdate={refreshUserData}
       />
     </View>
   );

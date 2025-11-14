@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import TodayNutritionView from './nutrition/TodayNutritionView';
@@ -6,12 +6,71 @@ import CalendarMealHistory from './nutrition/CalendarMealHistory';
 import FoodSearchModal from './food/FoodSearchModal';
 import { useDailyCalories } from '../contexts/DailyCaloriesContext';
 import { AppColors } from '../constants/AppColors';
+import { supabase } from '../supabaseConfig';
 
 const EnhancedNutrition = ({ user, onLogout, loading, styles }) => {
   const [activeTab, setActiveTab] = useState('today'); // 'today' or 'history'
   const [showFoodSearchModal, setShowFoodSearchModal] = useState(false);
+  const [healthScore, setHealthScore] = useState(0);
   const { dailyCalories } = useDailyCalories();
   const calorieGoal = user?.calorie_goal || 2000; // Get from user settings
+
+  // Calculate today's health score
+  useEffect(() => {
+    const calculateHealthScore = async () => {
+      if (!user?.id) return;
+
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Get today's meals
+        const { data: meals, error } = await supabase
+          .from('meals')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('created_at', `${today}T00:00:00`)
+          .lt('created_at', `${today}T23:59:59`);
+
+        if (error) throw error;
+
+        // Calculate score components
+        let score = 0;
+        const hasTracking = meals && meals.length > 0;
+        
+        if (hasTracking) {
+          score += 40; // Base score for tracking
+          
+          // Calorie adherence (40 points max)
+          const caloriePercent = dailyCalories / calorieGoal;
+          if (caloriePercent >= 0.9 && caloriePercent <= 1.1) {
+            score += 40; // Within 10% of goal
+          } else if (caloriePercent >= 0.8 && caloriePercent <= 1.2) {
+            score += 30; // Within 20% of goal
+          } else if (caloriePercent >= 0.7 && caloriePercent <= 1.3) {
+            score += 20; // Within 30% of goal
+          } else {
+            score += 10; // More than 30% off
+          }
+          
+          // Meal frequency bonus (20 points max)
+          const mealCount = meals.length;
+          if (mealCount >= 3) {
+            score += 20; // 3+ meals
+          } else if (mealCount === 2) {
+            score += 15; // 2 meals
+          } else if (mealCount === 1) {
+            score += 10; // 1 meal
+          }
+        }
+
+        setHealthScore(Math.min(100, score));
+      } catch (error) {
+        console.error('Error calculating health score:', error);
+      }
+    };
+
+    calculateHealthScore();
+  }, [user?.id, dailyCalories, calorieGoal]);
 
   // Handler to open food search modal
   const handleOpenFoodSearch = () => {
@@ -32,6 +91,44 @@ const EnhancedNutrition = ({ user, onLogout, loading, styles }) => {
       component: CalendarMealHistory
     }
   ];
+
+  const renderHealthScoreCard = () => {
+    const remaining = calorieGoal - dailyCalories;
+    const isOverGoal = dailyCalories > calorieGoal;
+    
+    // Color based on score
+    let scoreColor = AppColors.success;
+    if (healthScore < 40) scoreColor = AppColors.error;
+    else if (healthScore < 60) scoreColor = '#FF9500';
+    else if (healthScore < 80) scoreColor = '#FFD700';
+
+    return (
+      <View style={enhancedStyles.healthScoreCard}>
+        <View style={enhancedStyles.healthScoreHeader}>
+          <View>
+            <Text style={enhancedStyles.healthScoreLabel}>Today's Health Score</Text>
+            <View style={enhancedStyles.calorieRow}>
+              <Text style={enhancedStyles.caloriesConsumed}>{dailyCalories}</Text>
+              <Text style={enhancedStyles.caloriesSeparator}> / </Text>
+              <Text style={enhancedStyles.caloriesGoal}>{calorieGoal} cal</Text>
+            </View>
+            {remaining !== 0 && (
+              <Text style={[
+                enhancedStyles.remainingText,
+                { color: isOverGoal ? AppColors.error : AppColors.success }
+              ]}>
+                {isOverGoal ? `${Math.abs(remaining)} cal over` : `${remaining} cal remaining`}
+              </Text>
+            )}
+          </View>
+          <View style={[enhancedStyles.scoreBadge, { backgroundColor: scoreColor }]}>
+            <Text style={enhancedStyles.scoreValue}>{healthScore}</Text>
+            <Text style={enhancedStyles.scoreMax}>/100</Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
 
   const renderTabBar = () => (
     <View style={enhancedStyles.tabBar}>
@@ -88,20 +185,7 @@ const EnhancedNutrition = ({ user, onLogout, loading, styles }) => {
 
   return (
     <SafeAreaView style={enhancedStyles.container}>
-      <View style={enhancedStyles.header}>
-        <Text style={enhancedStyles.headerTitle}>Nutrition</Text>
-        <View style={enhancedStyles.headerStats}>
-          <Text style={enhancedStyles.headerCalories}>
-            {dailyCalories} / {calorieGoal} cal
-          </Text>
-          <View style={enhancedStyles.progressIndicator}>
-            <View style={[
-              enhancedStyles.progressFill,
-              { width: `${Math.min((dailyCalories / calorieGoal) * 100, 100)}%` }
-            ]} />
-          </View>
-        </View>
-      </View>
+      {renderHealthScoreCard()}
       
       {renderTabBar()}
       
@@ -125,41 +209,69 @@ const enhancedStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: AppColors.backgroundSecondary,
   },
-  header: {
+  healthScoreCard: {
     backgroundColor: AppColors.white,
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: AppColors.border,
   },
-  headerTitle: {
+  healthScoreHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  healthScoreLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: AppColors.textSecondary,
+    marginBottom: 4,
+  },
+  calorieRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 4,
+  },
+  caloriesConsumed: {
     fontSize: 28,
     fontWeight: 'bold',
     color: AppColors.textPrimary,
-    marginBottom: 8,
   },
-  headerStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  caloriesSeparator: {
+    fontSize: 20,
+    color: AppColors.textSecondary,
   },
-  headerCalories: {
-    fontSize: 16,
+  caloriesGoal: {
+    fontSize: 20,
     fontWeight: '600',
     color: AppColors.textSecondary,
   },
-  progressIndicator: {
-    flex: 1,
-    height: 4,
-    backgroundColor: AppColors.backgroundSecondary,
-    borderRadius: 2,
-    marginLeft: 16,
-    overflow: 'hidden',
+  remainingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 2,
   },
-  progressFill: {
-    height: '100%',
-    backgroundColor: AppColors.primary,
-    borderRadius: 2,
+  scoreBadge: {
+    minWidth: 70,
+    height: 70,
+    borderRadius: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  scoreValue: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: AppColors.white,
+  },
+  scoreMax: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   tabBar: {
     flexDirection: 'row',

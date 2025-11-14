@@ -11,8 +11,8 @@ const UsageStatsCard = ({ onUpgradePress }) => {
   const { isPremium, subscriptionInfo, refreshSubscriptionInfo } = useSubscription();
   const { user } = useAppContext();
   const [usageStats, setUsageStats] = useState({
-    aiScans: { used: 0, limit: 20, remaining: 20 },
-    manualSearches: { used: 0, limit: 20, remaining: 20 }
+    aiScans: { used: 0, limit: 5, remaining: 5 },
+    manualSearches: { used: 0, limit: 5, remaining: 5 }
   });
   const [loading, setLoading] = useState(true);
 
